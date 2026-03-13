@@ -89,7 +89,7 @@ Do checkout the Go package which I've written to build Kalam Kernel: [github.com
 
 ## Building from Source
 
-Requirements: [Node.js v16](https://nodejs.org/en/download/ 'Install Node.js v16'), [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git 'Install Git') and [Yarn package manager](https://yarnpkg.com/lang/en/docs/install/ 'Install Yarn package manager')
+Requirements: [Node.js 25 Current](https://nodejs.org/en/download 'Install Node.js 25 Current'), [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git 'Install Git') and [Bun](https://bun.sh/docs/installation 'Install Bun').
 
 ### Clone
 
@@ -98,15 +98,12 @@ $ git clone https://github.com/ganeshrvel/openmtp.git
 
 $ cd openmtp
 
-# install yarn
-npm install -g yarn
-
 # install sentry cli
 npm -g i @sentry/cli
 ```
 
 ```shell
-$ yarn
+$ bun install
 ```
 
 ### Run
@@ -115,19 +112,24 @@ A fresh clone might throw _undefined state_ error. Run the following commands on
 
 ```shell
 # For Mac and Linux
-$ UPGRADE_EXTENSIONS=1 npm run dev
+$ UPGRADE_EXTENSIONS=1 bun run dev
 
 # For Windows
-$ set UPGRADE_EXTENSIONS=1 && npm run dev
+$ set UPGRADE_EXTENSIONS=1 && bun run dev
 ```
 
 ```shell
 # Development
-$ yarn dev
+$ bun run dev
 
 # Pre-production
-$ yarn start
+$ bun run start
 
+```
+
+```shell
+# Production build without lint
+$ bun run build-no-verify
 ```
 
 ### Debugging a Packaged app
@@ -248,10 +250,10 @@ $ export GH_TOKEN="<github token>"
 
 ```shell
 # For local platform
-$ yarn package
+$ bun run package
 
 # For multiple platforms
-$ yarn package-all
+$ bun run package-all
 ```
 
 ### Technical Features

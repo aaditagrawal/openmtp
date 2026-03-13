@@ -8,32 +8,32 @@
 // Alignment
 
 // ----------------------------------------------------------------------
-@import 'mixins/margin-auto';
-@import 'mixins/horz-vert-center';
-@import 'mixins/display';
+@forward 'mixins/margin-auto';
+@forward 'mixins/horz-vert-center';
+@forward 'mixins/display';
 
 // ----------------------------------------------------------------------
 
 // Animation
 
 // ----------------------------------------------------------------------
-@import 'mixins/animate-link';
-@import 'mixins/animations';
-@import 'mixins/backface-visibility';
-@import 'mixins/keyframes';
-@import 'mixins/single-transform';
-@import 'mixins/transform';
-@import 'mixins/transitions';
-@import 'mixins/translate';
+@forward 'mixins/animate-link';
+@forward 'mixins/animations';
+@forward 'mixins/backface-visibility';
+@forward 'mixins/keyframes';
+@forward 'mixins/single-transform';
+@forward 'mixins/transform';
+@forward 'mixins/transitions';
+@forward 'mixins/translate';
 
 // ----------------------------------------------------------------------
 
 // Functional
 
 // ----------------------------------------------------------------------
-@import 'mixins/hide-text';
-@import 'mixins/hover-focus';
-@import 'mixins/replace-text';
+@forward 'mixins/hide-text';
+@forward 'mixins/hover-focus';
+@forward 'mixins/replace-text';
 
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -41,53 +41,52 @@
 // Gradients
 
 // ----------------------------------------------------------------------
-@import 'mixins/linear-gradient';
-@import 'mixins/linear-gradient-angle';
+@forward 'mixins/linear-gradient';
+@forward 'mixins/linear-gradient-angle';
 
 // ----------------------------------------------------------------------
 
 // Layout
 
 // ----------------------------------------------------------------------
-@import 'mixins/background-cover';
-@import 'mixins/box-model';
-@import 'mixins/clearfix';
-@import 'mixins/inline-block';
+@forward 'mixins/background-cover';
+@forward 'mixins/box-model';
+@forward 'mixins/clearfix';
+@forward 'mixins/inline-block';
 
 // ----------------------------------------------------------------------
 
 // Media Queries
 
 // ----------------------------------------------------------------------
-@import 'mixins/breakpoint';
-@import 'mixins/min-breakpoint';
-@import 'mixins/retina';
+@forward 'mixins/breakpoint';
+@forward 'mixins/min-breakpoint';
+@forward 'mixins/retina';
 
 // ----------------------------------------------------------------------
 
 // Styles
 
 // ----------------------------------------------------------------------
-@import 'mixins/border';
-@import 'mixins/box-shadow';
-@import 'mixins/inner-shadow';
-@import 'mixins/opacity';
-@import 'mixins/placeholder';
-@import 'mixins/rounded-corners';
-@import 'mixins/text-shadow';
-@import 'mixins/triangles';
+@forward 'mixins/border';
+@forward 'mixins/box-shadow';
+@forward 'mixins/inner-shadow';
+@forward 'mixins/opacity';
+@forward 'mixins/placeholder';
+@forward 'mixins/rounded-corners';
+@forward 'mixins/text-shadow';
+@forward 'mixins/triangles';
 
 // ----------------------------------------------------------------------
 
 // Values
 
 // ----------------------------------------------------------------------
-@import 'mixins/rem';
+@forward 'mixins/rem';
 
 // ----------------------------------------------------------------------
 
 // FlexBox
 
 // ----------------------------------------------------------------------
-@import 'mixins/flex';
-@import 'mixins/align-items';
+@forward 'mixins/flex';

@@ -316,7 +316,7 @@ export class Kalam {
    * @return {Promise<[string]>}
    * @constructor
    */
-  async walk({ storageId, fullPath, skipHiddenFiles }) {
+  async walk({ storageId, fullPath, skipHiddenFiles, recursive = false }) {
     checkIf(storageId, 'number');
     checkIf(fullPath, 'string');
     checkIf(skipHiddenFiles, 'boolean');
@@ -337,7 +337,7 @@ export class Kalam {
         const args = {
           storageId: _storageId,
           fullPath,
-          recursive: false,
+          recursive,
           skipDisallowedFiles: false,
           skipHiddenFiles,
         };

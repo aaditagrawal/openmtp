@@ -4,15 +4,24 @@
 
 import path from 'path';
 import webpack from 'webpack';
-import merge from 'webpack-merge';
-import SentryWebpackPlugin from '@sentry/webpack-plugin';
+import { merge } from 'webpack-merge';
 import TerserPlugin from 'terser-webpack-plugin';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import baseConfig from './config.base';
 import { PATHS } from '../app/constants/paths';
 import { pkginfo } from '../app/utils/pkginfo';
+import { createSentryWebpackPlugin } from './sentry';
 
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+
+const sentryWebpackPlugin = createSentryWebpackPlugin({
+  include: 'app/main.prod.js.map',
+  ignore: ['node_modules', 'webpack'],
+  urlPrefix: '~/app',
+  configFile: 'sentry.properties',
+  rewrite: false,
+  release: pkginfo.version,
+});
 
 export default merge(baseConfig, {
   devtool: 'source-map',
@@ -68,14 +77,7 @@ export default merge(baseConfig, {
       START_MINIMIZED: false,
     }),
 
-    new SentryWebpackPlugin({
-      include: 'app/main.prod.js.map',
-      ignore: ['node_modules', 'webpack'],
-      urlPrefix: '~/app',
-      configFile: 'sentry.properties',
-      rewrite: false,
-      release: pkginfo.version,
-    }),
+    ...(sentryWebpackPlugin ? [sentryWebpackPlugin] : []),
   ],
 
   /**

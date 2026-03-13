@@ -121,6 +121,36 @@ export class FileExplorerRepository {
     });
   }
 
+  async listFilesRecursive({ deviceType, filePath, ignoreHidden, storageId }) {
+    if (deviceType === DEVICE_TYPE.mtp) {
+      checkIf(storageId, 'number');
+
+      const selectedMtpMode = getMtpModeSetting();
+
+      switch (selectedMtpMode) {
+        case MTP_MODE.legacy:
+          return this.legacyMtpDataSource.listFiles({
+            filePath,
+            ignoreHidden,
+            storageId,
+          });
+
+        case MTP_MODE.kalam:
+        default:
+          return this.kalamMtpDataSource.listFilesRecursive({
+            filePath,
+            ignoreHidden,
+            storageId,
+          });
+      }
+    }
+
+    return this.localDataSource.listFilesRecursive({
+      filePath,
+      ignoreHidden,
+    });
+  }
+
   /**
    * description - Rename a file
    *

@@ -1,27 +1,35 @@
-const { execSync } = require('child_process');
 const { semverSatisfies } = require('./semver');
 
-const requiredVersionRange = '>=6.x <=8.16.0';
+const requiredNodeRange = '>=22 <26';
+const supportedPackageManagers = ['bun', 'yarn', 'npm', 'pnpm'];
 
 try {
-  const npmVersion = execSync('npm -v').toString().trim();
+  const nodeVersion = process.versions.node;
 
-  if (!semverSatisfies(npmVersion, requiredVersionRange)) {
+  if (!semverSatisfies(nodeVersion, requiredNodeRange)) {
     console.error(
-      `Error: This project requires npm version ${requiredVersionRange}. You have version ${npmVersion}.\nPlease downgrade your npm, this is due to a bug in node-gyp. Github issue: https://github.com/ganeshrvel/openmtp/issues/367.\ncommand: npm install -g npm@8.16.0`
+      `Error: This project requires Node.js ${requiredNodeRange}. You have version ${nodeVersion}.\nPlease switch to a supported LTS release before installing dependencies.`
     );
     process.exit(1);
   }
 
-  console.info(`Using compatible npm version: ${npmVersion}`);
+  console.info(`Using compatible Node.js version: ${nodeVersion}`);
 } catch (error) {
-  console.error('Error checking npm version:', error);
+  console.error('Error checking Node.js version:', error);
 
   process.exit(1);
 }
 
-if (!/yarn\.js$/.test(process.env.npm_execpath || '')) {
+const npmExecPath = (process.env.npm_execpath || '').toLowerCase();
+const userAgent = (process.env.npm_config_user_agent || '').toLowerCase();
+const packageManager =
+  supportedPackageManagers.find(
+    (candidate) =>
+      npmExecPath.includes(candidate) || userAgent.startsWith(`${candidate}/`)
+  ) || 'unknown';
+
+if (!supportedPackageManagers.includes(packageManager)) {
   console.warn(
-    "\u001b[33mYou don't seem to be using yarn. This could produce unexpected results.\u001b[39m"
+    '\u001b[33mThis repository expects Bun, Yarn, npm, or pnpm to run package scripts. Bun or Yarn are recommended for local development.\u001b[39m'
   );
 }

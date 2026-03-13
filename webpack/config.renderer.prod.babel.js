@@ -4,14 +4,23 @@
 
 import path from 'path';
 import webpack from 'webpack';
+import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
-import SentryWebpackPlugin from '@sentry/webpack-plugin';
-import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin';
-import merge from 'webpack-merge';
+import { merge } from 'webpack-merge';
 import TerserPlugin from 'terser-webpack-plugin';
 import baseConfig from './config.base';
 import { PATHS } from '../app/constants/paths';
 import { pkginfo } from '../app/utils/pkginfo';
+import { createSentryWebpackPlugin } from './sentry';
+
+const sentryWebpackPlugin = createSentryWebpackPlugin({
+  include: 'app/dist',
+  ignore: ['node_modules', 'webpack'],
+  urlPrefix: '~/app/dist',
+  configFile: 'sentry.properties',
+  rewrite: false,
+  release: pkginfo.version,
+});
 
 export default merge(baseConfig, {
   devtool: 'source-map',
@@ -212,14 +221,7 @@ export default merge(baseConfig, {
         },
       }),
 
-      new OptimizeCSSAssetsPlugin({
-        cssProcessorOptions: {
-          map: {
-            inline: false,
-            annotation: true,
-          },
-        },
-      }),
+      new CssMinimizerPlugin(),
     ],
   },
 
@@ -247,14 +249,7 @@ export default merge(baseConfig, {
     //   openAnalyzer: process.env.OPEN_ANALYZER === 'true',
     // }),
 
-    new SentryWebpackPlugin({
-      include: 'app/dist',
-      ignore: ['node_modules', 'webpack'],
-      urlPrefix: '~/app/dist',
-      configFile: 'sentry.properties',
-      rewrite: false,
-      release: pkginfo.version,
-    }),
+    ...(sentryWebpackPlugin ? [sentryWebpackPlugin] : []),
   ],
 
   /**

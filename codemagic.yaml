@@ -6,13 +6,13 @@ definitions:
     instance_type: mac_pro
 
   mac_m1_env_versions: &mac_m1_env_versions
-    node: 16.19.0
-    npm: 8.16.0
+    node: 25.8.1
+    npm: 11.11.0
     xcode: 15.3
 
   mac_intel_x64_env_versions: &mac_intel_x64_env_versions
-    node: 16.19.0
-    npm: 8.16.0
+    node: 25.8.1
+    npm: 11.11.0
     xcode: 14.2
 
   mac_m1_arm64_artifacts: &mac_m1_arm64_artifacts
@@ -45,17 +45,26 @@ definitions:
     - &install_global_packages
       name: Installing global packages
       script: |
-        npm install -g yarn @sentry/cli node-gyp zx yarn --force
+        export BUN_VERSION=$(cat .bun-version)
+        curl -fsSL https://bun.sh/install | bash -s -- bun-v${BUN_VERSION}
+        export BUN_INSTALL="$HOME/.bun"
+        export PATH="$BUN_INSTALL/bin:$PATH"
+        npm install -g @sentry/cli node-gyp zx --force
 
     - &install_app_packages
       name: Installing app packages
       script: |
+        export BUN_INSTALL="$HOME/.bun"
+        export PATH="$BUN_INSTALL/bin:$PATH"
         export NODE_OPTIONS=--max_old_space_size=8096
-        yarn
+        bun install --frozen-lockfile
 
     - &build_package
       name: Building the Package
-      script: yarn package-mac
+      script: |
+        export BUN_INSTALL="$HOME/.bun"
+        export PATH="$BUN_INSTALL/bin:$PATH"
+        bun run package-mac
 
     - &finalize_build_instance_mac_mini_m1
       name: Build finished mac mini M1 successfully

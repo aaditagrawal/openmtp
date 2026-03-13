@@ -6,7 +6,7 @@ import Button from '@material-ui/core/Button';
 import { Helmet } from 'react-helmet';
 import sanitizeHtml from 'sanitize-html';
 import { styles } from './styles';
-import releaseNotesStyles from './styles/release-notes.scss';
+import * as releaseNotesStyles from './styles/release-notes.scss';
 import { undefinedOrNull } from '../../../utils/funcs';
 import { APP_NAME, APP_VERSION } from '../../../constants/meta';
 import { setStyle } from '../../../utils/styles';

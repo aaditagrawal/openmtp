@@ -12,6 +12,9 @@
 
 // example: @include animate-link($screenGreen, $gothamMedium, 14);
 
+@use 'transitions' as *;
+@use 'rem' as *;
+
 @mixin animate-link($color, $font, $fontSize) {
   font-family: $font;
 

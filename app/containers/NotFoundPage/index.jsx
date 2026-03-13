@@ -2,7 +2,7 @@ import React, { Component, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { routes } from '../../routing';
-import styles from './styles/index.scss';
+import * as styles from './styles/index.scss';
 import { APP_TITLE } from '../../constants/meta';
 
 export default class NotFound extends Component {

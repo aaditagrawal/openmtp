@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron';
 import { ENV_FLAVOR } from '../../constants/env';
 import { SERVICE_KEYS } from '../../constants/serviceKeys';
 import { getDeviceInfo } from '../../helpers/deviceInfo';
@@ -8,17 +7,30 @@ import { checkIf } from '../../utils/checkIf';
 import { MTP_MODE } from '../../enums';
 import { getMachineId } from '../../helpers/identifiers';
 
+/* eslint-disable camelcase, no-eval, no-undef */
+const runtimeRequire =
+  typeof __non_webpack_require__ === 'function'
+    ? __non_webpack_require__
+    : eval('require');
+/* eslint-enable camelcase, no-eval, no-undef */
+
+const getSentrySdk = () =>
+  process.type === 'renderer'
+    ? runtimeRequire('@sentry/electron/renderer')
+    : runtimeRequire('@sentry/electron/main');
+
 class SentryService {
   constructor() {
     if (!ENV_FLAVOR.reportToSenty) {
       return;
     }
 
+    this.sentry = getSentrySdk();
     this.init();
   }
 
   async init() {
-    Sentry.init({
+    this.sentry.init({
       dsn: SERVICE_KEYS.sentryDsn,
       // disabled native crash reporting to respect user's privacy
       enableNative: false,
@@ -36,8 +48,7 @@ class SentryService {
     }
 
     const deviceInfo = getDeviceInfo();
-
-    Sentry.configureScope((scope) => {
+    const applyScope = (scope) => {
       if (!isEmpty(deviceInfo)) {
         Object.keys(deviceInfo).forEach((a) => {
           const item = deviceInfo[a];
@@ -55,8 +66,30 @@ class SentryService {
       // this is a hashed value (sha-256)
       scope.setUser({ id: this.machineId });
 
-      Sentry.captureException(error);
-    });
+      this.sentry.captureException(error);
+    };
+
+    if (typeof this.sentry.withScope === 'function') {
+      this.sentry.withScope(applyScope);
+
+      return;
+    }
+
+    if (typeof this.sentry.configureScope === 'function') {
+      this.sentry.configureScope(applyScope);
+
+      return;
+    }
+
+    const scope = this.sentry.getCurrentScope?.();
+
+    if (scope) {
+      applyScope(scope);
+
+      return;
+    }
+
+    this.sentry.captureException(error);
   }
 }
 

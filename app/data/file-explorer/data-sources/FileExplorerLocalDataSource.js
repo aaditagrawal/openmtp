@@ -267,6 +267,93 @@ export class FileExplorerLocalDataSource {
     }
   }
 
+  async listFilesRecursive({ filePath, ignoreHidden }) {
+    try {
+      const _accessGranted = await this._requestUsageAccess({ filePath });
+
+      if (!_accessGranted) {
+        return {
+          data: null,
+          error: 'Permission denied',
+        };
+      }
+
+      const response = [];
+      const queue = [filePath];
+
+      while (queue.length > 0) {
+        const currentDir = queue.shift();
+
+        try {
+          // Directory traversal is intentionally sequential so nested folders are
+          // appended to the same breadth-first queue in a predictable order.
+          // eslint-disable-next-line no-await-in-loop
+          const dirEntries = await this.readdir(currentDir, 'utf8');
+          let files = dirEntries.filter(junk.not);
+
+          if (ignoreHidden) {
+            // eslint-disable-next-line no-useless-escape
+            files = files.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          const fileDetails = await Promise.all(
+            files.map(async (file) => {
+              const fullPath = path.resolve(currentDir, file);
+              const { isFolder, symlink } = await this._getSymlinkInfo({
+                fullPath,
+              });
+
+              if (!existsSync(fullPath)) {
+                return null;
+              }
+
+              const stat = statSync(fullPath);
+              const extension = path.extname(fullPath);
+              const { size, atime: dateTime } = stat;
+
+              return {
+                file,
+                fullPath,
+                extension,
+                size,
+                isFolder,
+                dateAdded: appDateFormat(dateTime),
+                symlink,
+              };
+            })
+          );
+
+          fileDetails.filter(Boolean).forEach((fileDetail) => {
+            if (fileDetail.isFolder) {
+              queue.push(fileDetail.fullPath);
+
+              return;
+            }
+
+            response.push({
+              name: fileDetail.file,
+              path: fileDetail.fullPath,
+              extension: fileDetail.extension,
+              size: fileDetail.size,
+              isFolder: fileDetail.isFolder,
+              dateAdded: fileDetail.dateAdded,
+              symlink: fileDetail.symlink,
+            });
+          });
+        } catch (error) {
+          log.error(error, `FileExplorerLocalDataSource.listFilesRecursive`);
+        }
+      }
+
+      return { error: null, data: response };
+    } catch (e) {
+      log.error(e);
+
+      return { error: e, data: null };
+    }
+  }
+
   /**
    * description - Rename a local file
    *

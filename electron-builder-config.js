@@ -11,7 +11,17 @@ const getBinariesSupportedSystemArchitecture = () => {
   return OS_ARCH_TYPE.amd64;
 };
 
+const shouldSignMacBuild = () =>
+  Boolean(
+    process.env.CI ||
+      process.env.CSC_LINK ||
+      process.env.CSC_NAME ||
+      process.env.APPLEID
+  );
+
 module.exports = () => {
+  const signMacBuild = shouldSignMacBuild();
+
   const getExtraFiles = () => {
     const currentSystemArch = getBinariesSupportedSystemArchitecture();
 
@@ -45,12 +55,12 @@ module.exports = () => {
   return {
     productName: 'OpenMTP',
     appId: 'io.ganeshrvel.openmtp',
-    forceCodeSigning: true,
+    forceCodeSigning: signMacBuild,
     // eslint-disable-next-line no-template-curly-in-string
     artifactName: '${name}-${version}-${os}-${arch}.${ext}',
     copyright: '© Ganesh Rathinavel',
     afterPack: './internals/scripts/AfterPack.js',
-    afterSign: './internals/scripts/Notarize.js',
+    afterSign: signMacBuild ? './internals/scripts/Notarize.js' : undefined,
     npmRebuild: false,
     publish: [
       {
@@ -72,10 +82,11 @@ module.exports = () => {
       type: 'distribution',
       icon: 'build/icon.icns',
       category: 'public.app-category.productivity',
-      hardenedRuntime: true,
+      hardenedRuntime: signMacBuild,
       gatekeeperAssess: false,
       entitlements: './build/entitlements.mac.plist',
       entitlementsInherit: './build/entitlements.mac.plist',
+      identity: signMacBuild ? undefined : null,
       extendInfo: {
         LSMinimumSystemVersion: '10.11.0',
         NSDesktopFolderUsageDescription: 'Desktop folder access',

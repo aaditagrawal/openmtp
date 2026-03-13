@@ -12,6 +12,8 @@
 
 // example: @include retina("logo2x.png", 100, 50);
 
+@use 'sass:math';
+
 /* stylelint-disable media-feature-name-no-unknown */
 
 @mixin retina($image, $width, $height) {
@@ -23,7 +25,7 @@
     background-image: url('#{$image}');
     background-size: $width + px $height + px;
     //background-size: $width / 10 + rem $height / 10 + rem; // Use this if you've set HTML font size value to 62.5%
-    background-size: $width / 16 + rem $height / 16 + rem;
+    background-size: math.div($width, 16) + rem math.div($height, 16) + rem;
   }
 }
 

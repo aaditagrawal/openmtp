@@ -1,7 +1,7 @@
 /* eslint global-require: off */
 
 const developmentEnvironments = ['development', 'test'];
-const developmentPlugins = [require('react-hot-loader/babel')];
+const developmentPlugins = [];
 const productionPlugins = [
   require('babel-plugin-dev-expression'),
   require('@babel/plugin-transform-react-constant-elements'),
@@ -60,7 +60,10 @@ module.exports = (api) => {
       // proposals
       [require('@babel/plugin-proposal-private-methods'), { loose: true }],
 
-      ['@babel/plugin-proposal-private-property-in-object', { loose: true }],
+      [
+        require('@babel/plugin-transform-private-property-in-object'),
+        { loose: true },
+      ],
 
       ...(development ? developmentPlugins : productionPlugins),
     ],

@@ -1,36 +1,49 @@
 exports.semverSatisfies = (version, range) => {
   const [gtOp, gtVersion] = gtSemver(range);
   const [ltOp, ltVersion] = ltSemver(range);
-  const versionParts = version.split('.').map(Number);
-  const gtVersionParts = gtVersion.split('.').map(Number);
-  const ltVersionParts = ltVersion.split('.').map(Number);
+  const gtComparison = compareSemver(version, gtVersion);
+  const ltComparison = compareSemver(version, ltVersion);
 
-  // eslint-disable-next-line no-plusplus
-  for (let i = 0; i < 3; i++) {
-    const vp = versionParts[i] || 0;
-    const gtvp = gtVersionParts[i] || 0;
-    const ltvp = ltVersionParts[i] || 0;
+  if (gtComparison < 0 || (gtComparison === 0 && gtOp === '>')) {
+    return false;
+  }
 
-    if (vp > ltvp || (vp === ltvp && ltOp === '<')) {
-      return false;
-    }
-
-    if (vp < gtvp || (vp === gtvp && gtOp === '>')) {
-      return false;
-    }
+  if (ltComparison > 0 || (ltComparison === 0 && ltOp === '<')) {
+    return false;
   }
 
   return true;
 };
 
 const gtSemver = (range) => {
-  const gtPattern = />=?\s*(\d+(?:\.\d+(?:\.\d+)?)?)/.exec(range);
+  const gtPattern = /(>=?)\s*(\d+(?:\.\d+(?:\.\d+)?)?)/.exec(range);
 
-  return gtPattern ? ['>=', gtPattern[1]] : ['>=', '0.0.0'];
+  return gtPattern ? [gtPattern[1], gtPattern[2]] : ['>=', '0.0.0'];
 };
 
 const ltSemver = (range) => {
-  const ltPattern = /<=?\s*(\d+(?:\.\d+(?:\.\d+)?)?)/.exec(range);
+  const ltPattern = /(<=?)\s*(\d+(?:\.\d+(?:\.\d+)?)?)/.exec(range);
 
-  return ltPattern ? ['<=', ltPattern[1]] : ['<=', '9999.9999.9999'];
+  return ltPattern ? [ltPattern[1], ltPattern[2]] : ['<=', '9999.9999.9999'];
+};
+
+const compareSemver = (left, right) => {
+  const leftParts = left.split('.').map(Number);
+  const rightParts = right.split('.').map(Number);
+
+  // eslint-disable-next-line no-plusplus
+  for (let i = 0; i < 3; i++) {
+    const leftPart = leftParts[i] || 0;
+    const rightPart = rightParts[i] || 0;
+
+    if (leftPart > rightPart) {
+      return 1;
+    }
+
+    if (leftPart < rightPart) {
+      return -1;
+    }
+  }
+
+  return 0;
 };

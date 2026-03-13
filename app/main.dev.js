@@ -4,7 +4,7 @@ import './services/sentry/index';
 
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import electronIs from 'electron-is';
-import usbDetect from 'usb-detection';
+import { usb as usbMonitor } from 'usb';
 import process from 'process';
 import MenuBuilder from './menu';
 import { log } from './utils/log';
@@ -39,6 +39,8 @@ const isSingleInstance = app.requestSingleInstanceLock();
 const isDeviceBootable = bootTheDevice();
 const isMas = electronIs.mas();
 let mainWindow = null;
+let usbAttachListener = null;
+let usbDetachListener = null;
 
 if (IS_PROD) {
   const sourceMapSupport = require('source-map-support');
@@ -122,6 +124,20 @@ async function installExtensions() {
   );
 }
 
+function normalizeUsbHotplugDevice(device) {
+  const descriptor = device?.deviceDescriptor || {};
+
+  return {
+    manufacturer: null,
+    deviceName: null,
+    productId: descriptor.idProduct || null,
+    vendorId: descriptor.idVendor || null,
+    serialNumber: null,
+    busNumber: device?.busNumber || null,
+    deviceAddress: device?.deviceAddress || null,
+  };
+}
+
 async function createWindow() {
   try {
     if (ENV_FLAVOR.allowDevelopmentEnvironment) {
@@ -145,11 +161,93 @@ async function createWindow() {
 
     remote.enable(mainWindow.webContents);
 
+    mainWindow.webContents.on('console-message', (details) => {
+      const shouldLogConsoleMessage =
+        process.env.OPENMTP_RENDERER_DIAGNOSTICS === '1' ||
+        details.level === 'warning' ||
+        details.level === 'error';
+
+      if (!shouldLogConsoleMessage) {
+        return;
+      }
+
+      log.error(
+        `[renderer-console:${details.level}] ${details.message} (${details.sourceId}:${details.lineNumber})`,
+        'main.dev -> webContents -> console-message'
+      );
+    });
+
+    mainWindow.webContents.on(
+      'did-fail-load',
+      (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        log.error(
+          `did-fail-load code=${errorCode} mainFrame=${isMainFrame} url=${validatedURL} error=${errorDescription}`,
+          'main.dev -> webContents -> did-fail-load'
+        );
+      }
+    );
+
+    mainWindow.webContents.on(
+      'did-fail-provisional-load',
+      (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        log.error(
+          `did-fail-provisional-load code=${errorCode} mainFrame=${isMainFrame} url=${validatedURL} error=${errorDescription}`,
+          'main.dev -> webContents -> did-fail-provisional-load'
+        );
+      }
+    );
+
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      log.error(
+        `render-process-gone reason=${details?.reason} exitCode=${details?.exitCode}`,
+        'main.dev -> webContents -> render-process-gone'
+      );
+    });
+
+    mainWindow.webContents.on('unresponsive', () => {
+      log.error(
+        'Renderer became unresponsive',
+        'main.dev -> webContents -> unresponsive'
+      );
+    });
+
     mainWindow?.loadURL(`${PATHS.loadUrlPath}`);
 
     mainWindow?.webContents?.on('did-finish-load', () => {
       if (!mainWindow) {
         throw new Error(`"mainWindow" is not defined`);
+      }
+
+      if (process.env.OPENMTP_RENDERER_DIAGNOSTICS === '1') {
+        setTimeout(() => {
+          mainWindow?.webContents
+            ?.executeJavaScript(
+              `(() => {
+                const root = document.getElementById('root');
+                return {
+                  href: window.location.href,
+                  title: document.title,
+                  bodyClassName: document.body?.className || '',
+                  bodyChildCount: document.body?.children?.length || 0,
+                  rootChildCount: root?.children?.length || 0,
+                  rootTextLength: root?.textContent?.trim()?.length || 0,
+                  rootHtmlSnippet: root?.innerHTML?.slice(0, 500) || '',
+                };
+              })();`
+            )
+            .then((details) => {
+              return log.error(
+                JSON.stringify(details),
+                'main.dev -> webContents -> renderer-diagnostics'
+              );
+            })
+            .catch((error) => {
+              log.error(
+                error,
+                'main.dev -> webContents -> renderer-diagnostics'
+              );
+            });
+        }, 1500);
       }
 
       if (process.env.START_MINIMIZED) {
@@ -296,29 +394,31 @@ if (!isDeviceBootable) {
         }
 
         // send attach and detach events to the renderer
-        usbDetect.startMonitoring();
-
-        usbDetect.on('add', (device) => {
+        usbAttachListener = (device) => {
           if (!mainWindow) {
             return;
           }
 
           mainWindow?.webContents?.send(IpcEvents.USB_HOTPLUG, {
-            device: JSON.stringify(device),
+            device: JSON.stringify(normalizeUsbHotplugDevice(device)),
             eventName: USB_HOTPLUG_EVENTS.attach,
           });
-        });
+        };
 
-        usbDetect.on('remove', (device) => {
+        usbDetachListener = (device) => {
           if (!mainWindow) {
             return;
           }
 
           mainWindow?.webContents?.send(IpcEvents.USB_HOTPLUG, {
-            device: JSON.stringify(device),
+            device: JSON.stringify(normalizeUsbHotplugDevice(device)),
             eventName: USB_HOTPLUG_EVENTS.detach,
           });
-        });
+        };
+
+        usbMonitor.on('attach', usbAttachListener);
+        usbMonitor.on('detach', usbDetachListener);
+        usbMonitor.unrefHotplugEvents?.();
 
         process.stdout.on('error', (err) => {
           if (err.code === 'EPIPE') {
@@ -354,7 +454,15 @@ if (!isDeviceBootable) {
         log.error(e, `main.dev -> before-quit`);
       });
 
-    usbDetect.stopMonitoring();
+    if (usbAttachListener) {
+      usbMonitor.off('attach', usbAttachListener);
+      usbAttachListener = null;
+    }
+
+    if (usbDetachListener) {
+      usbMonitor.off('detach', usbDetachListener);
+      usbDetachListener = null;
+    }
 
     app.quitting = true;
   });

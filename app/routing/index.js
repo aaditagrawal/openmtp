@@ -1,6 +1,5 @@
 import React from 'react';
-import { Switch, Route } from 'react-router';
-import { HashRouter } from 'react-router-dom';
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../containers/HomePage/Loadable';
 import ReportBugsPage from '../containers/ReportBugsPage/Loadable';
 import AppUpdatePageUpdateAvailable from '../containers/AppUpdatePage/UpdateAvailable';
@@ -69,21 +68,20 @@ export const routes = {
 export default function () {
   return (
     <HashRouter>
-      <Switch>
+      <Routes>
         {Object.keys(routes).map((a) => {
           const route = routes[a];
-          const { component: Component, path, exact, props } = route;
+          const { component: Component, path, props } = route;
 
           return (
             <Route
               key={path || 'notfound'}
               path={path}
-              exact={exact}
-              render={() => <Component {...props} />}
+              element={<Component {...props} />}
             />
           );
         })}
-      </Switch>
+      </Routes>
     </HashRouter>
   );
 }

@@ -197,6 +197,23 @@ class FileExplorerController {
     return result;
   }
 
+  async listFilesRecursive({ deviceType, filePath, ignoreHidden, storageId }) {
+    checkIf(deviceType, 'string');
+    checkIf(filePath, 'string');
+    checkIf(ignoreHidden, 'boolean');
+
+    const result = await this.repository.listFilesRecursive({
+      deviceType,
+      filePath,
+      ignoreHidden,
+      storageId,
+    });
+
+    this._sentEvent({ result, deviceType, eventKey: 'LIST_FILES' });
+
+    return result;
+  }
+
   /**
    * description - Rename a file
    *

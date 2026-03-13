@@ -12,18 +12,21 @@
 
 // example: @include transform("origin", 0, 0);
 
+@use 'sass:list';
+
 @mixin transform($type, $values...) {
-  $n: length($values);
+  $n: list.length($values);
   $i: 1;
 
   $originVal: ();
 
   @while $i <= $n {
-    $itemVal: (nth($values, $i));
+    $itemVal: list.nth($values, $i);
+
     @if $type == 'rotate' or $type == 'rotateY' or $type == 'rotateX' {
-      $originVal: append($originVal, $itemVal + deg);
+      $originVal: list.append($originVal, $itemVal + deg);
     } @else {
-      $originVal: append($originVal, $itemVal + px);
+      $originVal: list.append($originVal, $itemVal + px);
     }
 
     $i: $i + 1;

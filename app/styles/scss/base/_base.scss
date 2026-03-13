@@ -1,4 +1,4 @@
 //Base
-@import 'variables';
-@import 'mixins';
-@import 'extends';
+@use 'variables' as *;
+@use 'mixins' as *;
+@use 'extends' as *;

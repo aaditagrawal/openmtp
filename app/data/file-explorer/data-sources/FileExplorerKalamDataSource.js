@@ -139,6 +139,29 @@ export class FileExplorerKalamDataSource {
     }
   }
 
+  async listFilesRecursive({ filePath, ignoreHidden, storageId }) {
+    checkIf(filePath, 'string');
+    checkIf(ignoreHidden, 'boolean');
+    checkIf(storageId, 'number');
+
+    try {
+      return this.kalamFfi.walk({
+        fullPath: filePath,
+        storageId,
+        skipHiddenFiles: ignoreHidden,
+        recursive: true,
+      });
+    } catch (e) {
+      log.error(e);
+
+      return {
+        error: e,
+        stderr: null,
+        data: null,
+      };
+    }
+  }
+
   /**
    * description - Rename a device file
    *

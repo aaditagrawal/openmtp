@@ -1,19 +1,19 @@
 import React from 'react';
-import { object } from 'prop-types';
+import { ReactReduxContext } from 'react-redux';
 
-/* eslint-disable */
 const withReducer = (key, reducer) => (WrappedComponent) => {
-  const Extended = (props, context) => {
-    context.store.injectReducer(key, reducer);
-    return <WrappedComponent {...props} />;
-  };
+  function Extended(props) {
+    const context = React.useContext(ReactReduxContext);
+    const store = context?.store;
 
-  Extended.contextTypes = {
-    store: object,
-  };
+    if (store?.asyncReducers?.[key] !== reducer) {
+      store?.injectReducer?.(key, reducer);
+    }
+
+    return <WrappedComponent {...props} />;
+  }
 
   return Extended;
 };
 
-/* eslint-enable */
 export { withReducer };

@@ -9,7 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import webpack from 'webpack';
 import chalk from 'chalk';
-import merge from 'webpack-merge';
+import { merge } from 'webpack-merge';
 import { spawn, execSync } from 'child_process';
 import baseConfig from './config.base';
 import { PATHS } from '../app/constants/paths';
@@ -35,10 +35,13 @@ if (process.env.NODE_ENV === 'production') {
 if (!requiredByDLLConfig && !(fs.existsSync(dll) && fs.existsSync(manifest))) {
   console.info(
     chalk.black.bgYellow.bold(
-      'The DLL files are missing. Sit back while we build them for you with "yarn build-dll"'
+      'The DLL files are missing. Sit back while we build them for you with "build-dll".'
     )
   );
-  execSync('yarn build-dll');
+  execSync('node ./internals/scripts/run-package-script.js build-dll', {
+    cwd: PATHS.root,
+    stdio: 'inherit',
+  });
 }
 
 export default merge(baseConfig, {
@@ -48,9 +51,6 @@ export default merge(baseConfig, {
   entry: [
     'core-js',
     'regenerator-runtime/runtime',
-    ...(process.env.PLAIN_HMR ? [] : ['react-hot-loader/patch']),
-    `webpack-dev-server/client?http://localhost:${PORT}/`,
-    'webpack/hot/only-dev-server',
     path.join(PATHS.app, 'index.js'),
   ],
 
@@ -199,13 +199,6 @@ export default merge(baseConfig, {
       },
     ],
   },
-
-  resolve: {
-    alias: {
-      'react-dom': '@hot-loader/react-dom',
-    },
-  },
-
   plugins: [
     requiredByDLLConfig
       ? null
@@ -249,35 +242,46 @@ export default merge(baseConfig, {
 
   devServer: {
     port: PORT,
-    publicPath,
     compress: true,
-    noInfo: true,
-    stats: 'errors-only',
-    inline: true,
-    lazy: false,
     hot: true,
     headers: { 'Access-Control-Allow-Origin': '*' },
-    contentBase: path.join(PATHS.dist),
+    client: {
+      logging: 'error',
+      overlay: true,
+    },
+    devMiddleware: {
+      publicPath,
+      stats: 'errors-only',
+    },
+    static: {
+      directory: path.join(PATHS.dist),
+      publicPath,
+      watch: false,
+    },
     watchOptions: {
       aggregateTimeout: 300,
       ignored: /node_modules/,
       poll: 100,
     },
-    historyApiFallback: {
-      verbose: true,
-      disableDotRule: false,
-    },
-    before() {
+    historyApiFallback: true,
+    setupMiddlewares: (middlewares) => {
       if (process.env.START_HOT) {
         console.info('Starting Main Process...');
-        spawn('npm', ['run', 'start-main-dev'], {
-          shell: true,
-          env: process.env,
-          stdio: 'inherit',
-        })
+        spawn(
+          'node',
+          ['./internals/scripts/run-package-script.js', 'start-main-dev'],
+          {
+            shell: true,
+            env: process.env,
+            cwd: PATHS.root,
+            stdio: 'inherit',
+          }
+        )
           .on('close', (code) => process.exit(code))
           .on('error', (spawnError) => console.error(spawnError));
       }
+
+      return middlewares;
     },
   },
 });

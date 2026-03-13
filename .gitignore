@@ -53,6 +53,7 @@ npm-debug.log.*
 package-lock.json
 .env*
 sentry.properties
+.husky/_
 
 app/certs/*.pem
 certs/*

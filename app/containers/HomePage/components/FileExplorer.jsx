@@ -22,7 +22,8 @@ import { styles } from '../styles/FileExplorer';
 import {
   TextFieldEdit as TextFieldEditDialog,
   ProgressBar as ProgressBarDialog,
-  Confirm as ConfirmDialog,
+  PasteConflict as PasteConflictDialog,
+  ExtrasConflict as ExtrasConflictDialog,
 } from '../../../components/DialogBox';
 import { withReducer } from '../../../store/reducers/withReducer';
 import reducers from '../reducers';
@@ -96,6 +97,10 @@ import {
   twitterShareUrl,
 } from '../../../templates/socialMediaShareBtns';
 import { baseName, pathInfo, pathUp, sanitizePath } from '../../../utils/files';
+import {
+  computeSmartSyncDiff,
+  groupFilesByParentDir,
+} from '../../../utils/smartSync';
 import {
   DEVICE_TYPE,
   FILE_EXPLORER_VIEW_TYPE,
@@ -182,7 +187,10 @@ class FileExplorer extends Component {
     this.filesDragGhostImg = this._createDragIcon();
 
     this.initialState = {
-      togglePasteConfirmDialog: false,
+      togglePasteConflictDialog: false,
+      toggleExtrasDialog: false,
+      smartSyncExtras: [],
+      smartSyncPendingBatches: null,
       toggleDialog: {
         rename: {
           errors: {
@@ -458,11 +466,17 @@ class FileExplorer extends Component {
           // if an usb device was detached and mtp device is disconnected then
           // try to disconnect the mtp device
           if (mtpDevice.isAvailable) {
-            // check to see if the detached usb device was the connected mtp device itself
-            if (
+            const connectedUsbDeviceInfo = mtpDevice?.info?.usbDeviceInfo || {};
+            const serialMatches =
+              _usbDeviceInfo.serialNumber &&
               _usbDeviceInfo.serialNumber ===
-              mtpDevice?.info?.usbDeviceInfo?.SerialNumber
-            ) {
+                connectedUsbDeviceInfo.SerialNumber;
+            const vendorAndProductMatch =
+              _usbDeviceInfo.vendorId === connectedUsbDeviceInfo.VendorID &&
+              _usbDeviceInfo.productId === connectedUsbDeviceInfo.ProductID;
+
+            // check to see if the detached usb device was the connected mtp device itself
+            if (serialMatches || vendorAndProductMatch) {
               analyticsService.sendEvent(EVENT_TYPE.MTP_USB_HOTPLUG_DETTACHED, {
                 manufacturer: _usbDeviceInfo.manufacturer,
                 deviceName: _usbDeviceInfo.deviceName,
@@ -1383,12 +1397,6 @@ class FileExplorer extends Component {
     });
   };
 
-  _handleTogglePasteConfirmDialog = (status) => {
-    this.setState({
-      togglePasteConfirmDialog: status,
-    });
-  };
-
   _handleShowInEnclosingFolder = async ({ data, enabled, label }) => {
     checkIf(data, 'object');
     checkIf(enabled, 'boolean');
@@ -1753,12 +1761,304 @@ class FileExplorer extends Component {
         }
       );
 
-      this._handleTogglePasteConfirmDialog(true);
+      this._handleTogglePasteConflictDialog(true);
 
       return null;
     }
 
     this._handlePasteConfirm(true);
+  };
+
+  _handleTogglePasteConflictDialog = (status) => {
+    this.setState({
+      togglePasteConflictDialog: status,
+    });
+  };
+
+  _handlePasteConflictChoice = (choice) => {
+    this._handleTogglePasteConflictDialog(false);
+
+    switch (choice) {
+      case 'cancel':
+        return null;
+      case 'replace':
+        this._handlePasteConfirm(true);
+        break;
+      case 'smartSync':
+        this._handleSmartSync();
+        break;
+      default:
+        break;
+    }
+  };
+
+  _handleSmartSync = async () => {
+    const {
+      deviceType,
+      currentBrowsePath,
+      storageId,
+      hideHiddenFiles,
+      fileTransferClipboard,
+      actionCreateThrowError,
+    } = this.props;
+
+    const destinationFolder = currentBrowsePath[deviceType];
+    const sourceDeviceType = fileTransferClipboard.source;
+    const ignoreHidden = hideHiddenFiles[deviceType];
+    const sourceIgnoreHidden = hideHiddenFiles[sourceDeviceType];
+
+    // Determine direction and storage params
+    const direction =
+      deviceType === DEVICE_TYPE.mtp
+        ? FILE_TRANSFER_DIRECTION.upload
+        : FILE_TRANSFER_DIRECTION.download;
+
+    // Show scanning progress
+    const { actionCreateSetFileTransferProgress } = this.props;
+
+    actionCreateSetFileTransferProgress({
+      titleText: 'Scanning files...',
+      bottomText: 'Comparing source and destination folders',
+      toggle: true,
+      values: [
+        {
+          bodyText1: 'Scanning directory trees...',
+          bodyText2: null,
+          percentage: 0,
+          variant: 'indeterminate',
+        },
+      ],
+    });
+
+    try {
+      const allFilesToTransfer = [];
+      const allExtras = [];
+      const allBatches = [];
+
+      for (let i = 0; i < fileTransferClipboard.queue.length; i += 1) {
+        const sourcePath = fileTransferClipboard.queue[i];
+        const sourceBaseName = baseName(sourcePath);
+        const destPath = `${destinationFolder}/${sourceBaseName}`;
+
+        // Check if source is a directory by trying recursive walk
+        // eslint-disable-next-line no-await-in-loop
+        const sourceResult = await fileExplorerController.listFilesRecursive({
+          deviceType: sourceDeviceType,
+          filePath: sourcePath,
+          ignoreHidden: sourceIgnoreHidden,
+          storageId,
+        });
+
+        if (sourceResult.error) {
+          // Not a directory or error — transfer as individual file
+          allFilesToTransfer.push(sourcePath);
+          continue; // eslint-disable-line no-continue
+        }
+
+        // eslint-disable-next-line no-await-in-loop
+        const destResult = await fileExplorerController.listFilesRecursive({
+          deviceType,
+          filePath: destPath,
+          ignoreHidden,
+          storageId,
+        });
+
+        if (destResult.error || !destResult.data) {
+          // Dest folder doesn't exist — transfer entire source normally
+          allFilesToTransfer.push(sourcePath);
+          continue; // eslint-disable-line no-continue
+        }
+
+        const diff = computeSmartSyncDiff({
+          sourceFiles: sourceResult.data || [],
+          destFiles: destResult.data || [],
+          sourceRoot: sourcePath,
+          destRoot: destPath,
+        });
+
+        if (diff.extrasInDest.length > 0) {
+          allExtras.push(...diff.extrasInDest);
+        }
+
+        if (diff.filesToTransfer.length > 0) {
+          const batches = groupFilesByParentDir({
+            filesToTransfer: diff.filesToTransfer,
+            sourceRoot: sourcePath,
+            destRoot: destPath,
+          });
+
+          allBatches.push(...batches);
+        }
+      }
+
+      // Clear scanning progress
+      const { actionCreateClearFileTransfer } = this.props;
+
+      actionCreateClearFileTransfer();
+
+      // Nothing to transfer and no extras
+      if (
+        allBatches.length === 0 &&
+        allFilesToTransfer.length === 0 &&
+        allExtras.length === 0
+      ) {
+        actionCreateThrowError({
+          message: 'Everything is up to date. No files need to be transferred.',
+        });
+
+        return;
+      }
+
+      // Store pending work
+      this.setState({
+        smartSyncPendingBatches: {
+          batches: allBatches,
+          individualFiles: allFilesToTransfer,
+        },
+      });
+
+      // If there are extras, show the extras dialog
+      if (allExtras.length > 0) {
+        this.setState({
+          smartSyncExtras: allExtras,
+          toggleExtrasDialog: true,
+        });
+
+        return;
+      }
+
+      // No extras — execute transfers immediately
+      this._executeSmartSyncTransfers({
+        batches: allBatches,
+        individualFiles: allFilesToTransfer,
+        direction,
+      });
+    } catch (e) {
+      log.error(e, 'FileExplorer._handleSmartSync');
+
+      const { clearFileTransfer: dispatchClearTransfer } = this.props;
+
+      dispatchClearTransfer();
+      actionCreateThrowError({
+        message: `Smart Sync failed: ${e.message || e}`,
+      });
+    }
+  };
+
+  _handleExtrasResolution = async ({ filesToDelete }) => {
+    this.setState({
+      toggleExtrasDialog: false,
+      smartSyncExtras: [],
+    });
+
+    const { deviceType, storageId } = this.props;
+    const { smartSyncPendingBatches } = this.state;
+
+    // Delete selected extras
+    if (filesToDelete && filesToDelete.length > 0) {
+      await fileExplorerController.deleteFiles({
+        deviceType,
+        fileList: filesToDelete,
+        storageId,
+      });
+    }
+
+    // Execute pending transfers
+    if (smartSyncPendingBatches) {
+      this._executeSmartSyncTransfers({
+        ...smartSyncPendingBatches,
+      });
+    }
+  };
+
+  _executeSmartSyncTransfers = async ({ batches, individualFiles }) => {
+    const {
+      deviceType,
+      storageId,
+      hideHiddenFiles,
+      currentBrowsePath,
+      actionCreatePaste,
+      fileTransferClipboard,
+    } = this.props;
+    const destinationFolder = currentBrowsePath[deviceType];
+
+    // If there are individual files (non-directory items), transfer them via normal paste
+    if (individualFiles && individualFiles.length > 0) {
+      actionCreatePaste(
+        {
+          destinationFolder,
+          storageId,
+          fileTransferClipboard: {
+            ...fileTransferClipboard,
+            queue: individualFiles,
+          },
+        },
+        {
+          filePath: destinationFolder,
+          ignoreHidden: hideHiddenFiles[deviceType],
+        },
+        deviceType
+      );
+
+      // Clear pending state
+      this.setState({
+        smartSyncPendingBatches: null,
+      });
+
+      return;
+    }
+
+    // Transfer batched files (from diff)
+    if (!batches || batches.length === 0) {
+      this.setState({
+        smartSyncPendingBatches: null,
+      });
+
+      return;
+    }
+
+    // Ensure destination directories exist and transfer batch by batch
+    for (let i = 0; i < batches.length; i += 1) {
+      const batch = batches[i];
+
+      // Ensure dest directory exists
+      // eslint-disable-next-line no-await-in-loop
+      await fileExplorerController.makeDirectory({
+        deviceType,
+        filePath: batch.destDir,
+        storageId,
+      });
+    }
+
+    // Flatten all batched files and transfer using actionCreatePaste
+    const allBatchFiles = batches.reduce((acc, batch) => {
+      return acc.concat(batch.files);
+    }, []);
+
+    if (allBatchFiles.length > 0) {
+      // Use the first batch's destDir parent as the destination
+      // Transfer all files via the existing paste mechanism
+      actionCreatePaste(
+        {
+          destinationFolder,
+          storageId,
+          fileTransferClipboard: {
+            ...fileTransferClipboard,
+            queue: allBatchFiles,
+          },
+        },
+        {
+          filePath: destinationFolder,
+          ignoreHidden: hideHiddenFiles[deviceType],
+        },
+        deviceType
+      );
+    }
+
+    // Clear pending state
+    this.setState({
+      smartSyncPendingBatches: null,
+    });
   };
 
   _handlePasteConfirm = (confirm) => {
@@ -1772,7 +2072,6 @@ class FileExplorer extends Component {
     } = this.props;
     const destinationFolder = currentBrowsePath[deviceType];
 
-    this._handleTogglePasteConfirmDialog(false);
     const deviceTypeUpperCase = deviceType.toUpperCase();
 
     if (!confirm) {
@@ -1999,8 +2298,13 @@ class FileExplorer extends Component {
       isStatusBarEnabled,
       fileTransferClipboard,
     } = this.props;
-    const { toggleDialog, togglePasteConfirmDialog, directoryGeneratedTime } =
-      this.state;
+    const {
+      toggleDialog,
+      togglePasteConflictDialog,
+      toggleExtrasDialog,
+      smartSyncExtras,
+      directoryGeneratedTime,
+    } = this.state;
     const { rename, newFolder } = toggleDialog;
     const togglePasteDialog =
       deviceType === DEVICE_TYPE.mtp && fileTransferProgess.toggle;
@@ -2145,12 +2449,14 @@ class FileExplorer extends Component {
             </div>
           </div>
         </ProgressBarDialog>
-        <ConfirmDialog
-          fullWidthDialog
-          maxWidthDialog="xs"
-          bodyText="Replace and merge the existing items?"
-          trigger={togglePasteConfirmDialog}
-          onClickHandler={this._handlePasteConfirm}
+        <PasteConflictDialog
+          trigger={togglePasteConflictDialog}
+          onClickHandler={this._handlePasteConflictChoice}
+        />
+        <ExtrasConflictDialog
+          trigger={toggleExtrasDialog}
+          extras={smartSyncExtras}
+          onComplete={this._handleExtrasResolution}
         />
         <FileExplorerBodyRender
           deviceType={deviceType}
@@ -2721,6 +3027,16 @@ const mapDispatchToProps = (dispatch, _) =>
           log.error(e);
         }
       },
+      actionCreateSetFileTransferProgress:
+        ({ ...args }) =>
+        (_, __) => {
+          dispatch(setFileTransferProgress({ ...args }));
+        },
+
+      actionCreateClearFileTransfer: () => (_, __) => {
+        dispatch(clearFileTransfer());
+      },
+
       actionCreatedDisposeMtp:
         ({ deviceType }) =>
         (_, getState) => {

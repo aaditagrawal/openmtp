@@ -26,7 +26,18 @@ export function isNoMtpError({ error, stderr, mtpMode }) {
     );
   }
 
-  return stderr === MTP_ERROR.ErrorMtpDetectFailed;
+  const kalamError = (error ?? '').toString().toLowerCase();
+
+  return (
+    stderr === MTP_ERROR.ErrorMtpDetectFailed ||
+    ((stderr === MTP_ERROR.ErrorDeviceSetup ||
+      stderr === MTP_ERROR.ErrorGeneral) &&
+      (kalamError.includes('libusb_error_not_found') ||
+        kalamError.includes('libusb_error_no_device') ||
+        kalamError.includes('no mtp device') ||
+        kalamError.includes('opensession failed') ||
+        kalamError.includes('opensession after reset')))
+  );
 }
 
 export const processMtpBuffer = async ({ error, stderr, mtpMode }) => {
@@ -112,13 +123,28 @@ export const mtpErrors = {
  * @return {Promise<{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: string}|{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: null}>}
  * @private
  */
-export const _processKalamMtpBuffer = async ({ stderr }) => {
+export const _processKalamMtpBuffer = async ({ error, stderr }) => {
   const googleAndroidFileTransferIsActive = `Quit 'Android File Transfer' app (by Google) and Refresh`;
+  const noMtpError = isNoMtpError({
+    error,
+    stderr,
+    mtpMode: MTP_MODE.kalam,
+  });
 
   let processedErrorValue = null;
 
   if (!undefinedOrNull(stderr)) {
     processedErrorValue = mtpErrors[stderr];
+  }
+
+  if (noMtpError) {
+    return {
+      error: mtpErrors[MTP_ERROR.ErrorMtpDetectFailed],
+      throwAlert: false,
+      logError: false,
+      mtpStatus: false,
+      reportError: false,
+    };
   }
 
   switch (stderr) {

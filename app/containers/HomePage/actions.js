@@ -158,7 +158,7 @@ export function initializeMtp(
           );
 
         default:
-          return;
+          break;
       }
     } catch (e) {
       log.error(e);
@@ -225,11 +225,10 @@ export function disposeMtp({ deviceType, onSuccess, onError }, getState) {
               })
             );
           });
-
-          return;
+          break;
 
         default:
-          return;
+          break;
       }
     } catch (e) {
       log.error(e);
@@ -551,16 +550,18 @@ export function churnMtpBuffer({
       }
 
       if (mtpError) {
-        log.error(
-          mtpError,
-          'churnMtpBuffer.mtpError',
-          mtpLogError,
-          true,
-          mtpReportError === true,
-          false
-        );
-        log.error(error, 'churnMtpBuffer.error', true, true, false);
-        log.error(stderr, 'churnMtpBuffer.stderr', true, true, false);
+        if (mtpLogError) {
+          log.error(
+            mtpError,
+            'churnMtpBuffer.mtpError',
+            mtpLogError,
+            true,
+            mtpReportError === true,
+            false
+          );
+          log.error(error, 'churnMtpBuffer.error', true, true, false);
+          log.error(stderr, 'churnMtpBuffer.stderr', true, true, false);
+        }
 
         if (mtpThrowAlert) {
           dispatch(throwAlert({ message: mtpError.toString() }));
@@ -725,7 +726,8 @@ export function reloadDirList(
   checkIf(ignoreHidden, 'boolean');
   checkIf(getState, 'function');
 
-  const { mtpMode, mtpDevice } = getState().Home;
+  const { mtpDevice } = getState().Home;
+  const { mtpMode } = getState().Settings;
 
   checkIf(mtpDevice, 'object');
 
