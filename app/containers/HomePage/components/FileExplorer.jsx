@@ -13,7 +13,6 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { withStyles } from '@material-ui/core/styles';
 import { ipcRenderer, shell } from 'electron';
-import lodashSortBy from 'lodash/sortBy';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import IconButton from '@material-ui/core/IconButton';
@@ -2217,16 +2216,23 @@ class FileExplorer extends Component {
       return [];
     }
 
-    let _sortedNode = [];
+    let _sortedNode = [...nodes].sort((a, b) => {
+      const aKey = this._lodashSortConstraints({ value: a, orderBy });
+      const bKey = this._lodashSortConstraints({ value: b, orderBy });
 
-    if (order === 'asc') {
-      _sortedNode = lodashSortBy(nodes, [
-        (value) => this._lodashSortConstraints({ value, orderBy }),
-      ]);
-    } else {
-      _sortedNode = lodashSortBy(nodes, [
-        (value) => this._lodashSortConstraints({ value, orderBy }),
-      ]).reverse();
+      if (aKey < bKey) {
+        return -1;
+      }
+
+      if (aKey > bKey) {
+        return 1;
+      }
+
+      return 0;
+    });
+
+    if (order !== 'asc') {
+      _sortedNode.reverse();
     }
 
     const _folders = [];

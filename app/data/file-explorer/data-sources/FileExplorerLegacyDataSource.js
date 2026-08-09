@@ -1,6 +1,5 @@
 import path from 'path';
 import { promisify } from 'node:util';
-import findLodash from 'lodash/find';
 import { exec, spawn } from 'child_process';
 import { log } from '../../../utils/log';
 import {
@@ -508,7 +507,7 @@ export class FileExplorerLegacyDataSource {
         const extension = getExtension(fullPath, isFolder);
 
         // avoid duplicate values
-        if (findLodash(response, { path: fullPath })) {
+        if (response.find((item) => item.path === fullPath)) {
           continue; // oxlint-disable-line no-continue
         }
 

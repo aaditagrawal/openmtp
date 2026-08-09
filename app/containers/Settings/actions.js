@@ -1,4 +1,3 @@
-import omitLodash from 'lodash/omit';
 import { disposeMtp, initializeMtp } from '../HomePage/actions';
 import prefixer from '../../helpers/reducerPrefixer';
 import { settingsStorage } from '../../helpers/storageHelper';
@@ -277,10 +276,10 @@ export function setCommonSettings(
 export function copySettingsToJsonFile(getState, onSuccess) {
   return (_) => {
     const settingsState = getState().Settings ? getState().Settings : {};
-    const filteredSettings = omitLodash(
-      settingsState,
-      excludeItemsFromSettingsFile,
-    );
+    const filteredSettings = { ...settingsState };
+    for (const key of excludeItemsFromSettingsFile) {
+      delete filteredSettings[key];
+    }
 
     settingsStorage.setAll({ ...filteredSettings });
 

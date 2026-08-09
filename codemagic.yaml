@@ -49,7 +49,7 @@ definitions:
         curl -fsSL https://bun.sh/install | bash -s -- bun-v${BUN_VERSION}
         export BUN_INSTALL="$HOME/.bun"
         export PATH="$BUN_INSTALL/bin:$PATH"
-        npm install -g @sentry/cli node-gyp zx --force
+        bun add -g @sentry/cli node-gyp zx
 
     - &install_app_packages
       name: Installing app packages

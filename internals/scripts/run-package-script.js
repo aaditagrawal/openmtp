@@ -14,6 +14,16 @@ const npmExecPath = (process.env.npm_execpath || '').toLowerCase();
 const userAgent = (process.env.npm_config_user_agent || '').toLowerCase();
 const cwd = path.resolve(__dirname, '..', '..');
 
+const commandExists = (command) => {
+  const probe = spawnSync(command, ['--version'], {
+    cwd,
+    shell: process.platform === 'win32',
+    stdio: 'ignore',
+  });
+
+  return !probe.error && (probe.status === 0 || probe.status === null);
+};
+
 const detectPackageManager = () => {
   if (npmExecPath.includes('bun') || userAgent.startsWith('bun/')) {
     return {
@@ -32,6 +42,14 @@ const detectPackageManager = () => {
   if (npmExecPath.includes('pnpm') || userAgent.startsWith('pnpm/')) {
     return {
       command: 'pnpm',
+      args: ['run', scriptName],
+    };
+  }
+
+  // Prefer Bun when available — packageManager is bun and scripts are faster under it.
+  if (commandExists('bun')) {
+    return {
+      command: 'bun',
       args: ['run', scriptName],
     };
   }

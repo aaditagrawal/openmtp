@@ -1,13 +1,13 @@
 import {
   existsSync as _existsSync,
+  mkdirSync as _mkdirSync,
+  rmSync as _rmSync,
   writeFile as _writeFileAsync,
   appendFile as _appendFileAsync,
   readFileSync as _readFileSync,
   writeFileSync as _writeFileSync,
 } from 'fs';
 import { EOL } from 'os';
-import mkdirp from 'mkdirp';
-import rimraf from 'rimraf';
 
 export const writeFileAsync = (filePath, text) => {
   const options = { mode: 0o755 };
@@ -52,9 +52,9 @@ export const readFileSync = (filePath) => {
 export const fileExistsSync = (filePath) => _existsSync(filePath);
 
 export const createDirSync = async (newFolderPath) => {
-  await mkdirp.sync(newFolderPath);
+  _mkdirSync(newFolderPath, { recursive: true });
 };
 
 export const deleteFilesSync = (filePath) => {
-  rimraf.sync(filePath);
+  _rmSync(filePath, { recursive: true, force: true });
 };
