@@ -1,8 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["import", "jsx-a11y", "react", "promise"],
+  "plugins": ["import", "jsx-a11y", "react", "promise", "oxc"],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
   "env": {
-    "builtin": true
+    "builtin": true,
+    "browser": true,
+    "node": true
   },
   "settings": {
     "react": {
@@ -61,6 +68,9 @@
     ],
     "react/jsx-fragments": "off",
     "react/jsx-no-useless-fragment": "off",
-    "react/jsx-props-no-spreading": "off"
+    "react/jsx-props-no-spreading": "off",
+    "react/react-in-jsx-scope": "off",
+    "oxc/no-map-spread": "off",
+    "oxc/no-this-in-exported-function": "off"
   }
 }
