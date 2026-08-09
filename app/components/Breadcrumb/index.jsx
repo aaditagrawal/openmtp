@@ -2,9 +2,9 @@ import React, { PureComponent, Fragment } from 'react';
 import { withStyles } from '@material-ui/core/styles';
 import classNames from 'classnames';
 import Paper from '@material-ui/core/Paper';
-import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight';
-import MoreHorizIcon from '@material-ui/icons/MoreHoriz';
+import { ChevronRight, MoreHorizontal } from 'lucide-react';
 import Tooltip from '@material-ui/core/Tooltip';
+import Icon from '../Icon';
 import { quickHash } from '../../utils/funcs';
 import { styles } from './styles';
 import { sanitizePath } from '../../utils/files';
@@ -108,7 +108,8 @@ class Breadcrumb extends PureComponent {
             <Fragment>
               {index > 0 && (
                 <span>
-                  <KeyboardArrowRightIcon
+                  <Icon
+                    icon={ChevronRight}
                     className={styles.breadcrumbSeperator}
                   />
                 </span>
@@ -139,8 +140,8 @@ class Breadcrumb extends PureComponent {
 
     return compressedCounter < 2 ? (
       <span>
-        <KeyboardArrowRightIcon className={styles.breadcrumbSeperator} />
-        <MoreHorizIcon className={styles.breadcrumbSeperator} />
+        <Icon icon={ChevronRight} className={styles.breadcrumbSeperator} />
+        <Icon icon={MoreHorizontal} className={styles.breadcrumbSeperator} />
       </span>
     ) : (
       <Fragment />

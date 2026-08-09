@@ -99,6 +99,33 @@ export const getCurrentThemePalette = (appThemeMode) => {
   return getColorPalette()[appThemeMode];
 };
 
+const fontFamily = {
+  default: [
+    'DM Mono',
+    'ui-monospace',
+    'SFMono-Regular',
+    'Menlo',
+    'Monaco',
+    'Consolas',
+    'monospace',
+  ].join(','),
+  letterSpacing: '-0.01em',
+};
+
+// Fast, GPU-friendly feedback for hover/selection/press states across
+// buttons, list items, toolbar icons and table rows. Only background-color,
+// color and box-shadow are transitioned — never layout properties — so the
+// animation stays cheap on large file lists.
+const { fastDuration, dialogDuration, fastEasing } = variables().transitions;
+const interactionTransition = [
+  'background-color',
+  'color',
+  'box-shadow',
+  'border-color',
+]
+  .map((property) => `${property} ${fastDuration}ms ${fastEasing}`)
+  .join(', ');
+
 export const materialUiTheme = ({ ...args }) => {
   const { appThemeMode } = args;
 
@@ -111,18 +138,30 @@ export const materialUiTheme = ({ ...args }) => {
     typography: {
       useNextVariants: true,
       fontSize: variables().sizes.regularFontSize,
-      fontFamily: [
-        'Roboto',
-        '-apple-system',
-        'BlinkMacSystemFont',
-        '"Segoe UI"',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif',
-        '"Apple Color Emoji"',
-        '"Segoe UI Emoji"',
-        '"Segoe UI Symbol"',
-      ].join(','),
+      fontFamily: fontFamily.default,
+    },
+    // Keep modal enter/exit near ~150ms so dialogs feel snappy without the
+    // default MUI 225/195ms lag. Hover feedback stays on fastDuration.
+    transitions: {
+      duration: {
+        shortest: 100,
+        shorter: fastDuration,
+        short: dialogDuration,
+        standard: dialogDuration,
+        complex: 200,
+        enteringScreen: dialogDuration,
+        leavingScreen: 120,
+      },
+      easing: {
+        easeInOut: fastEasing,
+        easeOut: fastEasing,
+        sharp: fastEasing,
+      },
+    },
+    props: {
+      MuiDialog: {
+        transitionDuration: dialogDuration,
+      },
     },
 
     overrides: {
@@ -132,8 +171,62 @@ export const materialUiTheme = ({ ...args }) => {
             '--app-bg-color': palette.background.paper,
             '--app-secondary-main-color': palette.secondary.main,
             '--app-native-system-color': palette.nativeSystemColor,
+            fontFamily: fontFamily.default,
+            letterSpacing: fontFamily.letterSpacing,
+            fontVariantNumeric: 'tabular-nums',
+            WebkitFontSmoothing: 'antialiased',
             ...commonThemes.noselect,
           },
+          body: {
+            fontFamily: fontFamily.default,
+            letterSpacing: fontFamily.letterSpacing,
+            fontVariantNumeric: 'tabular-nums',
+            WebkitFontSmoothing: 'antialiased',
+          },
+          'button, input, textarea': {
+            fontFamily: fontFamily.default,
+            letterSpacing: fontFamily.letterSpacing,
+          },
+          // Respect the OS-level "reduce motion" preference by collapsing
+          // every transition/animation to effectively nothing. `!important`
+          // is required since some MUI transitions (Dialog, Collapse, Fade)
+          // set their duration via inline styles.
+          '@media (prefers-reduced-motion: reduce)': {
+            '*, *::before, *::after': {
+              animationDuration: '0.01ms !important',
+              animationIterationCount: '1 !important',
+              transitionDuration: '0.01ms !important',
+              scrollBehavior: 'auto !important',
+            },
+          },
+        },
+      },
+      // Snappy, GPU-friendly hover/press feedback for buttons, list items
+      // and table rows — background-color/color/box-shadow/border-color
+      // only, so nothing here ever triggers layout.
+      MuiButtonBase: {
+        root: {
+          transition: interactionTransition,
+        },
+      },
+      MuiIconButton: {
+        root: {
+          transition: interactionTransition,
+        },
+      },
+      MuiButton: {
+        root: {
+          transition: interactionTransition,
+        },
+      },
+      MuiListItem: {
+        root: {
+          transition: interactionTransition,
+        },
+      },
+      MuiTableRow: {
+        root: {
+          transition: `background-color ${fastDuration}ms ${fastEasing}`,
         },
       },
     },

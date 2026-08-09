@@ -1,0 +1,119 @@
+name: Release
+
+# Cut a release by pushing a tag: `git tag v3.2.26 && git push origin v3.2.26`
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  release:
+    name: Build & release macOS (arm64)
+    runs-on: macos-14
+    env:
+      # macOS (arm64) only for now: GitHub-hosted macos-14 runners are
+      # arm64, and cross-building the x64 target's native modules (koffi,
+      # usb, node-mac-permissions) from an arm64 host is unreliable.
+      # Intel builds are produced by the dedicated `mac_pro` (x64) instance
+      # already configured in codemagic.yaml.
+      HAS_SIGNING_SECRETS: ${{ secrets.CSC_LINK != '' && secrets.CSC_KEY_PASSWORD != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: '.bun-version'
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify Electron install
+        run: bun run ensure-electron
+
+      - name: Lint
+        run: bun run lint
+
+      # electron-builder-config.js signs/hardens whenever `CI` is set, which
+      # GitHub Actions always sets, so the two branches below only differ in
+      # whether real Apple credentials and notarization are used.
+      - name: Package (signed + notarized)
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun run package-mac-no-verify
+
+      - name: Package (unsigned)
+        if: ${{ env.HAS_SIGNING_SECRETS != 'true' }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: bun run package-mac-without-notarize-no-verify
+
+      - name: Locate app bundle
+        id: locate
+        run: |
+          set -euo pipefail
+          app_path=$(find dist -maxdepth 2 -name 'OpenMTP.app' -print -quit)
+          if [ -z "$app_path" ]; then
+            echo '::error::electron-builder did not produce OpenMTP.app under dist/'
+            exit 1
+          fi
+          echo "OpenMTP.app found at: $app_path"
+          echo "app_path=$app_path" >> "$GITHUB_OUTPUT"
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          artifacts=(dist/*.dmg dist/*.zip)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo '::error::No .dmg or .zip artifacts were produced under dist/'
+            exit 1
+          fi
+          shasum -a 256 "${artifacts[@]}" | tee dist/CHECKSUMS_SHA256.txt
+
+      - name: Upload OpenMTP.app (workflow artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMTP-macos-arm64-app
+          path: ${{ steps.locate.outputs.app_path }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OpenMTP ${{ github.ref_name }}
+          # Anything after a hyphen (v3.2.26-beta.1) is marked as pre-release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/CHECKSUMS_SHA256.txt

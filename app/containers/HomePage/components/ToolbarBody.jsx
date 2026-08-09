@@ -1,17 +1,12 @@
 import React, { PureComponent } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import MenuIcon from '@material-ui/icons/Menu';
 import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
 import Drawer from '@material-ui/core/Drawer';
 import IconButton from '@material-ui/core/IconButton';
 import Tooltip from '@material-ui/core/Tooltip';
 import classNames from 'classnames';
-import {
-  faSdCard,
-  faBolt,
-  faTerminal,
-} from '@fortawesome/free-solid-svg-icons';
+import { Menu, HardDrive, Zap, Terminal } from 'lucide-react';
+import Icon from '../../../components/Icon';
 import SidebarAreaPaneLists from './SidebarAreaPaneLists';
 import { LazyLoaderOverlay } from '../styles/ToolbarAreaPane';
 import { DEVICES_LABEL } from '../../../constants';
@@ -150,7 +145,7 @@ export default class ToolbarAreaPane extends PureComponent {
         // spread operator is used here to prevent modifying the original object
         const item = { ...mtpStoragesList[a] };
 
-        item.icon = faSdCard;
+        item.icon = HardDrive;
         item.value = a;
 
         return item;
@@ -161,14 +156,14 @@ export default class ToolbarAreaPane extends PureComponent {
       {
         value: MTP_MODE.kalam,
         name: `${capitalize(MTP_MODE.kalam)} Mode`,
-        icon: faBolt,
+        icon: Zap,
         selected: mtpMode === MTP_MODE.kalam,
         hint: 'The all new and powerful MTP kernel — named after Dr. A. P. J. Abdul Kalam - Statesman, Scientist and Poet',
       },
       {
         value: MTP_MODE.legacy,
         name: `${capitalize(MTP_MODE.legacy)} Mode`,
-        icon: faTerminal,
+        icon: Terminal,
         selected: mtpMode === MTP_MODE.legacy,
         hint: `Previous generation MTP Kernel. Use this if Kalam mode doesn't detect your phone`,
       },
@@ -239,8 +234,12 @@ export default class ToolbarAreaPane extends PureComponent {
             }}
           >
             {showMenu && (
-              <IconButton color="inherit" onClick={onToggleDrawer(true)}>
-                <MenuIcon />
+              <IconButton
+                color="inherit"
+                className={styles.toolbarIconBtn}
+                onClick={onToggleDrawer(true)}
+              >
+                <Icon icon={Menu} size={22} />
               </IconButton>
             )}
 
@@ -255,7 +254,7 @@ export default class ToolbarAreaPane extends PureComponent {
                         aria-label={item.label}
                         disabled={!item.enabled}
                         onClick={() => onToolbarAction(a)}
-                        className={classNames({
+                        className={classNames(styles.toolbarIconBtn, {
                           [styles.disabledNavBtns]: !item.enabled,
                           [styles.invertedNavBtns]: item.invert,
                           [styles.imageBtn]: item.image,
@@ -270,8 +269,9 @@ export default class ToolbarAreaPane extends PureComponent {
                         )}
 
                         {item.icon && (
-                          <FontAwesomeIcon
+                          <Icon
                             icon={item.icon}
+                            size={20}
                             className={styles.navBtnIcons}
                             title={item.label}
                           />

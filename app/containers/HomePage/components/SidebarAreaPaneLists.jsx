@@ -6,7 +6,8 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
-import FolderIcon from '@material-ui/icons/Folder';
+import { Folder } from 'lucide-react';
+import Icon from '../../../components/Icon';
 import { styles } from '../styles/SidebarAreaPaneLists';
 import { quickHash } from '../../../utils/funcs';
 import { analyticsService } from '../../../services/analytics';
@@ -47,7 +48,7 @@ class SidebarAreaPaneLists extends PureComponent {
               }
             >
               <ListItemIcon className={styles.listIcon}>
-                {item.icon === 'folder' && <FolderIcon />}
+                {item.icon === 'folder' && <Icon icon={Folder} />}
               </ListItemIcon>
               <ListItemText primary={item.label} />
             </ListItem>

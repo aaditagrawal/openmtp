@@ -16,4 +16,10 @@ export class IpcEvents {
     'ipc.reportBugsDisposeMtpReply.fromMain';
 
   static USB_HOTPLUG = 'ipc.usbHotplug';
+
+  // Ask the renderer (which owns the live Kalam MTP session) to dispose
+  // before the Electron app exits. Main-process dispose is a separate heap.
+  static APP_BEFORE_QUIT_DISPOSE_MTP = 'ipc.appBeforeQuitDisposeMtp';
+
+  static APP_BEFORE_QUIT_DISPOSE_MTP_DONE = 'ipc.appBeforeQuitDisposeMtpDone';
 }

@@ -3,7 +3,11 @@
 import { EOL } from 'os';
 import { replaceBulk, undefinedOrNull } from '../utils/funcs';
 import { log } from '../utils/log';
-import { isGoogleAndroidFileTransferActive } from '../utils/isGoogleAndroidFileTransferActive';
+import {
+  formatUsbConflictWarning,
+  getActiveUsbConflictApps,
+  isGoogleAndroidFileTransferActive,
+} from '../utils/usbConflictApps';
 import { DEVICES_LABEL } from '../constants';
 import { DEVICE_TYPE, MTP_MODE } from '../enums';
 import { checkIf } from '../utils/checkIf';
@@ -124,7 +128,6 @@ export const mtpErrors = {
  * @private
  */
 export const _processKalamMtpBuffer = async ({ error, stderr }) => {
-  const googleAndroidFileTransferIsActive = `Quit 'Android File Transfer' app (by Google) and Refresh`;
   const noMtpError = isNoMtpError({
     error,
     stderr,
@@ -138,6 +141,19 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
   }
 
   if (noMtpError) {
+    const conflictApps = await getActiveUsbConflictApps();
+    const conflictWarning = formatUsbConflictWarning(conflictApps);
+
+    if (conflictWarning) {
+      return {
+        error: conflictWarning,
+        throwAlert: true,
+        logError: true,
+        mtpStatus: false,
+        reportError: false,
+      };
+    }
+
     return {
       error: mtpErrors[MTP_ERROR.ErrorMtpDetectFailed],
       throwAlert: false,
@@ -150,12 +166,23 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
   switch (stderr) {
     case MTP_ERROR.ErrorMtpDetectFailed:
     case MTP_ERROR.ErrorDeviceSetup:
-      const _isGoogleAndroidFileTransferActive =
-        await isGoogleAndroidFileTransferActive();
+      const conflictApps = await getActiveUsbConflictApps();
+      const conflictWarning = formatUsbConflictWarning(conflictApps);
 
-      if (_isGoogleAndroidFileTransferActive) {
+      if (conflictWarning) {
         return {
-          error: googleAndroidFileTransferIsActive,
+          error: conflictWarning,
+          throwAlert: true,
+          logError: true,
+          mtpStatus: false,
+          reportError: false,
+        };
+      }
+
+      // Keep the older AFT-only path as a fallback for exact process names.
+      if (await isGoogleAndroidFileTransferActive()) {
+        return {
+          error: `Quit 'Android File Transfer' app (by Google) and Refresh`,
           throwAlert: true,
           logError: true,
           mtpStatus: false,
@@ -235,31 +262,22 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
       };
 
     case MTP_ERROR.ErrorSendObject:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
-
     case MTP_ERROR.ErrorFileObjectRead:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
+    case MTP_ERROR.ErrorFileTransfer: {
+      const conflictApps = await getActiveUsbConflictApps();
+      const conflictWarning = formatUsbConflictWarning(conflictApps);
+      const transferError = conflictWarning
+        ? `${processedErrorValue} ${conflictWarning}`
+        : processedErrorValue;
 
-    case MTP_ERROR.ErrorFileTransfer:
       return {
-        error: processedErrorValue,
+        error: transferError,
         throwAlert: true,
         logError: true,
         mtpStatus: true,
         reportError: true,
       };
+    }
 
     case MTP_ERROR.ErrorInvalidPath:
       return {
@@ -387,6 +405,7 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     noPerm: `Operation not permitted.`,
     noMtp: `No ${DEVICES_LABEL[DEVICE_TYPE.mtp]} or MTP device found.`,
     googleAndroidFileTransferIsActive: `Quit 'Android File Transfer' app (by Google) and Refresh.`,
+    usbConflictAppsActive: `Quit Preview, Android File Transfer, Google Drive, Dropbox, or OneDrive — they can hold the USB/MTP connection.`,
     deviceLocked: `Unlock your ${
       DEVICES_LABEL[DEVICE_TYPE.mtp]
     } and refresh again`,
@@ -443,10 +462,20 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     /* No MTP device found */
     noMtpError
   ) {
-    const _isGoogleAndroidFileTransferActive =
-      await isGoogleAndroidFileTransferActive();
+    const conflictApps = await getActiveUsbConflictApps();
+    const conflictWarning = formatUsbConflictWarning(conflictApps);
 
-    if (_isGoogleAndroidFileTransferActive) {
+    if (conflictWarning) {
+      return {
+        error: conflictWarning,
+        throwAlert: true,
+        logError: true,
+        mtpStatus: false,
+        reportError: false,
+      };
+    }
+
+    if (await isGoogleAndroidFileTransferActive()) {
       return {
         error: errorDictionary.googleAndroidFileTransferIsActive,
         throwAlert: true,

@@ -32,6 +32,13 @@ const actionTypesList = [
 
 export const actionTypes = prefixer(prefix, actionTypesList);
 
+// Generation stamp so a slow listDirectory response cannot paint into a
+// newer browse path after the user has already navigated away.
+const listDirectoryGeneration = {
+  [DEVICE_TYPE.local]: 0,
+  [DEVICE_TYPE.mtp]: 0,
+};
+
 export function setFocussedFileExplorerDeviceType(data) {
   return {
     type: actionTypes.SET_FOCUSSED_FILE_EXPLORER_DEVICE_TYPE,
@@ -633,6 +640,14 @@ export function listDirectory(
     switch (deviceType) {
       case DEVICE_TYPE.local:
         return async (dispatch) => {
+          const previousPath = getState().Home?.currentBrowsePath?.[deviceType];
+          const requestId = (listDirectoryGeneration[deviceType] += 1);
+
+          // Update path/selection immediately so open-folder feels instant;
+          // listing results replace the nodes when they arrive.
+          dispatch(setCurrentBrowsePath(filePath, deviceType));
+          dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
+
           const {
             error: localError,
             stderr: localStderr,
@@ -644,8 +659,16 @@ export function listDirectory(
             storageId: null,
           });
 
+          if (requestId !== listDirectoryGeneration[deviceType]) {
+            return;
+          }
+
           if (localError) {
             log.error(localError, 'listDirectory -> listFiles');
+
+            if (!undefinedOrNull(previousPath)) {
+              dispatch(setCurrentBrowsePath(previousPath, deviceType));
+            }
 
             dispatch(
               churnLocalBuffer({
@@ -661,8 +684,6 @@ export function listDirectory(
           }
 
           dispatch(actionListDirectory(localData, deviceType), getState);
-          dispatch(setCurrentBrowsePath(filePath, deviceType));
-          dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
         };
 
       case DEVICE_TYPE.mtp:
@@ -673,6 +694,14 @@ export function listDirectory(
             return;
           }
 
+          const previousPath = getState().Home?.currentBrowsePath?.[deviceType];
+          const requestId = (listDirectoryGeneration[deviceType] += 1);
+
+          // Same optimistic path/selection update as local — breadcrumb and
+          // selection clear before the MTP round-trip finishes.
+          dispatch(setCurrentBrowsePath(filePath, deviceType));
+          dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
+
           const { error, stderr, data } =
             await fileExplorerController.listFiles({
               deviceType,
@@ -680,6 +709,33 @@ export function listDirectory(
               ignoreHidden,
               storageId,
             });
+
+          if (requestId !== listDirectoryGeneration[deviceType]) {
+            return;
+          }
+
+          // Happy path: skip churnMtpBuffer / processMtpBuffer — no error
+          // handling needed, and that path previously added an unnecessary
+          // await on every folder open.
+          if (!error && !stderr) {
+            dispatch(
+              actionSetMtpStatus({
+                isAvailable: true,
+                isLoading: false,
+              }),
+            );
+            dispatch(actionListDirectory(data, deviceType), getState);
+
+            if (onSuccess) {
+              onSuccess({ error: null, stderr: null, data });
+            }
+
+            return;
+          }
+
+          if (!undefinedOrNull(previousPath)) {
+            dispatch(setCurrentBrowsePath(previousPath, deviceType));
+          }
 
           dispatch(
             churnMtpBuffer({
@@ -689,11 +745,13 @@ export function listDirectory(
               data,
               mtpMode,
               onSuccess: ({ error, stderr, data }) => {
-                dispatch(actionListDirectory(data, deviceType), getState);
-                dispatch(
-                  actionSetSelectedDirLists({ selected: [] }, deviceType),
-                );
+                // Only apply if this request is still the latest navigation.
+                if (requestId !== listDirectoryGeneration[deviceType]) {
+                  return;
+                }
+
                 dispatch(setCurrentBrowsePath(filePath, deviceType));
+                dispatch(actionListDirectory(data, deviceType), getState);
 
                 if (onSuccess) {
                   onSuccess({ error, stderr, data });

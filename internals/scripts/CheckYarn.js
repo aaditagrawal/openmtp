@@ -1,6 +1,8 @@
 const { semverSatisfies } = require('./semver');
 
-const requiredNodeRange = '>=22 <26';
+// Allow current Node releases used for local Electron 41 development.
+// Prefer an LTS (22/24) for packaging, but do not hard-fail on newer runtimes.
+const requiredNodeRange = '>=22';
 const supportedPackageManagers = ['bun', 'yarn', 'npm', 'pnpm'];
 
 try {
@@ -8,7 +10,7 @@ try {
 
   if (!semverSatisfies(nodeVersion, requiredNodeRange)) {
     console.error(
-      `Error: This project requires Node.js ${requiredNodeRange}. You have version ${nodeVersion}.\nPlease switch to a supported LTS release before installing dependencies.`,
+      `Error: This project requires Node.js ${requiredNodeRange}. You have version ${nodeVersion}.\nPlease switch to Node.js 22+ before installing dependencies.`,
     );
     process.exit(1);
   }

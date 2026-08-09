@@ -5,24 +5,27 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
-import UsbIcon from '@material-ui/icons/Usb';
-import FileCopyIcon from '@material-ui/icons/FileCopy';
-import Brightness4Icon from '@material-ui/icons/Brightness4';
-import FlashOnIcon from '@material-ui/icons/FlashOn';
-import ViewListIcon from '@material-ui/icons/ViewList';
-import SdStorageIcon from '@material-ui/icons/SdStorage';
-import FlipToBackIcon from '@material-ui/icons/FlipToBack';
-import CollectionsIcon from '@material-ui/icons/Collections';
 import Collapse from '@material-ui/core/Collapse';
-import KeyboardIcon from '@material-ui/icons/Keyboard';
-import ExpandLessIcon from '@material-ui/icons/ExpandLess';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import SettingsOverscanIcon from '@material-ui/icons/SettingsOverscan';
-import HourglassFullIcon from '@material-ui/icons/HourglassFull';
-import TabIcon from '@material-ui/icons/Tab';
-import MemoryIcon from '@material-ui/icons/Memory';
-import SmartphoneIcon from '@material-ui/icons/Smartphone';
-import CameraRollIcon from '@material-ui/icons/CameraRoll';
+import {
+  Usb,
+  Copy,
+  Moon,
+  Zap,
+  List as ListIcon,
+  HardDrive,
+  Move,
+  Images,
+  Keyboard,
+  ChevronUp,
+  ChevronDown,
+  Maximize2,
+  Hourglass,
+  AppWindow,
+  Cpu,
+  Smartphone,
+  Camera,
+} from 'lucide-react';
+import Icon from '../../../components/Icon';
 import KeyboadShortcuts from '../../KeyboardShortcutsPage/components/KeyboadShortcuts';
 import { styles } from '../styles/Features';
 import { capitalize } from '../../../utils/funcs';
@@ -70,7 +73,7 @@ class Features extends PureComponent {
         <List>
           <ListItem>
             <ListItemIcon>
-              <UsbIcon />
+              <Icon icon={Usb} />
             </ListItemIcon>
             <ListItemText
               primary="Connect via USB cable"
@@ -79,7 +82,7 @@ class Features extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <FileCopyIcon />
+              <Icon icon={Copy} />
             </ListItemIcon>
             <ListItemText
               primary="5-6x faster file copy speed"
@@ -88,7 +91,7 @@ class Features extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <Brightness4Icon />
+              <Icon icon={Moon} />
             </ListItemIcon>
             <ListItemText
               primary="Dark Theme mode"
@@ -97,42 +100,42 @@ class Features extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <FlipToBackIcon />
+              <Icon icon={Move} />
             </ListItemIcon>
             <ListItemText primary="Drag and Drop files from the macOS Finder window" />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <CollectionsIcon />
+              <Icon icon={Images} />
             </ListItemIcon>
             <ListItemText primary="Transfer multiple files which are larger than 4GB in one go." />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <MemoryIcon />
+              <Icon icon={Cpu} />
             </ListItemIcon>
             <ListItemText primary="Apple Silicon support" />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <SmartphoneIcon />
+              <Icon icon={Smartphone} />
             </ListItemIcon>
             <ListItemText primary={`Garmin device support`} />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <CameraRollIcon />
+              <Icon icon={Camera} />
             </ListItemIcon>
             <ListItemText primary={`Fujifilm device support`} />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <ViewListIcon />
+              <Icon icon={ListIcon} />
             </ListItemIcon>
             <ListItemText
               primary="Choose between Grid and List view"
@@ -142,7 +145,7 @@ class Features extends PureComponent {
 
           <ListItem>
             <ListItemIcon>
-              <SettingsOverscanIcon />
+              <Icon icon={Maximize2} />
             </ListItemIcon>
             <ListItemText
               primary="Single pane mode"
@@ -152,7 +155,7 @@ class Features extends PureComponent {
 
           <ListItem>
             <ListItemIcon>
-              <TabIcon />
+              <Icon icon={AppWindow} />
             </ListItemIcon>
             <ListItemText
               primary="Tab Layout"
@@ -162,21 +165,21 @@ class Features extends PureComponent {
 
           <ListItem>
             <ListItemIcon>
-              <SdStorageIcon />
+              <Icon icon={HardDrive} />
             </ListItemIcon>
             <ListItemText primary="Choose between Internal Memory and SD Card" />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <FlashOnIcon />
+              <Icon icon={Zap} />
             </ListItemIcon>
             <ListItemText primary="Auto device detection (USB Hotplug)" />
           </ListItem>
 
           <ListItem>
             <ListItemIcon>
-              <HourglassFullIcon />
+              <Icon icon={Hourglass} />
             </ListItemIcon>
             <ListItemText
               primary="Display Overall Progress on the File Transfer Screen"
@@ -193,7 +196,7 @@ class Features extends PureComponent {
             }
           >
             <ListItemIcon>
-              <KeyboardIcon />
+              <Icon icon={Keyboard} />
             </ListItemIcon>
             <ListItemText
               primary="Keyboard Navigation"
@@ -204,9 +207,9 @@ class Features extends PureComponent {
               }
             />
             {expansionPanel.keyboardNavigation ? (
-              <ExpandLessIcon />
+              <Icon icon={ChevronUp} />
             ) : (
-              <ExpandMoreIcon />
+              <Icon icon={ChevronDown} />
             )}
           </ListItem>
 

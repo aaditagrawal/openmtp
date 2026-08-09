@@ -6,25 +6,28 @@ import TableRow from '@material-ui/core/TableRow';
 import Collapse from '@material-ui/core/Collapse';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
-import ToggleOffIcon from '@material-ui/icons/ToggleOff';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import Divider from '@material-ui/core/Divider';
-import KeyboardIcon from '@material-ui/icons/Keyboard';
-import StarRateIcon from '@material-ui/icons/StarRate';
-import WarningIcon from '@material-ui/icons/Warning';
-import CloseIcon from '@material-ui/icons/Close';
-import LockOpenIcon from '@material-ui/icons/LockOpen';
-import UsbIcon from '@material-ui/icons/Usb';
-import TouchAppIcon from '@material-ui/icons/TouchApp';
-import RadioButtonCheckedIcon from '@material-ui/icons/RadioButtonChecked';
-import CachedIcon from '@material-ui/icons/Cached';
-import PermDeviceInformationIcon from '@material-ui/icons/PermDeviceInformation';
-import SettingsInputHdmiIcon from '@material-ui/icons/SettingsInputHdmi';
-import ExpandLessIcon from '@material-ui/icons/ExpandLess';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
+import {
+  ToggleLeft,
+  Keyboard,
+  Star,
+  AlertTriangle,
+  X,
+  Unlock,
+  Usb,
+  MousePointerClick,
+  CircleDot,
+  RefreshCw,
+  Info,
+  Cable,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
+import Icon from '../../../components/Icon';
 import { styles } from '../styles/FileExplorerTableBodyEmptyRender';
 import KeyboadShortcuts from '../../KeyboardShortcutsPage/components/KeyboadShortcuts';
 import Features from '../../Onboarding/components/Features';
@@ -34,6 +37,10 @@ import { EVENT_TYPE } from '../../../enums/events';
 import { IpcEvents } from '../../../services/ipc-events/IpcEventType';
 import { APP_NAME } from '../../../constants/meta';
 import { openExternalUrl } from '../../../utils/url';
+import {
+  formatUsbConflictWarning,
+  getActiveUsbConflictApps,
+} from '../../../utils/usbConflictApps';
 
 class FileExplorerTableBodyEmptyRender extends PureComponent {
   constructor(props) {
@@ -45,8 +52,75 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
         keyboardNavigation: false,
         features: false,
       },
+      usbConflictWarning: null,
     };
+
+    this._usbConflictPollId = null;
   }
+
+  componentDidMount() {
+    const { isMtp, mtpDevice } = this.props;
+
+    if (isMtp && !mtpDevice?.isAvailable) {
+      this._refreshUsbConflictWarning();
+      this._usbConflictPollId = setInterval(
+        this._refreshUsbConflictWarning,
+        3000,
+      );
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    const { isMtp, mtpDevice } = this.props;
+    const shouldWatch = isMtp && !mtpDevice?.isAvailable;
+    const wasWatching = prevProps.isMtp && !prevProps.mtpDevice?.isAvailable;
+
+    if (shouldWatch && !wasWatching && !this._usbConflictPollId) {
+      this._refreshUsbConflictWarning();
+      this._usbConflictPollId = setInterval(
+        this._refreshUsbConflictWarning,
+        3000,
+      );
+    }
+
+    if (!shouldWatch && this._usbConflictPollId) {
+      clearInterval(this._usbConflictPollId);
+      this._usbConflictPollId = null;
+    }
+
+    if (!shouldWatch && wasWatching) {
+      // Device came online — collapse the long instructions so they don't
+      // stay expanded (or snap back open) on the next disconnect.
+      this.setState((prevState) => ({
+        usbConflictWarning: null,
+        expansionPanel: {
+          ...prevState.expansionPanel,
+          noMtpInstructions: false,
+        },
+      }));
+    }
+  }
+
+  componentWillUnmount() {
+    if (this._usbConflictPollId) {
+      clearInterval(this._usbConflictPollId);
+      this._usbConflictPollId = null;
+    }
+  }
+
+  _refreshUsbConflictWarning = async () => {
+    try {
+      const activeApps = await getActiveUsbConflictApps();
+      const usbConflictWarning = formatUsbConflictWarning(activeApps);
+      const { usbConflictWarning: previousWarning } = this.state;
+
+      if (usbConflictWarning !== previousWarning) {
+        this.setState({ usbConflictWarning });
+      }
+    } catch (_) {
+      // Detection is best-effort; never block the empty-state UI.
+    }
+  };
 
   _handleExpansionPanel = ({ key }) => {
     this.setState((prevState) => {
@@ -68,6 +142,14 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
     );
   };
 
+  _handleRefreshConnection = () => {
+    const { onRefreshMtpConnection } = this.props;
+
+    if (typeof onRefreshMtpConnection === 'function') {
+      onRefreshMtpConnection();
+    }
+  };
+
   render() {
     const {
       classes: styles,
@@ -76,10 +158,11 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
       currentBrowsePath,
       deviceType,
       directoryLists,
+      enableUsbHotplug,
       onContextMenuClick,
     } = this.props;
 
-    const { expansionPanel } = this.state;
+    const { expansionPanel, usbConflictWarning } = this.state;
 
     const _eventTarget = 'emptyRowTarget';
 
@@ -93,6 +176,44 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
         <TableRow className={styles.emptyTableRowWrapper}>
           <TableCell colSpan={6} className={styles.tableCell}>
             <Paper style={{ height: `100%` }} elevation={0}>
+              {usbConflictWarning ? (
+                <Paper
+                  elevation={0}
+                  style={{
+                    margin: '12px 16px 0',
+                    padding: '12px 14px',
+                    border: '1px solid #d97706',
+                    background: 'rgba(217, 119, 6, 0.12)',
+                  }}
+                >
+                  <ListItemText
+                    primary="USB conflict detected"
+                    secondary={usbConflictWarning}
+                    primaryTypographyProps={{
+                      style: { fontWeight: 600, color: '#b45309' },
+                    }}
+                  />
+                </Paper>
+              ) : null}
+
+              <div className={styles.refreshConnectionWrap}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Icon icon={RefreshCw} size={20} />}
+                  onClick={this._handleRefreshConnection}
+                >
+                  Refresh connection
+                </Button>
+              </div>
+
+              {enableUsbHotplug === false ? (
+                <div className={styles.hotplugTip}>
+                  Tip: enable USB Hotplug in Settings → General for automatic
+                  reconnect.
+                </div>
+              ) : null}
+
               <Button
                 className={styles.helpPhoneNotRecognized}
                 onClick={() => {
@@ -112,7 +233,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   }
                 >
                   <ListItemIcon>
-                    <WarningIcon color="error" />
+                    <Icon icon={AlertTriangle} color="#f44336" />
                   </ListItemIcon>
                   <ListItemText
                     primary="Android device is either busy or not connected"
@@ -123,9 +244,9 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                     }
                   />
                   {expansionPanel.noMtpInstructions ? (
-                    <ExpandLessIcon />
+                    <Icon icon={ChevronUp} />
                   ) : (
-                    <ExpandMoreIcon />
+                    <Icon icon={ChevronDown} />
                   )}
                 </ListItem>
                 <Collapse
@@ -137,7 +258,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                     <div className={styles.nestedPanel}>
                       <ListItem>
                         <ListItemIcon>
-                          <CloseIcon />
+                          <Icon icon={X} />
                         </ListItemIcon>
                         <ListItemText
                           primary="Quit Google drive, Android File Transfer, Dropbox, OneDrive, Preview (for macOS ventura) or any other app that might be reading USB"
@@ -165,7 +286,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
 
                       <ListItem>
                         <ListItemIcon>
-                          <ToggleOffIcon />
+                          <Icon icon={ToggleLeft} />
                         </ListItemIcon>
                         <ListItemText
                           primary={`If you face frequent device disconnections, turn off 'USB Hotplug'`}
@@ -175,19 +296,19 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
 
                       <ListItem>
                         <ListItemIcon>
-                          <LockOpenIcon />
+                          <Icon icon={Unlock} />
                         </ListItemIcon>
                         <ListItemText primary="Unlock your Android device" />
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <UsbIcon />
+                          <Icon icon={Usb} />
                         </ListItemIcon>
                         <ListItemText primary="With a USB cable, connect your device to your computer" />
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <TouchAppIcon />
+                          <Icon icon={MousePointerClick} />
                         </ListItemIcon>
                         <ListItemText
                           primary="On your device, tap the 'Charging this device via
@@ -196,19 +317,19 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <RadioButtonCheckedIcon />
+                          <Icon icon={CircleDot} />
                         </ListItemIcon>
                         <ListItemText primary="Under 'Use USB for' select File Transfer" />
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <CachedIcon />
+                          <Icon icon={RefreshCw} />
                         </ListItemIcon>
                         <ListItemText primary="Tap on the 'Refresh' button above" />
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <PermDeviceInformationIcon />
+                          <Icon icon={Info} />
                         </ListItemIcon>
                         <ListItemText
                           primary="If you are trying to connect a SAMSUNG device then accept the 'Allow access to device data' confirmation pop up in your phone"
@@ -217,7 +338,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <SettingsInputHdmiIcon />
+                          <Icon icon={Cable} />
                         </ListItemIcon>
                         <ListItemText primary="Reconnect the cable and repeat the above steps if you keep seeing this message" />
                       </ListItem>
@@ -236,7 +357,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   }
                 >
                   <ListItemIcon>
-                    <KeyboardIcon />
+                    <Icon icon={Keyboard} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Keyboard Shortcuts"
@@ -247,9 +368,9 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                     }
                   />
                   {expansionPanel.keyboardNavigation ? (
-                    <ExpandLessIcon />
+                    <Icon icon={ChevronUp} />
                   ) : (
-                    <ExpandMoreIcon />
+                    <Icon icon={ChevronDown} />
                   )}
                 </ListItem>
                 <Collapse
@@ -277,7 +398,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   }
                 >
                   <ListItemIcon>
-                    <StarRateIcon />
+                    <Icon icon={Star} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Features"
@@ -288,9 +409,9 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                     }
                   />
                   {expansionPanel.features ? (
-                    <ExpandLessIcon />
+                    <Icon icon={ChevronUp} />
                   ) : (
-                    <ExpandMoreIcon />
+                    <Icon icon={ChevronDown} />
                   )}
                 </ListItem>
                 <Collapse

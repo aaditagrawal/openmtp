@@ -1,8 +1,8 @@
 import React, { PureComponent, Fragment } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMobile, faLaptop } from '@fortawesome/free-solid-svg-icons';
+import { Smartphone, Laptop } from 'lucide-react';
 import { withStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
+import Icon from '../../../components/Icon';
 import { styles } from '../styles/FileExplorerTableFooterStatusBarRender';
 import { getPluralText } from '../../../utils/funcs';
 import { DEVICE_TYPE } from '../../../enums';
@@ -44,7 +44,7 @@ class FileExplorerTableFooterStatusBarRender extends PureComponent {
     if (deviceType === DEVICE_TYPE.local) {
       return (
         <Fragment>
-          <FontAwesomeIcon icon={faLaptop} title={deviceType} />
+          <Icon icon={Laptop} title={deviceType} />
           <span className={styles.deviceTypeWrapper}>
             {DEVICES_LABEL[deviceType]}
             <span> - </span>
@@ -55,7 +55,7 @@ class FileExplorerTableFooterStatusBarRender extends PureComponent {
 
     return (
       <Fragment>
-        <FontAwesomeIcon icon={faMobile} title={deviceType} />
+        <Icon icon={Smartphone} title={deviceType} />
         <span className={styles.deviceTypeWrapper}>
           {mtpDevice?.isAvailable && mtpDevice?.info?.mtpDeviceInfo
             ? mtpDevice?.info?.mtpDeviceInfo?.Model

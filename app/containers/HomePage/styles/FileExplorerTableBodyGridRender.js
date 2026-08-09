@@ -1,4 +1,6 @@
-import { mixins } from '../../../styles/js';
+import { mixins, variables } from '../../../styles/js';
+
+const { fastDuration, fastEasing } = variables().transitions;
 
 export const styles = (theme) => ({
   wrapper: {},
@@ -6,6 +8,10 @@ export const styles = (theme) => ({
     float: `left`,
     width: 100,
     height: 137,
+    // Fixed size tile: safe to contain layout/paint/style so selecting or
+    // hovering a tile never forces the browser to re-measure its siblings.
+    contain: `content`,
+    transition: `background-color ${fastDuration}ms ${fastEasing}`,
   },
   itemCheckBox: {
     display: `none`,

@@ -287,6 +287,29 @@ class FileExplorerController {
   }
 
   /**
+   * description - Return paths from fileList that already exist
+   *
+   * @param {string} deviceType
+   * @param {[string]} fileList
+   * @param {string} storageId
+   * @return {Promise<string[]>}
+   */
+  async listExistingFiles({ deviceType, fileList, storageId }) {
+    checkIf(deviceType, 'string');
+    checkIf(fileList, 'array');
+
+    const result = await this.repository.listExistingFiles({
+      deviceType,
+      fileList,
+      storageId,
+    });
+
+    this._sentEvent({ result, deviceType, eventKey: 'FILES_EXIST' });
+
+    return Array.isArray(result) ? result : [];
+  }
+
+  /**
    * description - Check if files exist
    *
    * @param {string} deviceType

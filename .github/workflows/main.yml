@@ -3,41 +3,173 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # `engines.node` in package.json requires >=22; 22 is the current LTS.
+  NODE_VERSION: '22'
 
 jobs:
   lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
+    name: Lint
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: '.bun-version'
-      - name: Attempt to build OpenMTP
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run ESLint
+        run: bun run lint
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-14 (arm64) is primary. Add more entries (e.g. macos-13 for
+        # Intel) here to widen CI coverage without touching the steps below.
+        os: [macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: '.bun-version'
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify Electron install
+        run: bun run ensure-electron
+
+      - name: Build (lint already covered by the lint job)
+        run: bun run build-no-verify
+
+  package:
+    name: Package (unsigned)
+    needs: build
+    # Packaging costs several extra minutes (electron-builder + dmg/zip
+    # creation), so it only runs where the resulting artifact is actually
+    # useful: pushes to master and tag pushes. PRs only get lint + build.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: '.bun-version'
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify Electron install
+        run: bun run ensure-electron
+
+      - name: Package unsigned macOS app
+        env:
+          # No Apple credentials in a plain CI run: skip identity
+          # auto-discovery and notarization instead of failing the build.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: bun run package-mac-without-notarize-no-verify
+
+      - name: Locate app bundle
+        id: locate
         run: |
-          bun install --frozen-lockfile
-          bun run build
-      - name: Attempt to generate unsigned macOS app
+          set -euo pipefail
+          app_path=$(find dist -maxdepth 2 -name 'OpenMTP.app' -print -quit)
+          if [ -z "$app_path" ]; then
+            echo '::error::electron-builder did not produce OpenMTP.app under dist/'
+            exit 1
+          fi
+          echo "OpenMTP.app found at: $app_path"
+          echo "app_path=$app_path" >> "$GITHUB_OUTPUT"
+
+      - name: Generate checksums
         run: |
-          export CSC_IDENTITY_AUTO_DISCOVERY=false
-          bun run package-mac-without-notarize-no-verify 2>&1 || true
-      - name: Check if macOS app was generated
-        run: test -e dist/mac/OpenMTP.app
-      - name: Create disk image
-        run: |
-          mkdir dist/dmg
-          bunx create-dmg dist/mac/OpenMTP.app dist/dmg 2>&1 || true
-          shasum dist/dmg/* >> dist/dmg/CHECKSUM_SHA256.txt
-      - name: Upload disk image and checksum
+          set -euo pipefail
+          shopt -s nullglob
+          artifacts=(dist/*.dmg dist/*.zip)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo '::error::No .dmg or .zip artifacts were produced under dist/'
+            exit 1
+          fi
+          shasum -a 256 "${artifacts[@]}" | tee dist/CHECKSUMS_SHA256.txt
+
+      - name: Upload OpenMTP.app
         uses: actions/upload-artifact@v4
         with:
-          name: Disk Image
-          path: dist/dmg/
+          name: OpenMTP-macos-arm64-app
+          path: ${{ steps.locate.outputs.app_path }}
+          if-no-files-found: error
+
+      - name: Upload disk image, zip and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMTP-macos-arm64-dmg
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/CHECKSUMS_SHA256.txt
+          if-no-files-found: error

@@ -61,6 +61,17 @@ todo.txt
 *yarn-error.log
 eslint-common-rules.txt
 
+# Webpack HMR / writeToDisk junk under app/ (do NOT ignore source glue:
+# app/main.dev.entry.js, internals/scripts/ensure-electron.js)
+app/*.hot-update.js
+app/*.hot-update.json
+app/*.renderer.dev.js
+app/vendors-*.renderer.dev.js
+app/renderer.dev.js
+app/*.woff
+app/*.woff2
+app/images/app/
+
 build/entitlements.mas.plist
 *embedded.provisionprofile
 extras/*
@@ -71,3 +82,4 @@ tmp/*
 *.js.map
 *.js.LICENSE.txt
 *.prod.js.LICENSE.txt
+.eslintcache

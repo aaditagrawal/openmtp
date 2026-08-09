@@ -8,6 +8,9 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import { styles } from '../styles/PasteConflict';
+import { variables } from '../../../styles/js';
+
+const { dialogDuration } = variables().transitions;
 
 class PasteConflict extends PureComponent {
   _handleBtnClick = (action) => {
@@ -19,31 +22,48 @@ class PasteConflict extends PureComponent {
   render() {
     const {
       classes: styles,
-      titleText = 'Folder Already Exists',
-      bodyText = 'The destination already contains items with the same name. What would you like to do?',
+      conflictCount = 0,
+      titleText = 'Items already exist',
+      bodyText,
       trigger,
     } = this.props;
+
+    const resolvedBodyText =
+      bodyText ||
+      (conflictCount > 0
+        ? `${conflictCount} selected ${
+            conflictCount === 1 ? 'item already exists' : 'items already exist'
+          } at the destination. Skip them, replace everything, or use Smart Sync to copy only new/changed files.`
+        : 'Some selected items already exist at the destination. Skip them, replace everything, or use Smart Sync to copy only new/changed files.');
 
     return (
       <Dialog
         open={trigger}
         fullWidth
-        maxWidth="xs"
+        maxWidth="sm"
         aria-labelledby="paste-conflict-dialogbox"
         disableEscapeKeyDown={false}
+        transitionDuration={dialogDuration}
         onEscapeKeyDown={() => this._handleBtnClick('cancel')}
       >
         <DialogTitle>{titleText}</DialogTitle>
         <DialogContent>
-          <DialogContentText>{bodyText}</DialogContentText>
+          <DialogContentText>{resolvedBodyText}</DialogContentText>
         </DialogContent>
-        <DialogActions>
+        <DialogActions className={styles.actions}>
           <Button
             onClick={() => this._handleBtnClick('cancel')}
             color="secondary"
             className={classNames(styles.btnNegative)}
           >
             Cancel
+          </Button>
+          <Button
+            onClick={() => this._handleBtnClick('skip')}
+            color="primary"
+            className={classNames(styles.btnNeutral)}
+          >
+            Skip existing
           </Button>
           <Button
             onClick={() => this._handleBtnClick('smartSync')}
@@ -56,6 +76,7 @@ class PasteConflict extends PureComponent {
             onClick={() => this._handleBtnClick('replace')}
             color="primary"
             className={classNames(styles.btnPositive)}
+            autoFocus
           >
             Replace All
           </Button>

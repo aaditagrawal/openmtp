@@ -2,53 +2,66 @@ import { spawn } from 'child_process';
 import { checkIf } from './checkIf';
 import { log } from './log';
 
-// this is to prevent grep from appearing in the pslist and thus polluting the output
-const queryToRegex = (str) => {
-  if (typeof str === 'undefined' || str === null) {
-    return '';
-  }
-
-  if (str.trim() === '') {
-    return '';
-  }
-
-  str.replace(str.charAt(0), `[${str.charAt(0)}]`);
-};
-
+/**
+ * Fast process lookup via macOS `pgrep`.
+ * Prefer exact-ish path fragments (e.g. `Preview.app`) over short names.
+ */
 export const isProcessRunning = (query) => {
   checkIf(query, 'string');
 
   return new Promise((resolve) => {
-    let stdout = '';
-    let stderr;
+    let settled = false;
 
-    const child = spawn('ps', ['aux']);
-    const grep = spawn('grep', [`"${queryToRegex(query)}"`]);
-
-    child.stdout.pipe(grep.stdin);
-
-    child.stdout.on('data', (data) => {
-      stdout += data;
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr = data;
-    });
-
-    child.on('exit', (code) => {
-      if (code > 1 && stderr) {
-        log.error(stderr, 'isProcessRunning -> exit');
-
-        return resolve(false);
+    const finish = (value) => {
+      if (settled) {
+        return;
       }
 
-      return resolve(
-        (stdout ?? '')?.toLowerCase().indexOf(query?.toLowerCase()) > -1,
-      );
-    });
-  }).catch((e) => {
-    log.error(e, 'isProcessRunning -> err');
+      settled = true;
+      resolve(value);
+    };
 
-    return Promise.resolve(false);
+    try {
+      const child = spawn('pgrep', ['-if', query], {
+        stdio: ['ignore', 'ignore', 'ignore'],
+      });
+
+      child.on('error', (e) => {
+        log.error(e, 'isProcessRunning -> spawn');
+        finish(false);
+      });
+
+      child.on('close', (code) => {
+        finish(code === 0);
+      });
+
+      // Avoid hanging forever if pgrep is stuck.
+      setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch (_) {
+          // ignore
+        }
+
+        finish(false);
+      }, 1500);
+    } catch (e) {
+      log.error(e, 'isProcessRunning -> err');
+      finish(false);
+    }
   });
+};
+
+export const isAnyProcessRunning = async (queries = []) => {
+  checkIf(queries, 'array');
+
+  // eslint-disable-next-line no-restricted-syntax
+  for (const query of queries) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await isProcessRunning(query)) {
+      return true;
+    }
+  }
+
+  return false;
 };

@@ -3,13 +3,16 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
-import FileCopyIcon from '@material-ui/icons/FileCopy';
-import TouchAppIcon from '@material-ui/icons/TouchApp';
-import AttachFileIcon from '@material-ui/icons/AttachFile';
-import SendIcon from '@material-ui/icons/Send';
-import UsbIcon from '@material-ui/icons/Usb';
-import EmailIcon from '@material-ui/icons/Email';
 import Button from '@material-ui/core/Button';
+import {
+  Copy,
+  MousePointerClick,
+  Paperclip,
+  Send,
+  Usb,
+  Mail,
+} from 'lucide-react';
+import Icon from '../../../components/Icon';
 import { DEVICES_LABEL } from '../../../constants';
 import { DEVICE_TYPE } from '../../../enums';
 
@@ -29,7 +32,7 @@ export default class GenerateErrorReportBody extends PureComponent {
         <List>
           <ListItem>
             <ListItemIcon>
-              <UsbIcon />
+              <Icon icon={Usb} />
             </ListItemIcon>
             <ListItemText
               primary={`Unlock your ${
@@ -41,13 +44,13 @@ export default class GenerateErrorReportBody extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <FileCopyIcon />
+              <Icon icon={Copy} />
             </ListItemIcon>
             <ListItemText primary="Turn on the 'File Transfer' mode" />
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <TouchAppIcon />
+              <Icon icon={MousePointerClick} />
             </ListItemIcon>
             <ListItemText
               primary="Click the 'EMAIL ERROR LOGS' button below"
@@ -56,7 +59,7 @@ export default class GenerateErrorReportBody extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <AttachFileIcon />
+              <Icon icon={Paperclip} />
             </ListItemIcon>
             <ListItemText
               primary="Attach the generated Error Log file along with the email"
@@ -65,7 +68,7 @@ export default class GenerateErrorReportBody extends PureComponent {
           </ListItem>
           <ListItem>
             <ListItemIcon>
-              <SendIcon />
+              <Icon icon={Send} />
             </ListItemIcon>
             <ListItemText primary="Send the email" />
           </ListItem>
@@ -81,7 +84,7 @@ export default class GenerateErrorReportBody extends PureComponent {
         <List component="div">
           <ListItem>
             <ListItemIcon>
-              <EmailIcon />
+              <Icon icon={Mail} />
             </ListItemIcon>
             <a
               href={`${mailTo} ${mailToInstructions}`}

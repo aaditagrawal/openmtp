@@ -73,7 +73,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
         aria-checked={isSelected}
         tabIndex={-1}
         selected={isSelected}
-        className={classNames({
+        className={classNames(styles.tableRow, {
           [styles.tableRowSelected]: isSelected,
         })}
         onDragStart={(event) => {

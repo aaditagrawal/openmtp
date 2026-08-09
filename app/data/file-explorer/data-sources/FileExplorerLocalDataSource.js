@@ -8,7 +8,7 @@ import {
   statSync,
   lstatSync,
   rename as fsRename,
-  readlink,
+  readlinkSync,
   realpathSync,
   rm,
 } from 'fs';
@@ -142,38 +142,49 @@ export class FileExplorerLocalDataSource {
 
   /**
    *
-   * description - returns file info needed for navigating through symlinks
+   * description - returns file info needed for navigating through symlinks.
+   * Synchronous on purpose: listDirectory is on the open-folder hot path
+   * (double-click / Enter) and awaiting readlink per entry made navigation
+   * feel lagged even for ordinary non-symlink directories.
    * @private
    *
    * @param fullPath
-   * @returns {Promise<{isFolder: boolean, symlink: string|null}>}
+   * @returns {{isFolder: boolean, symlink: string|null}}
    * @private
    */
-  _getSymlinkInfo = async ({ fullPath }) => {
-    const symlink = await new Promise((resolve) => {
-      try {
-        readlink(fullPath, (err, lnk) => {
-          if (err) {
-            return resolve(null);
-          }
+  _getSymlinkInfo = ({ fullPath }) => {
+    try {
+      const lstat = lstatSync(fullPath);
 
-          if (!undefinedOrNull(lnk) && existsSync(lnk)) {
-            return resolve(realpathSync(lnk));
-          }
-
-          return resolve(null);
-        });
-      } catch (e) {
-        return resolve(null);
+      if (!lstat.isSymbolicLink()) {
+        return {
+          isFolder: lstat.isDirectory(),
+          symlink: null,
+        };
       }
-    });
 
-    const isFolder = lstatSync(symlink ?? fullPath).isDirectory();
+      let symlink = null;
 
-    return {
-      isFolder,
-      symlink,
-    };
+      try {
+        const lnk = readlinkSync(fullPath);
+
+        if (!undefinedOrNull(lnk) && existsSync(lnk)) {
+          symlink = realpathSync(lnk);
+        }
+      } catch (_) {
+        symlink = null;
+      }
+
+      return {
+        isFolder: lstatSync(symlink ?? fullPath).isDirectory(),
+        symlink,
+      };
+    } catch (_) {
+      return {
+        isFolder: false,
+        symlink: null,
+      };
+    }
   };
 
   /**
@@ -228,14 +239,13 @@ export class FileExplorerLocalDataSource {
 
         const fullPath = path.resolve(filePath, file);
 
-        // oxlint-disable-next-line no-await-in-loop
-        const { isFolder, symlink } = await this._getSymlinkInfo({
-          fullPath,
-        });
-
         if (!existsSync(fullPath)) {
           continue; // oxlint-disable-line no-continue
         }
+
+        const { isFolder, symlink } = this._getSymlinkInfo({
+          fullPath,
+        });
 
         const stat = statSync(fullPath);
         const extension = path.extname(fullPath);
@@ -275,6 +285,18 @@ export class FileExplorerLocalDataSource {
         };
       }
 
+      // Smart Sync calls this for every selected path. A file path must not
+      // be treated as an empty directory (that made Sync skip the file).
+      if (!existsSync(filePath)) {
+        return { error: `Path not found: ${filePath}`, data: null };
+      }
+
+      const rootStat = this._getSymlinkInfo({ fullPath: filePath });
+
+      if (!rootStat.isFolder) {
+        return { error: 'ENOTDIR', data: null };
+      }
+
       const response = [];
       const queue = [filePath];
 
@@ -293,33 +315,35 @@ export class FileExplorerLocalDataSource {
             files = files.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
           }
 
-          // oxlint-disable-next-line no-await-in-loop
-          const fileDetails = await Promise.all(
-            files.map(async (file) => {
-              const fullPath = path.resolve(currentDir, file);
-              const { isFolder, symlink } = await this._getSymlinkInfo({
-                fullPath,
-              });
+          const fileDetails = files.map((file) => {
+            const fullPath = path.resolve(currentDir, file);
 
-              if (!existsSync(fullPath)) {
-                return null;
-              }
+            if (!existsSync(fullPath)) {
+              return null;
+            }
 
-              const stat = statSync(fullPath);
-              const extension = path.extname(fullPath);
-              const { size, atime: dateTime } = stat;
+            const { isFolder, symlink } = this._getSymlinkInfo({
+              fullPath,
+            });
 
-              return {
-                file,
-                fullPath,
-                extension,
-                size,
-                isFolder,
-                dateAdded: appDateFormat(dateTime),
-                symlink,
-              };
-            }),
-          );
+            const stat = statSync(fullPath);
+            const extension = path.extname(fullPath);
+            // Use mtime (modification time) so Smart Sync's diff can
+            // reliably detect when the source is newer than destination.
+            // atime (access time) updates on read and is unreliable for
+            // "is this file newer?" comparisons.
+            const { size, mtime: dateTime } = stat;
+
+            return {
+              file,
+              fullPath,
+              extension,
+              size,
+              isFolder,
+              dateAdded: appDateFormat(dateTime),
+              symlink,
+            };
+          });
 
           fileDetails.filter(Boolean).forEach((fileDetail) => {
             if (fileDetail.isFolder) {
@@ -482,20 +506,18 @@ export class FileExplorerLocalDataSource {
   }
 
   /**
-   * description - Check if files exist in the local disk
+   * description - Return local paths that already exist
    *
    * @param {[string]} fileList
-   * @return {Promise<boolean>}
+   * @return {Promise<string[]>}
    */
-  async filesExist({ fileList }) {
+  async listExistingFiles({ fileList }) {
     try {
-      if (!isArray(fileList)) {
-        return false;
+      if (!isArray(fileList) || isEmpty(fileList)) {
+        return [];
       }
 
-      if (isEmpty(fileList)) {
-        return false;
-      }
+      const existing = [];
 
       for (let i = 0; i < fileList.length; i += 1) {
         const item = fileList[i];
@@ -507,23 +529,33 @@ export class FileExplorerLocalDataSource {
         });
 
         if (!_accessGranted) {
-          return {
-            data: null,
-            error: 'Permission denied',
-          };
+          // Fail closed so the conflict dialog is shown instead of overwriting.
+          return [...fileList];
         }
 
         // oxlint-disable-next-line no-await-in-loop
         if (await existsSync(fullPath)) {
-          return true;
+          existing.push(item);
         }
       }
 
-      return false;
+      return existing;
     } catch (e) {
       log.error(e);
 
-      return false;
+      return [...fileList];
     }
+  }
+
+  /**
+   * description - Check if files exist in the local disk
+   *
+   * @param {[string]} fileList
+   * @return {Promise<boolean>}
+   */
+  async filesExist({ fileList }) {
+    const existing = await this.listExistingFiles({ fileList });
+
+    return existing.length > 0;
   }
 }

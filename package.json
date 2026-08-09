@@ -7,10 +7,10 @@
   "scripts": {
     "build": "node ./internals/scripts/run-package-script.js lint && concurrently \"node ./internals/scripts/run-package-script.js build-main\" \"node ./internals/scripts/run-package-script.js build-renderer\"",
     "build-no-verify": "concurrently \"node ./internals/scripts/run-package-script.js build-main\" \"node ./internals/scripts/run-package-script.js build-renderer\"",
-    "build-dll": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=development webpack --config ./webpack/config.renderer.dev.dll.babel.js --color",
-    "build-main": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=production webpack --config ./webpack/config.main.prod.babel.js --color",
-    "build-renderer": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=production webpack --config ./webpack/config.renderer.prod.babel.js --color",
-    "dev": "cross-env NODE_ENV=development START_HOT=1 node -r @babel/register ./internals/scripts/CheckPortInUse.js && cross-env START_HOT=1 node ./internals/scripts/run-package-script.js start-renderer-dev",
+    "build-dll": "cross-env NODE_OPTIONS='--openssl-legacy-provider --require @babel/register' NODE_ENV=development webpack --disable-interpret --config ./webpack/config.renderer.dev.dll.babel.js --color",
+    "build-main": "cross-env NODE_OPTIONS='--openssl-legacy-provider --require @babel/register' NODE_ENV=production webpack --disable-interpret --config ./webpack/config.main.prod.babel.js --color",
+    "build-renderer": "cross-env NODE_OPTIONS='--openssl-legacy-provider --require @babel/register' NODE_ENV=production webpack --disable-interpret --config ./webpack/config.renderer.prod.babel.js --color",
+    "dev": "node ./internals/scripts/ensure-electron.js && cross-env NODE_ENV=development START_HOT=1 node -r @babel/register ./internals/scripts/CheckPortInUse.js && cross-env START_HOT=1 node ./internals/scripts/run-package-script.js start-renderer-dev",
     "dev-kalam-ffi": "./ffi/kalam/native/scripts/build.sh && node ./internals/scripts/run-package-script.js dev",
     "package": "node ./internals/scripts/run-package-script.js build && electron-builder --config electron-builder-config.js build --publish never",
     "package-all": "node ./internals/scripts/run-package-script.js build && electron-builder --config electron-builder-config.js build -mwl --publish never",
@@ -22,8 +22,8 @@
     "package-win": "node ./internals/scripts/run-package-script.js build && electron-builder --config electron-builder-config.js build --win --x64 --publish never",
     "prestart": "node ./internals/scripts/run-package-script.js build",
     "start": "cross-env NODE_ENV=production ./app/main.prod.js",
-    "start-main-dev": "cross-env START_HOT=1 NODE_ENV=development run-electron -r @babel/register ./app/main.dev.js",
-    "start-renderer-dev": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=development webpack serve --config webpack/config.renderer.dev.babel.js",
+    "start-main-dev": "node ./internals/scripts/ensure-electron.js && cross-env START_HOT=1 NODE_ENV=development run-electron ./app/main.dev.entry.js",
+    "start-renderer-dev": "cross-env NODE_OPTIONS='--openssl-legacy-provider --require @babel/register' NODE_ENV=development webpack serve --disable-interpret --config webpack/config.renderer.dev.babel.js",
     "publish-mac": "node ./internals/scripts/run-package-script.js build && electron-builder --config electron-builder-config.js build --mac --publish always",
     "publish-mac-no-verify": "node ./internals/scripts/run-package-script.js build-no-verify && cross-env electron-builder --config electron-builder-config.js build --mac --publish always",
     "dev-docs": "cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=development webpack serve --config docs-sources/webpack/webpack.config.base.js",
@@ -37,7 +37,8 @@
     "lint-styles-fix": "node ./internals/scripts/run-package-script.js lint-styles --fix && node ./internals/scripts/run-package-script.js format; exit 0",
     "prepare": "husky",
     "preinstall": "internals/scripts/preinstall.sh",
-    "postinstall": "node ./internals/scripts/run-package-script.js build-dll && node ./internals/scripts/install-app-deps.js"
+    "postinstall": "node ./internals/scripts/ensure-electron.js && node ./internals/scripts/run-package-script.js build-dll && node ./internals/scripts/install-app-deps.js",
+    "ensure-electron": "node ./internals/scripts/ensure-electron.js"
   },
   "main": "./app/main.prod.js",
   "repository": {
@@ -71,19 +72,13 @@
   },
   "dependencies": {
     "@electron/remote": "^2.1.3",
-    "@fortawesome/fontawesome-svg-core": "^1.2.36",
-    "@fortawesome/free-brands-svg-icons": "^5.15.4",
-    "@fortawesome/free-regular-svg-icons": "^5.15.4",
-    "@fortawesome/free-solid-svg-icons": "^5.15.4",
-    "@fortawesome/react-fontawesome": "^0.1.19",
+    "@fontsource/dm-mono": "^5.3.0",
     "@material-ui/core": "^4.12.4",
-    "@material-ui/icons": "^4.11.3",
     "@sentry/electron": "^7.10.0",
     "@sindresorhus/is": "^4.4.0",
     "baseline-browser-mapping": "^2.10.0",
     "caniuse-lite": "^1.0.30001777",
     "classnames": "^2.3.1",
-    "console-log-plus": "^1.0.8",
     "dayjs": "^1.10.7",
     "electron-debug": "^3.2.0",
     "electron-ga": "^1.0.6",
@@ -97,6 +92,7 @@
     "hotkeys-js": "^4.0.2",
     "junk": "^3.1.0",
     "koffi": "^2.15.2",
+    "lucide-react": "^1.30.0",
     "macos-version": "5.2.1",
     "milligram": "^1.4.1",
     "mixpanel-browser": "^2.75.0",
@@ -115,7 +111,6 @@
     "redux": "^4.2.1",
     "redux-thunk": "^2.4.2",
     "reselect": "^4.1.8",
-    "roboto-fontface": "^0.10.0",
     "run-electron": "^1.0.0",
     "sanitize-html": "^2.17.1",
     "semver": "^7.7.4",
@@ -166,7 +161,7 @@
     "css-loader": "^7.1.4",
     "css-minimizer-webpack-plugin": "^8.0.0",
     "detect-port": "^2.1.0",
-    "electron": "^41.0.0",
+    "electron": "41.0.0",
     "electron-builder": "^26.8.1",
     "electron-devtools-installer": "^4.0.0",
     "electron-download": "^4.1.1",
@@ -192,7 +187,7 @@
     "url-loader": "^4.1.1",
     "webpack": "^5.105.4",
     "webpack-bundle-analyzer": "^3.9.0",
-    "webpack-cli": "^4.10.0",
+    "webpack-cli": "5",
     "webpack-dev-server": "^5.2.3",
     "webpack-merge": "^6.0.1",
     "zx": "^5.0.0"
@@ -215,7 +210,7 @@
     "json5": "^1.0.2"
   },
   "engines": {
-    "node": ">=22 <26"
+    "node": ">=22"
   },
   "trustedDependencies": [
     "electron",

@@ -56,7 +56,7 @@ export default merge(baseConfig, {
   ],
 
   output: {
-    publicPath: `http://localhost:${PORT}/dist/`,
+    publicPath: 'auto',
     filename: 'renderer.dev.js',
   },
 
@@ -253,33 +253,53 @@ export default merge(baseConfig, {
     devMiddleware: {
       publicPath,
       stats: 'errors-only',
+      writeToDisk: true,
     },
     static: {
       directory: path.join(PATHS.dist),
       publicPath,
       watch: false,
     },
-    watchOptions: {
-      aggregateTimeout: 300,
-      ignored: /node_modules/,
-      poll: 100,
-    },
     historyApiFallback: true,
-    setupMiddlewares: (middlewares) => {
+    setupMiddlewares: (middlewares, devServer) => {
       if (process.env.START_HOT) {
-        console.info('Starting Main Process...');
-        spawn(
-          'node',
-          ['./internals/scripts/run-package-script.js', 'start-main-dev'],
-          {
-            shell: true,
-            env: process.env,
-            cwd: PATHS.root,
-            stdio: 'inherit',
-          },
-        )
-          .on('close', (code) => process.exit(code))
-          .on('error', (spawnError) => console.error(spawnError));
+        let mainProcessStarted = false;
+
+        const startMainProcess = () => {
+          if (mainProcessStarted) {
+            return;
+          }
+          mainProcessStarted = true;
+
+          // app.html loads ./renderer.dev.js from disk (writeToDisk). Wait for
+          // the first successful compile so that file exists before Electron opens.
+          console.info('Starting Main Process...');
+          spawn(
+            'node',
+            ['./internals/scripts/run-package-script.js', 'start-main-dev'],
+            {
+              shell: true,
+              // Avoid leaking webpack's NODE_OPTIONS (--require @babel/register)
+              // into Electron's main process.
+              env: { ...process.env, NODE_OPTIONS: '' },
+              cwd: PATHS.root,
+              stdio: 'inherit',
+            },
+          )
+            .on('close', (code) => process.exit(code))
+            .on('error', (spawnError) => console.error(spawnError));
+        };
+
+        const compiler = devServer?.compiler;
+        if (compiler?.hooks?.done) {
+          compiler.hooks.done.tap('OpenMTPStartMainDev', (stats) => {
+            if (!stats.hasErrors()) {
+              startMainProcess();
+            }
+          });
+        } else {
+          startMainProcess();
+        }
       }
 
       return middlewares;

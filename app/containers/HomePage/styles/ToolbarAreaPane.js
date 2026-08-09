@@ -29,7 +29,7 @@ export const styles = (theme) => {
     },
     appBar: {},
     navBtns: {
-      paddingLeft: 5,
+      paddingLeft: 2,
     },
     noAppDrag: {
       ...mixins({ theme }).appDragDisable,
@@ -45,8 +45,20 @@ export const styles = (theme) => {
       height: 27,
       width: `27px !important`,
     },
+    // Slightly tighter than MUI's default 12px IconButton padding for a
+    // denser toolbar. Still comfortably above the 32px min hit target
+    // (25-27px icon + 2 x 8px padding = 41-43px).
+    toolbarIconBtn: {
+      padding: `8px !important`,
+      minWidth: 32,
+      minHeight: 32,
+      boxSizing: 'border-box',
+    },
     imageBtn: {
-      padding: `10px !important`,
+      padding: `8px !important`,
+      minWidth: 32,
+      minHeight: 32,
+      boxSizing: 'border-box',
       background: '#fff',
       [`&:hover`]: {
         background: `rgba(255, 255, 255, 0.85) !important`,

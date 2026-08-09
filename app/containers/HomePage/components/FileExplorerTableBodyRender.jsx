@@ -66,11 +66,13 @@ class FileExplorerTableBodyRender extends PureComponent {
       currentBrowsePath,
       directoryLists,
       mtpDevice,
+      enableUsbHotplug,
       onSelectAllClick,
       onRequestSort,
       onContextMenuClick,
       onIsDraggable,
       onDragStart,
+      onRefreshMtpConnection,
     } = this.props;
     const { nodes, order, orderBy, queue } = directoryLists[deviceType];
     const { selected } = queue;
@@ -103,7 +105,9 @@ class FileExplorerTableBodyRender extends PureComponent {
               currentBrowsePath={currentBrowsePath}
               deviceType={deviceType}
               directoryLists={directoryLists}
+              enableUsbHotplug={enableUsbHotplug}
               onContextMenuClick={onContextMenuClick}
+              onRefreshMtpConnection={onRefreshMtpConnection}
             />
           ) : (
             this.ListingSwitcher(fileExplorerListingType[deviceType])

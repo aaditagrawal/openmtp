@@ -1,13 +1,13 @@
-import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import {
-  faSync,
-  faSdCard,
-  faCog,
-  faPlug,
-  faArrowLeft,
-  faQuestionCircle,
-} from '@fortawesome/free-solid-svg-icons';
-import { faGithub, faPaypal } from '@fortawesome/free-brands-svg-icons';
+  ArrowLeft,
+  RefreshCw,
+  Trash2,
+  Settings,
+  HelpCircle,
+  HardDrive,
+  Plug,
+} from 'lucide-react';
+import { Github, Paypal } from '../../components/Icon/brands';
 import { actionTypes } from './actions';
 import { PATHS } from '../../constants/paths';
 import {
@@ -69,64 +69,64 @@ export const initialState = {
       up: {
         enabled: true,
         label: 'Folder Up',
-        icon: faArrowLeft,
+        icon: ArrowLeft,
       },
       refresh: {
         enabled: true,
         label: 'Refresh',
-        icon: faSync,
+        icon: RefreshCw,
       },
       delete: {
         enabled: true,
         label: 'Delete',
-        icon: faTrashAlt,
+        icon: Trash2,
       },
       gitHub: {
         enabled: true,
         label: 'GitHub',
-        icon: faGithub,
+        icon: Github,
       },
       settings: {
         enabled: true,
         label: 'Settings',
-        icon: faCog,
+        icon: Settings,
       },
       faqs: {
         enabled: true,
         label: 'Help - FAQs',
-        icon: faQuestionCircle,
+        icon: HelpCircle,
       },
     },
     [DEVICE_TYPE.mtp]: {
       up: {
         enabled: true,
         label: 'Folder Up',
-        icon: faArrowLeft,
+        icon: ArrowLeft,
       },
       refresh: {
         enabled: true,
         label: 'Refresh',
-        icon: faSync,
+        icon: RefreshCw,
       },
       delete: {
         enabled: true,
         label: 'Delete',
-        icon: faTrashAlt,
+        icon: Trash2,
       },
       storage: {
         enabled: true,
         label: 'Storage',
-        icon: faSdCard,
+        icon: HardDrive,
       },
       mtpMode: {
         enabled: isKalamModeSupported(),
         label: 'MTP Mode',
-        icon: faPlug,
+        icon: Plug,
       },
       paypal: {
         enabled: true,
         label: supportUsingPayPal,
-        icon: faPaypal,
+        icon: Paypal,
       },
       buyMeACoffee: {
         enabled: true,
@@ -137,7 +137,7 @@ export const initialState = {
       settings: {
         enabled: true,
         label: 'Settings',
-        icon: faCog,
+        icon: Settings,
       },
     },
   },

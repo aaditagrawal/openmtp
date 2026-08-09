@@ -193,6 +193,41 @@ export class FileExplorerKalamDataSource {
   }
 
   /**
+   * description - Return destination paths that already exist
+   *
+   * @param {[string]} fileList
+   * @param {string} storageId
+   * @return {Promise<string[]>}
+   */
+  async listExistingFiles({ fileList, storageId }) {
+    checkIf(fileList, 'array');
+    checkIf(storageId, 'number');
+
+    try {
+      if (isEmpty(fileList)) {
+        return [];
+      }
+
+      const { error, stderr, data } = await this.kalamFfi.fileExist({
+        storageId,
+        files: fileList,
+      });
+
+      // Fail closed: treat as all existing so the conflict dialog is shown
+      // instead of silently overwriting.
+      if (error || stderr || isEmpty(data)) {
+        return [...fileList];
+      }
+
+      return data.filter((a) => a.exists).map((a) => a.fullpath);
+    } catch (e) {
+      log.error(e);
+
+      return [...fileList];
+    }
+  }
+
+  /**
    * description - Check if files exist in the device
    *
    * @param {[string]} fileList
@@ -200,35 +235,9 @@ export class FileExplorerKalamDataSource {
    * @return {Promise<boolean>}
    */
   async filesExist({ fileList, storageId }) {
-    checkIf(fileList, 'array');
-    checkIf(storageId, 'number');
+    const existing = await this.listExistingFiles({ fileList, storageId });
 
-    try {
-      const { error, stderr, data } = await this.kalamFfi.fileExist({
-        storageId,
-        files: fileList,
-      });
-
-      if (error || stderr) {
-        return true;
-      }
-
-      if (isEmpty(data)) {
-        return true;
-      }
-
-      const existsItems = data.filter((a) => a.exists);
-
-      return existsItems.length > 0;
-    } catch (e) {
-      log.error(e);
-
-      return {
-        error: e,
-        stderr: null,
-        data: null,
-      };
-    }
+    return existing.length > 0;
   }
 
   /**

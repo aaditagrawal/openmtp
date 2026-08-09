@@ -23,6 +23,7 @@ export default merge(baseConfig, {
   mode: 'development',
   target: 'electron-renderer',
   externals: ['fsevents', 'crypto-browserify'],
+  externalsType: 'commonjs',
 
   /**
    * Use `module` from `config.renderer.dev.babel.js`

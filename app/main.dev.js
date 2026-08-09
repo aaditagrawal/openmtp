@@ -19,13 +19,7 @@ import { nonBootableDeviceWindow } from './helpers/createWindows';
 import { APP_TITLE } from './constants/meta';
 import { isPackaged } from './utils/isPackaged';
 import { getWindowBackgroundColor } from './helpers/windowHelper';
-import {
-  APP_THEME_MODE_TYPE,
-  DEVICE_TYPE,
-  MTP_MODE,
-  USB_HOTPLUG_EVENTS,
-} from './enums';
-import fileExplorerController from './data/file-explorer/controllers/FileExplorerController';
+import { APP_THEME_MODE_TYPE, MTP_MODE, USB_HOTPLUG_EVENTS } from './enums';
 import { getEnablePrereleaseUpdatesSetting } from './helpers/settings';
 import { getRemoteWindow } from './helpers/remoteWindowHelpers';
 import { IpcEvents } from './services/ipc-events/IpcEventType';
@@ -34,6 +28,13 @@ import { isKalamModeSupported } from './helpers/binaries';
 import { fileExistsSync } from './helpers/fileOps';
 
 const remote = getRemoteWindow();
+
+if (IS_DEV && process.env.OPENMTP_REMOTE_DEBUG_PORT) {
+  app.commandLine.appendSwitch(
+    'remote-debugging-port',
+    process.env.OPENMTP_REMOTE_DEBUG_PORT,
+  );
+}
 
 const isSingleInstance = app.requestSingleInstanceLock();
 const isDeviceBootable = bootTheDevice();
@@ -64,7 +65,7 @@ async function bootTheDevice() {
 
     return await bootLoader.verify();
   } catch (e) {
-    throw new Error(e);
+    throw new Error(e, { cause: e });
   }
 }
 
@@ -155,6 +156,7 @@ async function createWindow() {
         enableRemoteModule: true,
         nodeIntegration: true,
         contextIsolation: false,
+        webSecurity: !IS_DEV,
       },
       backgroundColor: getWindowBackgroundColor(),
     });
@@ -280,7 +282,7 @@ if (!isDeviceBootable) {
     try {
       nonBootableDeviceWindow();
     } catch (e) {
-      throw new Error(e);
+      throw new Error(e, { cause: e });
     }
   });
 
@@ -288,7 +290,7 @@ if (!isDeviceBootable) {
     try {
       app.quit();
     } catch (e) {
-      throw new Error(e);
+      throw new Error(e, { cause: e });
     }
   });
 } else {
@@ -445,15 +447,7 @@ if (!isDeviceBootable) {
       log.error(e, `main.dev -> whenReady`);
     });
 
-  app.on('before-quit', async () => {
-    fileExplorerController
-      .dispose({
-        deviceType: DEVICE_TYPE.mtp,
-      })
-      .catch((e) => {
-        log.error(e, `main.dev -> before-quit`);
-      });
-
+  app.on('before-quit', (event) => {
     if (usbAttachListener) {
       usbMonitor.off('attach', usbAttachListener);
       usbAttachListener = null;
@@ -462,6 +456,39 @@ if (!isDeviceBootable) {
     if (usbDetachListener) {
       usbMonitor.off('detach', usbDetachListener);
       usbDetachListener = null;
+    }
+
+    // The live Kalam MTP session lives in the renderer. Ask it to dispose
+    // cleanly before quitting so USB endpoints are released for the next run.
+    if (
+      !app.isMtpDisposeForQuitDone &&
+      mainWindow &&
+      !mainWindow.isDestroyed()
+    ) {
+      event.preventDefault();
+      app.isMtpDisposeForQuitDone = true;
+
+      const finishQuit = () => {
+        ipcMain.removeListener(
+          IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE,
+          finishQuit,
+        );
+
+        if (app.mtpDisposeQuitFallbackTimer) {
+          clearTimeout(app.mtpDisposeQuitFallbackTimer);
+          app.mtpDisposeQuitFallbackTimer = null;
+        }
+
+        app.quitting = true;
+        app.quit();
+      };
+
+      ipcMain.once(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE, finishQuit);
+      mainWindow.webContents.send(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP);
+
+      app.mtpDisposeQuitFallbackTimer = setTimeout(finishQuit, 1500);
+
+      return;
     }
 
     app.quitting = true;

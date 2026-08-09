@@ -1,5 +1,7 @@
 import { variables } from '../../../styles/js';
 
+const { fastDuration, fastEasing } = variables().transitions;
+
 export const styles = (_) => {
   return {
     listsWrapper: {
@@ -8,12 +10,17 @@ export const styles = (_) => {
     },
     listsBottom: {
       paddingTop: 5,
+      // Dense list items still need a usable hit target.
+      [`& .MuiListItem-root`]: {
+        minHeight: 32,
+        transition: `background-color ${fastDuration}ms ${fastEasing}, color ${fastDuration}ms ${fastEasing}`,
+      },
     },
     listIcon: {
-      minWidth: 35,
+      minWidth: 32,
     },
     listsCaption: {
-      padding: `14px 0 0px 20px`,
+      padding: `10px 0 0 16px`,
     },
     primary: {},
     icon: {},

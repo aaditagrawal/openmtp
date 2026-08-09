@@ -2,10 +2,19 @@
 export default (_) => {
   return {
     sizes: {
-      toolbarHeight: 64,
+      toolbarHeight: 56,
       sidebarAreaPaneWidth: 300,
       sidebarAreaPaddingTop: 40,
       regularFontSize: 14,
+    },
+    // Shared easing for interactive hover/selection feedback (buttons, list
+    // items, toolbar icons, table rows). Kept short so the UI feels snappy
+    // without being distracting. Dialog open/close uses the slightly longer
+    // dialogDuration so the entrance still reads as intentional.
+    transitions: {
+      fastDuration: 140,
+      dialogDuration: 150,
+      fastEasing: 'cubic-bezier(0.2, 0, 0, 1)',
     },
     //   styles: {
     //     bgColor: APP_THEME_COLOR_VAR.bgColor,

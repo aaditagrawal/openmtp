@@ -57,18 +57,19 @@
     <script>
       if (typeof process === 'object') {
         const scripts = [];
-        let PORT;
 
         if (process.env.NODE_ENV === 'development') {
           // Dynamically insert the DLL script in development env in the
-          // renderer process
+          // renderer process (file:// relative to app/app.html → ../dll/).
           scripts.push('../dll/renderer.dev.dll.js');
-
-          PORT = require('../config/env').PORT;
         }
-        if (process.env.START_HOT) {
-          // Dynamically insert the bundled app script in the renderer process
-          scripts.push(`http://localhost:${PORT}/dist/renderer.dev.js`);
+
+        // Packaged / production: always ./dist/renderer.prod.js (no START_HOT).
+        // Dev + START_HOT: load webpack writeToDisk output next to app.html
+        // (./renderer.dev.js). Do not use http://localhost here — Electron
+        // blocks file:// documents from loading cross-scheme http scripts.
+        if (process.env.START_HOT && process.env.NODE_ENV === 'development') {
+          scripts.push('./renderer.dev.js');
         } else {
           scripts.push('./dist/renderer.prod.js');
         }

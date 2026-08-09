@@ -646,21 +646,19 @@ export class FileExplorerLegacyDataSource {
   }
 
   /**
-   * description - Check if files exist in the device
+   * description - Return device paths that already exist
    *
    * @param {[string]} fileList
    * @param {string} storageId
-   * @return {Promise<boolean>}
+   * @return {Promise<string[]>}
    */
-  async filesExist({ fileList, storageId }) {
+  async listExistingFiles({ fileList, storageId }) {
     try {
-      if (!isArray(fileList)) {
-        return false;
+      if (!isArray(fileList) || isEmpty(fileList)) {
+        return [];
       }
 
-      if (isEmpty(fileList)) {
-        return false;
-      }
+      const existing = [];
 
       for (let i = 0; i < fileList.length; i += 1) {
         const item = fileList[i];
@@ -668,16 +666,29 @@ export class FileExplorerLegacyDataSource {
 
         // oxlint-disable-next-line no-await-in-loop
         if (await this._checkMtpFileExists(fullPath, storageId)) {
-          return true;
+          existing.push(item);
         }
       }
 
-      return false;
+      return existing;
     } catch (e) {
       log.error(e);
 
-      return false;
+      return isArray(fileList) ? [...fileList] : [];
     }
+  }
+
+  /**
+   * description - Check if files exist in the device
+   *
+   * @param {[string]} fileList
+   * @param {string} storageId
+   * @return {Promise<boolean>}
+   */
+  async filesExist({ fileList, storageId }) {
+    const existing = await this.listExistingFiles({ fileList, storageId });
+
+    return existing.length > 0;
   }
 
   /**

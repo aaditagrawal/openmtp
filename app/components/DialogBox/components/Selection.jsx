@@ -9,7 +9,7 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Dialog from '@material-ui/core/Dialog';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import Icon from '../../Icon';
 import { styles } from '../styles/Selection';
 import { isEmpty } from '../../../utils/funcs';
 
@@ -59,7 +59,7 @@ class Selection extends PureComponent {
                             [styles.selectedAvatar]: item.selected,
                           })}
                         >
-                          <FontAwesomeIcon
+                          <Icon
                             icon={item.icon}
                             title={item.name}
                             className={classnames({

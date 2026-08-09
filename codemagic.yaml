@@ -1,3 +1,6 @@
+# Note: GitHub Actions (.github/workflows/main.yml, release.yml) uses
+# Node 22 LTS. The `node: 25.8.1` pins below predate that and may be
+# outdated; left as-is here to avoid disrupting the Codemagic pipeline.
 definitions:
   instance_mac_mini_m1: &instance_mac_mini_m1
     instance_type: mac_mini_m1

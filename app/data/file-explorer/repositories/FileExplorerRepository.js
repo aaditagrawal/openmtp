@@ -268,6 +268,33 @@ export class FileExplorerRepository {
    * @param {string} storageId
    * @return {Promise<boolean>}
    */
+  async listExistingFiles({ deviceType, fileList, storageId }) {
+    if (deviceType === DEVICE_TYPE.mtp) {
+      checkIf(storageId, 'number');
+
+      const selectedMtpMode = getMtpModeSetting();
+
+      switch (selectedMtpMode) {
+        case MTP_MODE.legacy:
+          return this.legacyMtpDataSource.listExistingFiles({
+            fileList,
+            storageId,
+          });
+
+        case MTP_MODE.kalam:
+        default:
+          return this.kalamMtpDataSource.listExistingFiles({
+            fileList,
+            storageId,
+          });
+      }
+    }
+
+    return this.localDataSource.listExistingFiles({
+      fileList,
+    });
+  }
+
   async filesExist({ deviceType, fileList, storageId }) {
     if (deviceType === DEVICE_TYPE.mtp) {
       checkIf(storageId, 'number');

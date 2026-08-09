@@ -21,7 +21,9 @@ export const initialState = {
   enablePrereleaseUpdates: isPrereleaseVersion() || false,
   enableAnalytics: true,
   enableStatusBar: true,
-  enableUsbHotplug: false,
+  // Hotplug reconnects MTP on attach/detach. Safer after bus/address matching
+  // and attach debounce; users can still disable it in Settings if a cable flaps.
+  enableUsbHotplug: true,
   hideHiddenFiles: {
     [DEVICE_TYPE.local]: true,
     [DEVICE_TYPE.mtp]: true,

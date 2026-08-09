@@ -144,6 +144,13 @@ $ "/path/to/OpenMTP.app/Contents/MacOS/OpenMTP" --remote-debugging-port=6363
 - Add a new connection `localhost:6363`
 - Inspect OpenMTP @ port `6363`
 
+### Continuous Integration (GitHub Actions)
+
+- `.github/workflows/main.yml` runs on every push to `master` and on pull requests: `lint` → `build` → `package` (unsigned dmg/zip, only on `master` and `v*` tag pushes, to save CI minutes).
+- `.github/workflows/release.yml` triggers on `v*` tags, builds an unsigned (or signed/notarized if Apple secrets are configured) macOS arm64 app, and publishes it as a GitHub Release.
+- To cut a release: bump `version` in `package.json`, then run `git tag v<version> && git push origin v<version>` (e.g. `git tag v3.2.26 && git push origin v3.2.26`).
+- If a fresh clone or CI runner ends up with a broken/unlaunchable Electron install (common with Bun on macOS), run `bun run ensure-electron` to repair it without ad-hoc codesigning.
+
 ### Publishing using CI/CD:
 
 - CodeMagic.io

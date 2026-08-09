@@ -1,9 +1,11 @@
 package main
 
 import (
+	"os"
+	"sync"
+
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
-	"os"
 )
 
 type verifyMtpSessionMode struct {
@@ -13,7 +15,7 @@ type verifyMtpSessionMode struct {
 type deviceContainer struct {
 	dev        *mtp.Device
 	deviceInfo *mtp.DeviceInfo
-	locked     bool
+	mu         sync.Mutex
 }
 
 type MakeDirectoryInput struct {

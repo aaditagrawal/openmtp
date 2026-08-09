@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"sync"
+	"time"
+
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
-	"log"
 )
 
 func verifyMtpSession(c verifyMtpSessionMode) error {
@@ -184,20 +187,86 @@ func _dispose() error {
 	}
 
 	mtpx.Dispose(container.dev)
+	container.dev = nil
 
 	return nil
 }
 
+// lockMtp acquires an exclusive MTP session lock for the full export call.
+// Callers must defer unlockMtp after a successful lock. TryLock (not Lock)
+// so a concurrent export fails fast with ErrorMtpLockExists instead of
+// blocking the JS bridge.
 func lockMtp() error {
-	if container.locked {
+	if !container.mu.TryLock() {
 		return fmt.Errorf("ErrorMtpLockExists")
 	}
 
-	container.locked = true
+	return nil
+}
 
-	defer func() {
-		container.locked = false
+func unlockMtp() {
+	container.mu.Unlock()
+}
+
+// cloneProgressInfo copies mtpx.ProgressInfo (and nested pointers) so the
+// progress pump can read a stable snapshot while mtpx mutates its reused pInfo.
+func cloneProgressInfo(p *mtpx.ProgressInfo) *mtpx.ProgressInfo {
+	if p == nil {
+		return nil
+	}
+
+	cp := *p
+
+	if p.FileInfo != nil {
+		fi := *p.FileInfo
+		cp.FileInfo = &fi
+	}
+
+	if p.ActiveFileSize != nil {
+		afs := *p.ActiveFileSize
+		cp.ActiveFileSize = &afs
+	}
+
+	if p.BulkFileSize != nil {
+		bfs := *p.BulkFileSize
+		cp.BulkFileSize = &bfs
+	}
+
+	return &cp
+}
+
+// startProgressPump runs flush on interval until stop is called.
+// stop signals via close (never blocks like an unbuffered send can) and
+// waits for a final flush so the last progress event is not dropped.
+func startProgressPump(interval time.Duration, flush func()) (stop func()) {
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-done:
+				flush()
+
+				return
+			case <-ticker.C:
+				flush()
+			}
+		}
 	}()
 
-	return nil
+	var once sync.Once
+
+	return func() {
+		once.Do(func() {
+			close(done)
+			wg.Wait()
+		})
+	}
 }

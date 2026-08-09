@@ -7,9 +7,13 @@ import Tooltip from '@material-ui/core/Tooltip';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
-import LiveHelpIcon from '@material-ui/icons/LiveHelp';
+import { HelpCircle } from 'lucide-react';
+import Icon from '../../Icon';
 import { styles } from '../styles/ProgressBar';
 import { checkIf } from '../../../utils/checkIf';
+import { variables } from '../../../styles/js';
+
+const { dialogDuration } = variables().transitions;
 
 class ProgressBar extends PureComponent {
   render() {
@@ -36,6 +40,9 @@ class ProgressBar extends PureComponent {
 
     checkIf(values, 'array');
 
+    // Escape/cancel is intentionally disabled: Kalam FFI has no abort/cancel
+    // transfer API yet (see upstream #455). Closing the dialog would only hide
+    // progress while the transfer keeps running.
     return (
       <Dialog
         disableBackdropClick
@@ -44,6 +51,7 @@ class ProgressBar extends PureComponent {
         open={trigger}
         fullWidth={fullWidthDialog}
         maxWidth={maxWidthDialog}
+        transitionDuration={dialogDuration}
         aria-labelledby="progressbar-dialogbox"
       >
         <DialogTitle>
@@ -52,7 +60,7 @@ class ProgressBar extends PureComponent {
             {helpText && (
               <span>
                 <Tooltip title={helpText}>
-                  <LiveHelpIcon className={styles.helpText} />
+                  <Icon icon={HelpCircle} className={styles.helpText} />
                 </Tooltip>
               </span>
             )}

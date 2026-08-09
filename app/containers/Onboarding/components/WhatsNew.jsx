@@ -5,9 +5,8 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
-import BuildIcon from '@material-ui/icons/Build';
-import BugReportIcon from '@material-ui/icons/BugReport';
-import SystemUpdate from '@material-ui/icons/SystemUpdate';
+import { Wrench, Bug, DownloadCloud } from 'lucide-react';
+import Icon from '../../../components/Icon';
 import { styles } from '../styles/WhatsNew';
 import { APP_NAME, APP_VERSION } from '../../../constants/meta';
 import { isKalamModeSupported } from '../../../helpers/binaries';
@@ -33,7 +32,7 @@ class WhatsNew extends PureComponent {
         <List>
           <ListItem>
             <ListItemIcon>
-              <BugReportIcon htmlColor="#FF0000" />
+              <Icon icon={Bug} color="#FF0000" />
             </ListItemIcon>
             <ListItemText primary="Fixes a bug which caused slow data transfer speed" />
           </ListItem>
@@ -41,7 +40,7 @@ class WhatsNew extends PureComponent {
           {isKalamModeDisabled && (
             <ListItem>
               <ListItemIcon>
-                <SystemUpdate htmlColor="#fa4d0a" />
+                <Icon icon={DownloadCloud} color="#fa4d0a" />
               </ListItemIcon>
               <ListItemText
                 primary={`We have now officially retired the support for '${MTP_MODE.kalam}' Kernel on macOS 10.13 (OS X El High Sierra) and lower`}
@@ -52,7 +51,7 @@ class WhatsNew extends PureComponent {
 
           <ListItem>
             <ListItemIcon>
-              <BuildIcon />
+              <Icon icon={Wrench} />
             </ListItemIcon>
             <ListItemText primary="Other UI optimization and performance improvements" />
           </ListItem>

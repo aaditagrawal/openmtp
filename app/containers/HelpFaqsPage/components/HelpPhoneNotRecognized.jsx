@@ -5,28 +5,31 @@ import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
-import DeleteIcon from '@material-ui/icons/Delete';
-import CloseIcon from '@material-ui/icons/Close';
-import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
-import ToggleOffIcon from '@material-ui/icons/ToggleOff';
-import CheckIcon from '@material-ui/icons/Check';
-import ListAltIcon from '@material-ui/icons/ListAlt';
-import SettingsIcon from '@material-ui/icons/Settings';
-import ThumbUpIcon from '@material-ui/icons/ThumbUp';
-import FolderSpecialIcon from '@material-ui/icons/FolderSpecial';
-import CachedIcon from '@material-ui/icons/Cached';
-import UsbIcon from '@material-ui/icons/Usb';
-import TouchAppIcon from '@material-ui/icons/TouchApp';
-import RadioButtonCheckedIcon from '@material-ui/icons/RadioButtonChecked';
-import LockOpenIcon from '@material-ui/icons/Lock';
+import {
+  Trash2,
+  X,
+  Circle,
+  ToggleLeft,
+  Check,
+  List as ListIcon,
+  Settings,
+  ThumbsUp,
+  FolderHeart,
+  RefreshCw,
+  Usb,
+  MousePointerClick,
+  CircleDot,
+  Lock,
+  ChevronDown,
+  Power,
+  RotateCcw,
+  Download,
+} from 'lucide-react';
+import Icon from '../../../components/Icon';
 import Accordion from '@material-ui/core/Accordion';
 import AccordionSummary from '@material-ui/core/AccordionSummary';
 import AccordionDetails from '@material-ui/core/AccordionDetails';
 import Typography from '@material-ui/core/Typography';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import PowerIcon from '@material-ui/icons/Power';
-import ReplayIcon from '@material-ui/icons/Replay';
-import SystemUpdate from '@material-ui/icons/SystemUpdate';
 import { styles } from '../styles/HelpPhoneNotRecognized';
 import { openExternalUrl } from '../../../utils/url';
 import {
@@ -73,7 +76,7 @@ class HelpPhoneNotRecognized extends PureComponent {
       <>
         <ListItem>
           <ListItemIcon>
-            <TouchAppIcon />
+            <Icon icon={MousePointerClick} />
           </ListItemIcon>
           <ListItemText
             primary="On your device, tap the 'Charging this device via
@@ -89,7 +92,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         </ListItem>
         <ListItem>
           <ListItemIcon>
-            <RadioButtonCheckedIcon />
+            <Icon icon={CircleDot} />
           </ListItemIcon>
           <ListItemText
             primary="Under 'Use USB for' select File Transfer"
@@ -115,14 +118,14 @@ class HelpPhoneNotRecognized extends PureComponent {
       <>
         <ListItem>
           <ListItemIcon>
-            <LockOpenIcon />
+            <Icon icon={Lock} />
           </ListItemIcon>
           <ListItemText primary="Unlock your Android device" />
         </ListItem>
 
         <ListItem>
           <ListItemIcon>
-            <UsbIcon />
+            <Icon icon={Usb} />
           </ListItemIcon>
           <ListItemText
             primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
@@ -132,7 +135,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
         <ListItem>
           <ListItemIcon>
-            <TouchAppIcon />
+            <Icon icon={MousePointerClick} />
           </ListItemIcon>
           <ListItemText
             primary="On your device, tap the 'Transferring media files' notification"
@@ -147,7 +150,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         </ListItem>
         <ListItem>
           <ListItemIcon>
-            <RadioButtonCheckedIcon />
+            <Icon icon={CircleDot} />
           </ListItemIcon>
           <ListItemText
             primary="Under 'Use USB for' select 'Charging'"
@@ -165,7 +168,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
         <ListItem>
           <ListItemIcon>
-            <FiberManualRecordIcon />
+            <Icon icon={Circle} />
           </ListItemIcon>
           <ListItemText
             primary="It should connect automatically"
@@ -174,7 +177,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         </ListItem>
         <ListItem>
           <ListItemIcon>
-            <CachedIcon />
+            <Icon icon={RefreshCw} />
           </ListItemIcon>
           <ListItemText
             primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
@@ -184,7 +187,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
         <ListItem>
           <ListItemIcon>
-            <TouchAppIcon />
+            <Icon icon={MousePointerClick} />
           </ListItemIcon>
           <ListItemText
             primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
@@ -212,7 +215,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         {showUnlockPhone && (
           <ListItem>
             <ListItemIcon>
-              <LockOpenIcon />
+              <Icon icon={Lock} />
             </ListItemIcon>
             <ListItemText primary="Unlock your Android device" />
           </ListItem>
@@ -221,7 +224,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         {showUnplugPhone && (
           <ListItem>
             <ListItemIcon>
-              <UsbIcon />
+              <Icon icon={Usb} />
             </ListItemIcon>
             <ListItemText
               primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
@@ -233,7 +236,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
         <ListItem>
           <ListItemIcon>
-            <FiberManualRecordIcon />
+            <Icon icon={Circle} />
           </ListItemIcon>
           <ListItemText
             primary="It should connect automatically"
@@ -242,7 +245,7 @@ class HelpPhoneNotRecognized extends PureComponent {
         </ListItem>
         <ListItem>
           <ListItemIcon>
-            <CachedIcon />
+            <Icon icon={RefreshCw} />
           </ListItemIcon>
           <ListItemText
             primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
@@ -336,7 +339,7 @@ class HelpPhoneNotRecognized extends PureComponent {
             <Accordion className={styles.expansionRoot}>
               {/* <----- Kalam Mode is disabed -----> */}
 
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
                 <Typography className={styles.heading}>
                   {`Upgrade you mac's OS version for better app experience`}
                 </Typography>
@@ -345,7 +348,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 <List component="div" disablePadding>
                   <ListItem>
                     <ListItemIcon>
-                      <SystemUpdate />
+                      <Icon icon={Download} />
                     </ListItemIcon>
                     <ListItemText
                       primary={`We have now officially retired the support for '${MTP_MODE.kalam}' Kernel on 'macOS 10.13' (OS X El High Sierra) and lower. Only the '${MTP_MODE.legacy}' MTP mode will continue working on these outdated machines.`}
@@ -354,7 +357,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                   <ListItem>
                     <ListItemIcon>
-                      <SystemUpdate />
+                      <Icon icon={Download} />
                     </ListItemIcon>
                     <ListItemText
                       primary={`Only the latest 3 versions of macOS will receive the '${MTP_MODE.kalam}' Kernel updates, which includes new devices support, fixes, stability improvements`}
@@ -368,7 +371,7 @@ class HelpPhoneNotRecognized extends PureComponent {
           <Accordion className={styles.expansionRoot}>
             {/* <----- my device is not connecting -----> */}
 
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`My ${deviceLabel.toLowerCase()} is not connecting`}
               </Typography>
@@ -377,7 +380,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <CloseIcon />
+                    <Icon icon={X} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Quit Google drive, Android File Transfer, Dropbox, OneDrive, Preview (for macOS ventura) or any other app that might be reading USB`}
@@ -405,7 +408,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <ToggleOffIcon />
+                    <Icon icon={ToggleLeft} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you face frequent device disconnections, turn off 'USB Hotplug'`}
@@ -420,7 +423,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- Google drive is interfering with OpenMTP-----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I have Google drive installed on my ${
                   DEVICES_LABEL[DEVICE_TYPE.local]
@@ -432,7 +435,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <DeleteIcon />
+                    <Icon icon={Trash2} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`The most recent versions of Google drive is known to interfere with ${APP_NAME}. Simply quiting Google drive may fix this issue`}
@@ -453,7 +456,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- Dropbox is interfering with OpenMTP-----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I have Dropbox installed on my ${
                   DEVICES_LABEL[DEVICE_TYPE.local]
@@ -465,7 +468,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <DeleteIcon />
+                    <Icon icon={Trash2} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`The most recent versions of Dropbox is known to interfere with ${APP_NAME}. Simply quiting Dropbox may fix this issue`}
@@ -480,7 +483,7 @@ class HelpPhoneNotRecognized extends PureComponent {
           {/* <----- The app goes blank while trying to connect a Samsung device -----> */}
 
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`The app goes blank while trying to connect a Samsung device`}
               </Typography>
@@ -489,7 +492,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <DeleteIcon />
+                    <Icon icon={Trash2} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Uninstall Samsung SmartSwitch, if installed"
@@ -508,7 +511,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <ReplayIcon />
+                    <Icon icon={RotateCcw} />
                   </ListItemIcon>
                   <ListItemText primary={`Restart ${APP_NAME}`} />
                 </ListItem>
@@ -521,7 +524,7 @@ class HelpPhoneNotRecognized extends PureComponent {
           {/* <----- i keep seeing setting up device -----> */}
 
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I keep seeing "${mtpErrors[[MTP_ERROR.ErrorDeviceSetup]]}"`}
               </Typography>
@@ -535,7 +538,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- i keep seeing allow storage access -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I keep seeing "${
                   mtpErrors[[MTP_ERROR.ErrorAllowStorageAccess]]
@@ -547,13 +550,13 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <LockOpenIcon />
+                    <Icon icon={Lock} />
                   </ListItemIcon>
                   <ListItemText primary="Unlock your Android device" />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <TouchAppIcon />
+                    <Icon icon={MousePointerClick} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
@@ -568,7 +571,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you don't see the "Allow access to the device data" pop up then reconnect your ${deviceLabel.toLowerCase()}`}
@@ -578,7 +581,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you are prompted to "Allow access to the device data" multiple times then reconnect your ${deviceLabel.toLowerCase()} and try again`}
@@ -590,7 +593,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- Allow access to the device data" multiple times -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I am prompted to "Allow access to the device data" multiple times`}
               </Typography>
@@ -605,7 +608,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- refresh button is stuck -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`Refresh button is stuck`}
               </Typography>
@@ -620,7 +623,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- i keep seeing multiple devices error -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I keep seeing "${
                   mtpErrors[[MTP_ERROR.ErrorMultipleDevice]]
@@ -632,13 +635,13 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText primary="Unplug all your MTP devices" />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <UsbIcon />
+                    <Icon icon={Usb} />
                   </ListItemIcon>
                   <ListItemText primary="Plug your MTP devices" />
                 </ListItem>
@@ -650,7 +653,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- phone gets disconnected everytime screen goes into sleep -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`My ${deviceLabel.toLowerCase()} gets disconnected everytime the display goes into sleep`}
               </Typography>
@@ -660,7 +663,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`In a very rare case your ${deviceLabel.toLowerCase()} may get disconnected when your display goes into sleep. This may disrupt any active file transfers`}
@@ -669,14 +672,14 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <LockOpenIcon />
+                    <Icon icon={Lock} />
                   </ListItemIcon>
                   <ListItemText primary="Unlock your Android device" />
                 </ListItem>
 
                 <ListItem>
                   <ListItemIcon>
-                    <RadioButtonCheckedIcon />
+                    <Icon icon={CircleDot} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Open ${deviceLabel.toLowerCase()}'s Settings > Display > Sleep and set it as 30 minutes or whatever is the highest`}
@@ -697,7 +700,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- i keep seeing quit android file transfer error -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I keep seeing "Quit 'Android File Transfer' app (by Google) and Refresh"`}
               </Typography>
@@ -707,7 +710,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <DeleteIcon />
+                    <Icon icon={Trash2} />
                   </ListItemIcon>
                   <ListItemText primary="Quit and uninstall Google's 'Android File Transfer' app" />
                 </ListItem>
@@ -719,7 +722,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- my phone is still not detected -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`My phone is still not connecting`}
               </Typography>
@@ -729,7 +732,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <DeleteIcon />
+                    <Icon icon={Trash2} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Uninstall Samsung SmartSwitch, if installed"
@@ -748,7 +751,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <PowerIcon />
+                    <Icon icon={Power} />
                   </ListItemIcon>
                   <ListItemText
                     primary="Try changing the MTP mode"
@@ -763,7 +766,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- Operation not permitted error -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I keep seeing "${localErrorDictionary.noPerm}" error whenever I try to open a folder in the Local Disk pane`}
               </Typography>
@@ -773,7 +776,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <FolderSpecialIcon />
+                    <Icon icon={FolderHeart} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
@@ -782,7 +785,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <ThumbUpIcon />
+                    <Icon icon={ThumbsUp} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Tap on the "Ok" button, if you see a "${APP_NAME} would like to access files in your..." pop up while trying to open a folder`}
@@ -797,7 +800,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you keep getting the "${localErrorDictionary.noPerm}" error then you may need to give access to these folders by going to "Security and Privacy" in "System Preferences"`}
@@ -805,7 +808,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <SettingsIcon />
+                    <Icon icon={Settings} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
@@ -815,7 +818,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <ListAltIcon />
+                    <Icon icon={ListIcon} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`In the left hand side pane find the "Files and Folders" option, select it. In the right hand side pane find "${APP_NAME}"`}
@@ -824,7 +827,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <CheckIcon />
+                    <Icon icon={Check} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Mark all the folders to which you want to provide ${APP_NAME} access`}
@@ -845,7 +848,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
           {/* <----- Full disk access -----> */}
           <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
               <Typography className={styles.heading}>
                 {`I am still being denied access to some of the folders in the Local Disk pane`}
               </Typography>
@@ -855,7 +858,7 @@ class HelpPhoneNotRecognized extends PureComponent {
               <List component="div" disablePadding>
                 <ListItem>
                   <ListItemIcon>
-                    <FolderSpecialIcon />
+                    <Icon icon={FolderHeart} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
@@ -863,7 +866,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <FiberManualRecordIcon />
+                    <Icon icon={Circle} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you still keep getting the "${localErrorDictionary.noPerm}" error then you may grant "Full Disk Access" by going to "Security and Privacy" in "System Preferences"`}
@@ -871,7 +874,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
-                    <SettingsIcon />
+                    <Icon icon={Settings} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
@@ -881,7 +884,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <ListAltIcon />
+                    <Icon icon={ListIcon} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`In the left hand side pane find the "Full Disk Access" option, select it. In the right hand side pane find "${APP_NAME}"`}
@@ -897,7 +900,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
                 <ListItem>
                   <ListItemIcon>
-                    <CheckIcon />
+                    <Icon icon={Check} />
                   </ListItemIcon>
                   <ListItemText
                     primary={`If you didn't find ${APP_NAME} in the list, then tap on the "+" button and select "${APP_NAME}" by navigating to the "Application" folder`}
