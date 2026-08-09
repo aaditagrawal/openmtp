@@ -49,7 +49,7 @@ export const urls = {
     const data = {};
 
     if (url === '') {
-      url = window.location.href; // eslint-disable-line no-param-reassign
+      url = window.location.href; // oxlint-disable-line no-param-reassign
     }
 
     url.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m, key, value) => {
@@ -92,7 +92,7 @@ export const urls = {
       return null;
     }
 
-    return location.hash.replace('#', '').trim(); // eslint-disable-line no-restricted-globals
+    return location.hash.replace('#', '').trim(); // oxlint-disable-line no-restricted-globals
   },
 
   parseHash({ param = '', url = '' }) {

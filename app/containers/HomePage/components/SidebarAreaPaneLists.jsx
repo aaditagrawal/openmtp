@@ -22,7 +22,7 @@ class SidebarAreaPaneLists extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE[`${deviceTypeUpperCase}_SIDEBAR_PATH_TAP`],
-      {}
+      {},
     );
   }
 

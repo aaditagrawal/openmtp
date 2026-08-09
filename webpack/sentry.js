@@ -22,7 +22,7 @@ const projectNodeModulesBinDir = path.resolve(
   __dirname,
   '..',
   'node_modules',
-  '.bin'
+  '.bin',
 );
 const sentryPropertiesPath = path.resolve(__dirname, '..', 'sentry.properties');
 
@@ -61,7 +61,7 @@ exports.configureSentryCli = () => {
     .map((sentryCliHelper) =>
       typeof sentryCliHelper.getPath === 'function'
         ? sentryCliHelper.getPath()
-        : null
+        : null,
     )
     .find((binaryPath) => binaryPath && fs.existsSync(binaryPath));
 

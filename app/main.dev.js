@@ -119,8 +119,8 @@ async function installExtensions() {
   }).catch((err) =>
     log.error(
       `An extension error occurred: ${err}`,
-      `main.dev -> installExtensions`
-    )
+      `main.dev -> installExtensions`,
+    ),
   );
 }
 
@@ -173,7 +173,7 @@ async function createWindow() {
 
       log.error(
         `[renderer-console:${details.level}] ${details.message} (${details.sourceId}:${details.lineNumber})`,
-        'main.dev -> webContents -> console-message'
+        'main.dev -> webContents -> console-message',
       );
     });
 
@@ -182,9 +182,9 @@ async function createWindow() {
       (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
         log.error(
           `did-fail-load code=${errorCode} mainFrame=${isMainFrame} url=${validatedURL} error=${errorDescription}`,
-          'main.dev -> webContents -> did-fail-load'
+          'main.dev -> webContents -> did-fail-load',
         );
-      }
+      },
     );
 
     mainWindow.webContents.on(
@@ -192,22 +192,22 @@ async function createWindow() {
       (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
         log.error(
           `did-fail-provisional-load code=${errorCode} mainFrame=${isMainFrame} url=${validatedURL} error=${errorDescription}`,
-          'main.dev -> webContents -> did-fail-provisional-load'
+          'main.dev -> webContents -> did-fail-provisional-load',
         );
-      }
+      },
     );
 
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
       log.error(
         `render-process-gone reason=${details?.reason} exitCode=${details?.exitCode}`,
-        'main.dev -> webContents -> render-process-gone'
+        'main.dev -> webContents -> render-process-gone',
       );
     });
 
     mainWindow.webContents.on('unresponsive', () => {
       log.error(
         'Renderer became unresponsive',
-        'main.dev -> webContents -> unresponsive'
+        'main.dev -> webContents -> unresponsive',
       );
     });
 
@@ -233,18 +233,18 @@ async function createWindow() {
                   rootTextLength: root?.textContent?.trim()?.length || 0,
                   rootHtmlSnippet: root?.innerHTML?.slice(0, 500) || '',
                 };
-              })();`
+              })();`,
             )
             .then((details) => {
               return log.error(
                 JSON.stringify(details),
-                'main.dev -> webContents -> renderer-diagnostics'
+                'main.dev -> webContents -> renderer-diagnostics',
               );
             })
             .catch((error) => {
               log.error(
                 error,
-                'main.dev -> webContents -> renderer-diagnostics'
+                'main.dev -> webContents -> renderer-diagnostics',
               );
             });
         }, 1500);
@@ -307,9 +307,9 @@ if (!isDeviceBootable) {
     ipcMain.on('ELECTRON_BROWSER_WINDOW_ALERT', (event, message, title) => {
       ipcMain.error(
         message,
-        `main.dev -> ipcMain -> on ELECTRON_BROWSER_WINDOW_ALERT -> ${title}`
+        `main.dev -> ipcMain -> on ELECTRON_BROWSER_WINDOW_ALERT -> ${title}`,
       );
-      // eslint-disable-next-line no-param-reassign
+      // oxlint-disable-next-line no-param-reassign
       event.returnValue = 0;
     });
   }
@@ -350,8 +350,8 @@ if (!isDeviceBootable) {
 
   app
     .whenReady()
+    // oxlint-disable-next-line promise/always-return
     .then(async () => {
-      // eslint-disable-next-line promise/always-return
       try {
         await createWindow();
 

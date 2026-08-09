@@ -356,7 +356,7 @@ export class FileExplorerRepository {
       }
     }
 
-    // eslint-disable-next-line no-throw-literal
+    // oxlint-disable-next-line no-throw-literal
     throw `transferFiles for deviceType=DEVICE_TYPE.local is unimplemented`;
   }
 
@@ -380,7 +380,7 @@ export class FileExplorerRepository {
       }
     }
 
-    // eslint-disable-next-line no-throw-literal
+    // oxlint-disable-next-line no-throw-literal
     throw `fetchDebugReport for deviceType=DEVICE_TYPE.local is unimplemented`;
   }
 }

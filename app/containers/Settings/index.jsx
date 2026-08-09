@@ -74,7 +74,7 @@ class Settings extends Component {
         key: 'enableBackgroundAutoUpdate',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -84,7 +84,7 @@ class Settings extends Component {
         key: 'enableAutoUpdateCheck',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -94,7 +94,7 @@ class Settings extends Component {
         key: 'enablePrereleaseUpdates',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -104,7 +104,7 @@ class Settings extends Component {
         key: 'enableAnalytics',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -114,7 +114,7 @@ class Settings extends Component {
         key: 'enableStatusBar',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -124,7 +124,7 @@ class Settings extends Component {
         key: 'appThemeMode',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -134,7 +134,7 @@ class Settings extends Component {
         key: 'showLocalPane',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -144,7 +144,7 @@ class Settings extends Component {
         key: 'showLocalPaneOnLeftSide',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -154,7 +154,7 @@ class Settings extends Component {
         key: 'showDirectoriesFirst',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -164,7 +164,7 @@ class Settings extends Component {
         key: 'enableUsbHotplug',
         value,
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -269,7 +269,7 @@ const mapDispatchToProps = (dispatch, _) =>
           checkIf(deviceType, 'string');
 
           dispatch(
-            selectMtpMode({ value, reportEvent: true }, deviceType, getState)
+            selectMtpMode({ value, reportEvent: true }, deviceType, getState),
           );
         },
 
@@ -294,12 +294,12 @@ const mapDispatchToProps = (dispatch, _) =>
                 ignoreHidden,
                 deviceType,
               },
-              getState
-            )
+              getState,
+            ),
           );
         },
     },
-    dispatch
+    dispatch,
   );
 
 const mapStateToProps = (state, _) => {
@@ -315,5 +315,5 @@ const mapStateToProps = (state, _) => {
 
 export default withReducer(
   'Settings',
-  reducers
+  reducers,
 )(connect(mapStateToProps, mapDispatchToProps)(withStyles(styles)(Settings)));

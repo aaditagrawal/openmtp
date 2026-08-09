@@ -14,9 +14,9 @@ const getBinariesSupportedSystemArchitecture = () => {
 const shouldSignMacBuild = () =>
   Boolean(
     process.env.CI ||
-      process.env.CSC_LINK ||
-      process.env.CSC_NAME ||
-      process.env.APPLEID
+    process.env.CSC_LINK ||
+    process.env.CSC_NAME ||
+    process.env.APPLEID,
   );
 
 module.exports = () => {
@@ -56,7 +56,7 @@ module.exports = () => {
     productName: 'OpenMTP',
     appId: 'io.ganeshrvel.openmtp',
     forceCodeSigning: signMacBuild,
-    // eslint-disable-next-line no-template-curly-in-string
+    // oxlint-disable-next-line no-template-curly-in-string
     artifactName: '${name}-${version}-${os}-${arch}.${ext}',
     copyright: '© Ganesh Rathinavel',
     afterPack: './internals/scripts/AfterPack.js',

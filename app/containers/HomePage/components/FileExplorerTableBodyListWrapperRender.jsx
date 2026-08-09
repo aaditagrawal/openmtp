@@ -96,7 +96,7 @@ export default class FileExplorerTableBodyListWrapperRender extends PureComponen
       this.setState(({ items: prevItems }) => {
         const slicedItems = tableSort.slice(
           0,
-          prevItems.length + this.filesPreFetchCount
+          prevItems.length + this.filesPreFetchCount,
         );
 
         const mappedSlicedItems = slicedItems.map((item) => {

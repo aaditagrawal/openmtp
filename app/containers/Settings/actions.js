@@ -30,7 +30,7 @@ export function toggleSettings(data) {
 
   analyticsService.sendEvent(
     EVENT_TYPE[`TOOLBAR_SETTINGS_DIALOG_${dialogStatus}`],
-    {}
+    {},
   );
 
   return {
@@ -136,7 +136,7 @@ export function fileExplorerListingType({ ...data }, deviceType, getState) {
 export function selectMtpMode(
   { value, reportEvent = true },
   deviceType,
-  getState
+  getState,
 ) {
   const { hideHiddenFiles, mtpMode } = getState().Settings;
 
@@ -174,8 +174,8 @@ export function selectMtpMode(
                 resolve({ error, stderr, data });
               },
             },
-            getState
-          )
+            getState,
+          ),
         );
       });
 
@@ -195,8 +195,8 @@ export function selectMtpMode(
             },
           },
           deviceType,
-          getState
-        )
+          getState,
+        ),
       );
     });
 
@@ -208,8 +208,8 @@ export function selectMtpMode(
           ignoreHidden: hideHiddenFiles[deviceType],
           changeLegacyMtpStorageOnlyOnDeviceChange: true,
         },
-        getState
-      )
+        getState,
+      ),
     );
   };
 }
@@ -219,10 +219,10 @@ export function selectMtpMode(
 export function setCommonSettings(
   { key, value, onSuccess },
   deviceType,
-  getState
+  getState,
 ) {
   if (typeof initialState[key] === 'undefined') {
-    // eslint-disable-next-line no-throw-literal
+    // oxlint-disable-next-line no-throw-literal
     throw `invalid settings key: ${key}`;
   }
 
@@ -254,7 +254,7 @@ export function setCommonSettings(
         if (onSuccess) {
           onSuccess();
         }
-      })
+      }),
     );
 
     // key == [mtpMode] is handled separately, so skip it
@@ -279,7 +279,7 @@ export function copySettingsToJsonFile(getState, onSuccess) {
     const settingsState = getState().Settings ? getState().Settings : {};
     const filteredSettings = omitLodash(
       settingsState,
-      excludeItemsFromSettingsFile
+      excludeItemsFromSettingsFile,
     );
 
     settingsStorage.setAll({ ...filteredSettings });

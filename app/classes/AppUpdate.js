@@ -71,7 +71,7 @@ const fireProgressbar = () => {
     remote.enable(progressbarWindow.webContents);
 
     progressbarWindow.loadURL(
-      `${PATHS.loadUrlPath}#appUpdatePage/updateProgress`
+      `${PATHS.loadUrlPath}#appUpdatePage/updateProgress`,
     );
 
     progressbarWindow.webContents.on('did-finish-load', () => {
@@ -132,7 +132,7 @@ export default class AppUpdate {
           this.spitMessageDialog(
             'Update Error',
             'Oops.. A network error occured. Try again!',
-            'error'
+            'error',
           );
 
           log.doLog(error, `AppUpdate -> onerror -> isNetworkError`);
@@ -143,7 +143,7 @@ export default class AppUpdate {
         this.spitMessageDialog(
           'Update Error',
           'Oops.. Some error occured while updating the app. Try again!',
-          'error'
+          'error',
         );
 
         log.error(error, `AppUpdate -> onerror`);
@@ -175,7 +175,7 @@ export default class AppUpdate {
         _appUpdateAvailableWindow.webContents.once('dom-ready', () => {
           _appUpdateAvailableWindow.webContents.send(
             'appUpdatesUpdateAvailableCommunication',
-            info
+            info,
           );
         });
 
@@ -354,7 +354,7 @@ export default class AppUpdate {
           if (!connected) {
             this.spitMessageDialog(
               'Checking For Updates',
-              'Internet connection is unavailable.'
+              'Internet connection is unavailable.',
             );
 
             return null;
@@ -371,7 +371,7 @@ export default class AppUpdate {
                 progressBodyText: `Please wait...`,
                 value: 0,
                 variant: `indeterminate`,
-              }
+              },
             );
           });
 
@@ -390,7 +390,7 @@ export default class AppUpdate {
           if (!connected) {
             this.spitMessageDialog(
               'Downloading Updates',
-              'Internet connection is unavailable.'
+              'Internet connection is unavailable.',
             );
 
             return null;
@@ -421,7 +421,7 @@ export default class AppUpdate {
       if (this.progressbarWindowDomReadyFlag) {
         progressbarWindow.webContents.send(
           'appUpdatesProgressBarCommunication',
-          data
+          data,
         );
 
         return null;
@@ -430,7 +430,7 @@ export default class AppUpdate {
       progressbarWindow.webContents.once('dom-ready', () => {
         progressbarWindow.webContents.send(
           'appUpdatesProgressBarCommunication',
-          data
+          data,
         );
 
         this.progressbarWindowDomReadyFlag = true;
@@ -497,7 +497,7 @@ export default class AppUpdate {
 
       case 'message':
       default:
-        // eslint-disable-next-line no-case-declarations
+        // oxlint-disable-next-line no-case-declarations
         const { response: buttonIndex } = await dialog.showMessageBox({
           title,
           message,

@@ -12,7 +12,7 @@ if (typeof PKG_INFO !== 'undefined' && PKG_INFO !== null) {
   /* This is a fallback incase the webpack DefinePlugin modules hasn't been initialized yet. */
   /* Developement mode only */
   _pkginfo = JSON.parse(
-    readFileSync(join(rootPath, 'package.json'), { encoding: 'utf8' })
+    readFileSync(join(rootPath, 'package.json'), { encoding: 'utf8' }),
   );
 }
 

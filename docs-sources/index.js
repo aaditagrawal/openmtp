@@ -25,20 +25,20 @@ class Docs {
 
     this.$el = {
       appScreenshotFileExplorerImageWrapper: document.querySelector(
-        this.selectors.appScreenshotFileExplorerImageWrapper
+        this.selectors.appScreenshotFileExplorerImageWrapper,
       ),
       appScreenshotFileTransferImageWrapper: document.querySelector(
-        this.selectors.appScreenshotFileTransferImageWrapper
+        this.selectors.appScreenshotFileTransferImageWrapper,
       ),
       downloadBtnGitHubArm64: document.querySelector(
-        this.selectors.downloadBtnGitHubArm64
+        this.selectors.downloadBtnGitHubArm64,
       ),
       downloadBtnGitHubX64: document.querySelector(
-        this.selectors.downloadBtnGitHubX64
+        this.selectors.downloadBtnGitHubX64,
       ),
       navigateToGitHub: document.querySelector(this.selectors.navigateToGitHub),
       gitHubLatestVersionWrapper: document.querySelectorAll(
-        this.selectors.gitHubLatestVersionWrapper
+        this.selectors.gitHubLatestVersionWrapper,
       ),
     };
 

@@ -31,7 +31,7 @@ const compareSemver = (left, right) => {
   const leftParts = left.split('.').map(Number);
   const rightParts = right.split('.').map(Number);
 
-  // eslint-disable-next-line no-plusplus
+  // oxlint-disable-next-line no-plusplus
   for (let i = 0; i < 3; i++) {
     const leftPart = leftParts[i] || 0;
     const rightPart = rightParts[i] || 0;

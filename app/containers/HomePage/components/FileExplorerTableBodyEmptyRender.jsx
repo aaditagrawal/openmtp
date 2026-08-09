@@ -64,7 +64,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE.MTP_HELP_PHONE_NOT_CONNECTED_DIALOG_OPEN,
-      {}
+      {},
     );
   };
 
@@ -152,7 +152,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                                 onClick={(events) => {
                                   openExternalUrl(
                                     'https://github.com/ganeshrvel/openmtp/issues/276',
-                                    events
+                                    events,
                                   );
                                 }}
                               >

@@ -92,7 +92,7 @@ const mapDispatchToProps = (dispatch, __) =>
           dispatch(setOnboarding({ ...data }, getState));
         },
     },
-    dispatch
+    dispatch,
   );
 
 const mapStateToProps = (state, __) => {
@@ -104,5 +104,5 @@ const mapStateToProps = (state, __) => {
 
 export default withReducer(
   'App',
-  reducers
+  reducers,
 )(connect(mapStateToProps, mapDispatchToProps)(withStyles(styles)(Onboarding)));

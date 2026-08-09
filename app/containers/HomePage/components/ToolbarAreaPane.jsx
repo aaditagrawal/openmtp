@@ -69,14 +69,14 @@ class ToolbarAreaPane extends PureComponent {
   componentWillMount() {
     ipcRenderer.on(
       'fileExplorerToolbarActionCommunication',
-      this.fileExplorerToolbarActionCommunicationEvent
+      this.fileExplorerToolbarActionCommunicationEvent,
     );
   }
 
   componentWillUnmount() {
     ipcRenderer.removeListener(
       'fileExplorerToolbarActionCommunication',
-      this.fileExplorerToolbarActionCommunicationEvent
+      this.fileExplorerToolbarActionCommunicationEvent,
     );
   }
 
@@ -117,7 +117,7 @@ class ToolbarAreaPane extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE[`${deviceTypeUpperCase}_DELETE_DIALOG_${dialogStatus}`],
-      {}
+      {},
     );
   };
 
@@ -130,7 +130,7 @@ class ToolbarAreaPane extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE[`MTP_TOOLBAR_STORAGE_DIALOG_${dialogStatus}`],
-      {}
+      {},
     );
   };
 
@@ -143,7 +143,7 @@ class ToolbarAreaPane extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE[`MTP_TOOLBAR_MTP_MODE_DIALOG_${dialogStatus}`],
-      {}
+      {},
     );
   };
 
@@ -176,7 +176,7 @@ class ToolbarAreaPane extends PureComponent {
         filePath: DEVICES_DEFAULT_PATH.mtp,
         ignoreHidden: hideHiddenFiles[deviceType],
       },
-      deviceType
+      deviceType,
     );
   };
 
@@ -250,7 +250,7 @@ class ToolbarAreaPane extends PureComponent {
 
         analyticsService.sendEvent(
           EVENT_TYPE[`${deviceTypeUpperCase}_${actionOrigin}_FOLDER_UP`],
-          {}
+          {},
         );
 
         break;
@@ -265,7 +265,7 @@ class ToolbarAreaPane extends PureComponent {
 
         analyticsService.sendEvent(
           EVENT_TYPE[`${deviceTypeUpperCase}_${actionOrigin}_REFRESH`],
-          {}
+          {},
         );
 
         break;
@@ -290,7 +290,7 @@ class ToolbarAreaPane extends PureComponent {
 
         analyticsService.sendEvent(
           EVENT_TYPE[`${deviceTypeUpperCase}_${actionOrigin}_GITHUB_TAP`],
-          {}
+          {},
         );
         break;
 
@@ -329,7 +329,7 @@ class ToolbarAreaPane extends PureComponent {
         filePath,
         ignoreHidden: hideHiddenFiles[deviceType],
       },
-      deviceType
+      deviceType,
     );
     if (isSidemenu) {
       this._handleToggleDrawer(false)();
@@ -352,7 +352,7 @@ class ToolbarAreaPane extends PureComponent {
       {
         filePath: currentBrowsePath[deviceType],
         ignoreHidden: hideHiddenFiles[deviceType],
-      }
+      },
     );
   };
 
@@ -440,8 +440,8 @@ const mapDispatchToProps = (dispatch, _) =>
                 ignoreHidden,
                 deviceType,
               },
-              getState
-            )
+              getState,
+            ),
           );
         },
 
@@ -474,16 +474,16 @@ const mapDispatchToProps = (dispatch, _) =>
                         listDirectory(
                           { ...listDirectoryArgs },
                           deviceType,
-                          getState
-                        )
+                          getState,
+                        ),
                       );
                     },
-                  })
+                  }),
                 );
                 break;
               case DEVICE_TYPE.mtp:
                 const storageId = getSelectedStorageIdFromState(
-                  getState().Home
+                  getState().Home,
                 );
                 const {
                   error: mtpError,
@@ -507,11 +507,11 @@ const mapDispatchToProps = (dispatch, _) =>
                         listDirectory(
                           { ...listDirectoryArgs },
                           deviceType,
-                          getState
-                        )
+                          getState,
+                        ),
                       );
                     },
-                  })
+                  }),
                 );
                 break;
               default:
@@ -525,7 +525,7 @@ const mapDispatchToProps = (dispatch, _) =>
       actionCreateSetMtpStorage: (
         { selectedValue, mtpStoragesList },
         { ...listDirArgs },
-        deviceType
+        deviceType,
       ) =>
         function (_, getState) {
           if (Object.keys(mtpStoragesList).length < 1) {
@@ -565,14 +565,14 @@ const mapDispatchToProps = (dispatch, _) =>
           checkIf(deviceType, 'string');
 
           dispatch(
-            selectMtpMode({ value, reportEvent: false }, deviceType, getState)
+            selectMtpMode({ value, reportEvent: false }, deviceType, getState),
           );
         },
       actionCreateToggleSettings: (data) => (_, __) => {
         dispatch(toggleSettings(data));
       },
     },
-    dispatch
+    dispatch,
   );
 
 const mapStateToProps = (state, __) => {
@@ -593,10 +593,10 @@ const mapStateToProps = (state, __) => {
 
 export default withReducer(
   'Home',
-  reducers
+  reducers,
 )(
   connect(
     mapStateToProps,
-    mapDispatchToProps
-  )(withStyles(styles)(ToolbarAreaPane))
+    mapDispatchToProps,
+  )(withStyles(styles)(ToolbarAreaPane)),
 );

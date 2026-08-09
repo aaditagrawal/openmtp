@@ -85,7 +85,7 @@ export default class Storage {
 
       writeFileSync(
         this.filePath,
-        JSON.stringify({ ...currentSettings, ...data })
+        JSON.stringify({ ...currentSettings, ...data }),
       );
     } catch (e) {
       if (this.doNotLog) {

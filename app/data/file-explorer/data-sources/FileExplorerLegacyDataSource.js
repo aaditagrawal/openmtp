@@ -156,7 +156,7 @@ export class FileExplorerLegacyDataSource {
     const escapedFilePath = `${this._escapeShellMtp(filePath)}`;
 
     const { stderr } = await this._execNoCatch(
-      `${this.mtpCli} ${storageSelectCmd} "properties \\"${escapedFilePath}\\""`
+      `${this.mtpCli} ${storageSelectCmd} "properties \\"${escapedFilePath}\\""`,
     );
 
     return !stderr;
@@ -249,7 +249,7 @@ export class FileExplorerLegacyDataSource {
         }
 
         const _bufferedOutput = splitIntoLines(bufferedOutput).filter(
-          (a, index) => !this._filterOutMtpLines(a, index)
+          (a, index) => !this._filterOutMtpLines(a, index),
         );
 
         if (_bufferedOutput.length < 1) {
@@ -359,14 +359,14 @@ export class FileExplorerLegacyDataSource {
   async listStorages() {
     try {
       const { data, error, stderr } = await this._exec(
-        `${this.mtpCli} "storage-list"`
+        `${this.mtpCli} "storage-list"`,
       );
 
       if (error || stderr) {
         log.error(
           `${error} : ${stderr}`,
           `FileExplorerLegacyDataSource.listStorages -> storage-list error`,
-          false
+          false,
         );
 
         return { error, stderr, data: null };
@@ -456,14 +456,14 @@ export class FileExplorerLegacyDataSource {
         stderr: filePropsStderr,
       } = await this._exec(
         `${this.mtpCli} ${storageSelectCmd} "lsext \\"${this._escapeShellMtp(
-          filePath
-        )}\\""`
+          filePath,
+        )}\\""`,
       );
 
       if (filePropsError || filePropsStderr) {
         log.error(
           `${filePropsError} : ${filePropsStderr}`,
-          `listFiles -> lsext error`
+          `listFiles -> lsext error`,
         );
 
         return { error: filePropsError, stderr: filePropsStderr, data: null };
@@ -472,32 +472,32 @@ export class FileExplorerLegacyDataSource {
       let fileProps = splitIntoLines(filePropsData);
 
       fileProps = fileProps.filter(
-        (a, index) => !this._filterOutMtpLines(a, index)
+        (a, index) => !this._filterOutMtpLines(a, index),
       );
 
       for (let i = 0; i < fileProps.length; i += 1) {
         const item = fileProps[i];
         const matchedProps = item.match(
-          /^(.*?)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g
+          /^(.*?)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g,
         );
 
         if (matchedProps === null || matchedProps.length < 1) {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         const _matchedProps = matchedProps[0];
         const itemSplit = item.split(_matchedProps);
 
         if (itemSplit === null || itemSplit.length < 2 || itemSplit[1] === '') {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         const matchedFileName = itemSplit[1].replace(/^\s{2}|\s$/g, '');
         const filePropsList = _matchedProps.replace(/\s\s+/g, ' ').split(' ');
 
-        // eslint-disable-next-line no-useless-escape
+        // oxlint-disable-next-line no-useless-escape
         if (ignoreHidden && /(^|\/)\.[^\/\.]/g.test(matchedFileName)) {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         const fullPath = path.resolve(filePath, matchedFileName);
@@ -509,7 +509,7 @@ export class FileExplorerLegacyDataSource {
 
         // avoid duplicate values
         if (findLodash(response, { path: fullPath })) {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         response.push({
@@ -549,13 +549,13 @@ export class FileExplorerLegacyDataSource {
       const escapedNewFilename = `${this._escapeShellMtp(newFilename)}`;
 
       const { error, stderr } = await this._exec(
-        `${this.mtpCli} ${storageSelectCmd} "rename \\"${escapedFilePath}\\" \\"${escapedNewFilename}\\""`
+        `${this.mtpCli} ${storageSelectCmd} "rename \\"${escapedFilePath}\\" \\"${escapedNewFilename}\\""`,
       );
 
       if (error || stderr) {
         log.error(
           `${error} : ${stderr}`,
-          `FileExplorerLegacyDataSource.renameFile -> rename error`
+          `FileExplorerLegacyDataSource.renameFile -> rename error`,
         );
 
         return { error, stderr, data: false };
@@ -585,17 +585,17 @@ export class FileExplorerLegacyDataSource {
       const storageSelectCmd = `"storage ${storageId}"`;
 
       for (let i = 0; i < fileList.length; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         const { error, stderr } = await this._exec(
           `${this.mtpCli} ${storageSelectCmd} "rm \\"${this._escapeShellMtp(
-            fileList[i]
-          )}\\""`
+            fileList[i],
+          )}\\""`,
         );
 
         if (error || stderr) {
           log.error(
             `${error} : ${stderr}`,
-            `FileExplorerLegacyDataSource.deleteFiles -> rm error`
+            `FileExplorerLegacyDataSource.deleteFiles -> rm error`,
           );
 
           return { error, stderr, data: false };
@@ -626,13 +626,13 @@ export class FileExplorerLegacyDataSource {
       const storageSelectCmd = `"storage ${storageId}"`;
       const escapedFilePath = `${this._escapeShellMtp(filePath)}`;
       const { error, stderr } = await this._exec(
-        `${this.mtpCli} ${storageSelectCmd} "mkpath \\"${escapedFilePath}\\""`
+        `${this.mtpCli} ${storageSelectCmd} "mkpath \\"${escapedFilePath}\\""`,
       );
 
       if (error || stderr) {
         log.error(
           `${error} : ${stderr}`,
-          `FileExplorerLegacyDataSource.makeDirectory -> mkpath error`
+          `FileExplorerLegacyDataSource.makeDirectory -> mkpath error`,
         );
 
         return { error, stderr, data: false };
@@ -667,7 +667,7 @@ export class FileExplorerLegacyDataSource {
         const item = fileList[i];
         const fullPath = path.resolve(item);
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         if (await this._checkMtpFileExists(fullPath, storageId)) {
           return true;
         }
@@ -771,7 +771,7 @@ export class FileExplorerLegacyDataSource {
           cmdArgs = (fileList ?? []).map((sourcePath) => {
             const destinationPath = path.resolve(destination);
             const escapedDestinationPath = this._escapeShellMtp(
-              `${destinationPath}/${baseName(sourcePath)}`
+              `${destinationPath}/${baseName(sourcePath)}`,
             );
             const escapedSourcePath = `${this._escapeShellMtp(sourcePath)}`;
 
@@ -789,7 +789,7 @@ export class FileExplorerLegacyDataSource {
           cmdArgs = (fileList ?? []).map((sourcePath) => {
             const destinationPath = path.resolve(destination);
             const escapedDestinationPath = `${this._escapeShellMtp(
-              destinationPath
+              destinationPath,
             )}`;
             const escapedSourcePath = `${this._escapeShellMtp(sourcePath)}`;
 
@@ -819,7 +819,7 @@ export class FileExplorerLegacyDataSource {
   async fetchDebugReport() {
     try {
       const { data, error, stderr } = await this._exec(
-        `${this.mtpCli} "pwd" -v`
+        `${this.mtpCli} "pwd" -v`,
       );
 
       if (error) {
@@ -831,7 +831,7 @@ export class FileExplorerLegacyDataSource {
       if (stderr) {
         log.doLog(
           stderr,
-          `FileExplorerLegacyDataSource.fetchDebugReport.stderr`
+          `FileExplorerLegacyDataSource.fetchDebugReport.stderr`,
         );
 
         return { error, stderr, data: null };

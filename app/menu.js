@@ -272,7 +272,7 @@ export default class MenuBuilder {
                 accelerator: 'F11',
                 click: () => {
                   this.mainWindow.setFullScreen(
-                    !this.mainWindow.isFullScreen()
+                    !this.mainWindow.isFullScreen(),
                   );
                 },
               },
@@ -290,7 +290,7 @@ export default class MenuBuilder {
                 accelerator: 'F11',
                 click: () => {
                   this.mainWindow.setFullScreen(
-                    !this.mainWindow.isFullScreen()
+                    !this.mainWindow.isFullScreen(),
                   );
                 },
               },

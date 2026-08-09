@@ -31,7 +31,7 @@ const { getPath } = remote.app;
 const desktopPath = getPath('desktop');
 const zippedLogFileBaseName = `${baseName(logFile)}.gz`;
 const logFileZippedPath = path.resolve(
-  path.join(desktopPath, `./${zippedLogFileBaseName}`)
+  path.join(desktopPath, `./${zippedLogFileBaseName}`),
 );
 const mailToInstructions = _mailToInstructions(zippedLogFileBaseName);
 
@@ -45,7 +45,7 @@ class GenerateErrorReport extends PureComponent {
   componentWillUnmount() {
     ipcRenderer.removeListener(
       IpcEvents.REPORT_BUGS_DISPOSE_MTP_REPLY_FROM_MAIN,
-      this._reportBugsDisposeMtpReplyEvent
+      this._reportBugsDisposeMtpReplyEvent,
     );
   }
 
@@ -70,12 +70,12 @@ class GenerateErrorReport extends PureComponent {
       if (isReportBugsPage) {
         this.mainWindowRendererProcess.webContents.send(
           IpcEvents.REPORT_BUGS_DISPOSE_MTP,
-          { logFileZippedPath }
+          { logFileZippedPath },
         );
 
         ipcRenderer.once(
           IpcEvents.REPORT_BUGS_DISPOSE_MTP_REPLY_FROM_MAIN,
-          this._reportBugsDisposeMtpReplyEvent
+          this._reportBugsDisposeMtpReplyEvent,
         );
 
         return;
@@ -157,7 +157,7 @@ const mapDispatchToProps = (dispatch, __) =>
           dispatch(throwAlert({ ...args }));
         },
     },
-    dispatch
+    dispatch,
   );
 
 const mapStateToProps = (_, __) => {
@@ -166,5 +166,5 @@ const mapStateToProps = (_, __) => {
 
 export default connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(withStyles(styles)(GenerateErrorReport));

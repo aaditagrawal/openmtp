@@ -5,7 +5,7 @@ const [, , scriptName, ...extraArgs] = process.argv;
 
 if (!scriptName) {
   console.error(
-    'Usage: node ./internals/scripts/run-package-script.js <script> [...args]'
+    'Usage: node ./internals/scripts/run-package-script.js <script> [...args]',
   );
   process.exit(1);
 }

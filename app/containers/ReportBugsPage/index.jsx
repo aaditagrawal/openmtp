@@ -31,5 +31,5 @@ const mapStateToProps = (_, __) => {
 
 export default connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(withStyles(styles)(ReportBugsPage));

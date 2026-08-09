@@ -31,9 +31,9 @@ class Titlebar extends PureComponent {
               {`${mtpDevice?.info?.mtpDeviceInfo?.Model} (${selectedStorage?.data?.name}) - `}
             </span>
             {`${niceBytes(
-              parseInt(selectedStorage?.data.info?.FreeSpaceInBytes ?? 0, 10)
+              parseInt(selectedStorage?.data.info?.FreeSpaceInBytes ?? 0, 10),
             )} Free of ${niceBytes(
-              parseInt(selectedStorage?.data.info?.MaxCapability ?? 0, 10)
+              parseInt(selectedStorage?.data.info?.MaxCapability ?? 0, 10),
             )}, ${capitalize(mtpMode)} Mode`}
           </span>
         ) : (

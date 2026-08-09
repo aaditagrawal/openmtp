@@ -4,7 +4,7 @@ const saveFile = require('fs').writeFileSync;
 const pkgJsonPath = path.join(
   `${require.main.paths[0].split('node_modules')[0]}`,
   '../../',
-  'package.json'
+  'package.json',
 );
 
 const json = require(pkgJsonPath);

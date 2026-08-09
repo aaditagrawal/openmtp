@@ -33,7 +33,7 @@ async function main() {
   console.error('We are starting to download all possible electron symbols');
   console.error('We need it in order to symbolicate native crashes');
   console.error(
-    'This step is only needed once whenever you update your electron version'
+    'This step is only needed once whenever you update your electron version',
   );
   console.error('Just call this script again it should do everything for you.');
 
@@ -105,7 +105,7 @@ async function downloadSymbols(options) {
         } else {
           resolve(zipPath);
         }
-      }
+      },
     );
   });
 }

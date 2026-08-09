@@ -95,7 +95,7 @@ export const log = {
     customError = null,
     logError = true,
     report = true,
-    isError = true
+    isError = true,
   ) {
     if (logError === false) {
       return null;

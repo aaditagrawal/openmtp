@@ -1,16 +1,14 @@
 module.exports = {
   '*.{js,jsx,mjs}': [
-    'node ./internals/scripts/run-package-script.js lint',
-    'node ./internals/scripts/run-package-script.js postlint-fix',
+    'oxlint --ignore-path .eslintignore --fix',
+    'oxfmt --ignore-path .eslintignore --write',
   ],
-  '{*.json,.{babelrc,eslintrc,prettierrc,stylelintrc}}': [
-    'prettier --ignore-path .eslintignore --parser json --write',
+  '{*.json,.{babelrc,stylelintrc},.oxlintrc.json,.oxfmtrc.json}': [
+    'oxfmt --ignore-path .eslintignore --write',
   ],
   '*.{css,scss}': [
     'node ./internals/scripts/run-package-script.js lint-styles',
-    'node ./internals/scripts/run-package-script.js postlint-styles-fix',
+    'oxfmt --ignore-path .eslintignore --write',
   ],
-  '*.{html,md,yml}': [
-    'prettier --ignore-path .eslintignore --single-quote --write',
-  ],
+  '*.{html,md,yml}': ['oxfmt --ignore-path .eslintignore --write'],
 };

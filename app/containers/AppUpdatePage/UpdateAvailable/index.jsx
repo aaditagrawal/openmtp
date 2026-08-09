@@ -68,7 +68,7 @@ class AppUpdatePage extends Component {
   componentWillUnmount() {
     ipcRenderer.removeListener(
       'appUpdatesUpdateAvailableCommunication',
-      () => {}
+      () => {},
     );
     ipcRenderer.removeListener('appUpdatesUpdateAvailableReply', () => {});
   }
@@ -98,7 +98,7 @@ class AppUpdatePage extends Component {
     const { releaseName, releaseNotes } = releaseInfo;
     const sanitizedReleaseNotesHtml = sanitizeHtml(
       releaseNotes,
-      this.sanitizeHtmlConfig
+      this.sanitizeHtmlConfig,
     );
 
     return (
@@ -119,14 +119,14 @@ class AppUpdatePage extends Component {
         </Typography>
 
         <div className={styles.scrollContainer}>
-          {/* eslint-disable react/no-danger */}
+          {/* oxlint-disable react/no-danger */}
           <div
             className={`${releaseNotesStyles.releaseNotes}`}
             dangerouslySetInnerHTML={{
               __html: sanitizedReleaseNotesHtml,
             }}
           />
-          {/* eslint-enable react/no-danger */}
+          {/* oxlint-enable react/no-danger */}
         </div>
 
         <div className={styles.btnWrapper}>

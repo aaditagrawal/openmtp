@@ -31,7 +31,7 @@ export default class IpcEventService {
     ipcMain.on(IpcEvents.REPORT_BUGS_DISPOSE_MTP_REPLY, (_, args) => {
       reportBugsWindow(false, false)?.send(
         IpcEvents.REPORT_BUGS_DISPOSE_MTP_REPLY_FROM_MAIN,
-        args
+        args,
       );
     });
   };

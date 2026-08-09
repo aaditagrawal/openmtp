@@ -349,7 +349,7 @@ class PrivacyPolicyPage extends Component {
                 onClick={(events) => {
                   openExternalUrl(
                     'https://policies.google.com/privacy?hl=en',
-                    events
+                    events,
                   );
                 }}
               >
@@ -374,7 +374,7 @@ class PrivacyPolicyPage extends Component {
                 onClick={(events) => {
                   openExternalUrl(
                     'https://mixpanel.com/legal/privacy-policy/',
-                    events
+                    events,
                   );
                 }}
               >
@@ -449,7 +449,7 @@ class PrivacyPolicyPage extends Component {
                 onClick={(events) => {
                   openExternalUrl(
                     'https://help.github.com/articles/github-privacy-statement/',
-                    events
+                    events,
                   );
                 }}
               >
@@ -575,5 +575,5 @@ const mapStateToProps = (_, __) => {
 
 export default connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(withStyles(styles)(PrivacyPolicyPage));

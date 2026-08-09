@@ -86,7 +86,7 @@ const historicalLibusbBrewBottles = {
 function buildCompatibilityChecks() {
   if (macosVersion.is('<10.14')) {
     throw new Error(
-      'To build the Kalam dylib files at least macOS >=10.14 is required'
+      'To build the Kalam dylib files at least macOS >=10.14 is required',
     );
   }
 
@@ -101,7 +101,7 @@ Support for these older version of the oses are now being deprecated because for
 Usually the compilation of the kernel dylibs on these older OSes happen very rarely and only when there is a security issue or something.
 The dylib files compiled against these older versions (historical versions) of macos are built into the directories: 'build/mac/bin/medieval'
 Compiling dylibs on the historical macos versions doesn't overwrite builds in the 'build/mac/bin/arm64/' or 'build/mac/bin/amd64/' which contains the dylibs for the latest and supported versions of macos
-      `)
+      `),
       );
 
       break;
@@ -175,7 +175,7 @@ console.info(`creating the temp directory in ${TEMP_ROOT_DIR}...\n`);
 await fs.ensureDirSync(TEMP_ROOT_DIR, DIR_MODE);
 
 console.info(
-  `creating the libusb temp directory in ${LIBUSB_BOTTLE_TEMP_DIR}...\n`
+  `creating the libusb temp directory in ${LIBUSB_BOTTLE_TEMP_DIR}...\n`,
 );
 await fs.ensureDirSync(LIBUSB_BOTTLE_TEMP_DIR, DIR_MODE);
 $`chmod -R +w ${LIBUSB_BOTTLE_TEMP_DIR}`;
@@ -188,7 +188,7 @@ async function runPrerequisites({ bottles }) {
 
   for await (const [, bottle] of Object.entries(bottles)) {
     console.info(
-      `attempting to download the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`
+      `attempting to download the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`,
     );
 
     const bottlePath = getLibusbBottleCachePath({ bottle });
@@ -206,12 +206,12 @@ async function runPrerequisites({ bottles }) {
 
   for await (const [, bottle] of Object.entries(bottles)) {
     console.info(
-      `attempting to unarchive the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`
+      `attempting to unarchive the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`,
     );
 
     const bottlePath = getLibusbBottleCachePath({ bottle });
     console.info(
-      `[${bottlePath.identifier}] creating the libusb temp directory in ${bottlePath.extracted}...\n`
+      `[${bottlePath.identifier}] creating the libusb temp directory in ${bottlePath.extracted}...\n`,
     );
     await fs.ensureDirSync(bottlePath.extracted, DIR_MODE);
     await $`LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 tar -xvf ${bottlePath.tarball} -C ${bottlePath.extracted} --no-same-permissions`;
@@ -225,7 +225,7 @@ async function runPrerequisites({ bottles }) {
 
   for await (const [, bottle] of Object.entries(bottles)) {
     console.info(
-      `attempting to process the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`
+      `attempting to process the libusb tar file for: ${bottle.os}-${bottle.osName}-${bottle.osVersion}-${bottle.arch}-${bottle.libusbVersion}`,
     );
 
     const bottlePath = getLibusbBottleCachePath({ bottle });
@@ -233,7 +233,7 @@ async function runPrerequisites({ bottles }) {
     if (bottle.customFilePath?.shouldProcessPkgConfig !== false) {
       // replacing the string `@@HOMEBREW_CELLAR@@` in the pkg-config file
       console.info(
-        `[${bottlePath.identifier}] replacing the string '@@HOMEBREW_CELLAR@@' in the pkg-config file...\n`
+        `[${bottlePath.identifier}] replacing the string '@@HOMEBREW_CELLAR@@' in the pkg-config file...\n`,
       );
       await replace({
         regex: '@@HOMEBREW_CELLAR@@',
@@ -244,25 +244,25 @@ async function runPrerequisites({ bottles }) {
       });
     } else {
       console.info(
-        `skipping the processing of the pkg config which was downloaded from the custom file path`
+        `skipping the processing of the pkg config which was downloaded from the custom file path`,
       );
     }
 
     if (bottle.customFilePath?.shouldProcessLibusbDylibConfig !== false) {
       // copying the libusb-1.0.0.dylib to the build directory
       console.info(
-        `[${bottlePath.identifier}] attempting to copy the libusb-1.0.0.dylib to the build directory...\n`
+        `[${bottlePath.identifier}] attempting to copy the libusb-1.0.0.dylib to the build directory...\n`,
       );
 
       await fs.ensureDirSync(bottlePath.buildDir, DIR_MODE);
       await fs.copyFileSync(
         bottlePath.libusbDylib,
-        bottlePath.libusbDylibInBuildDir
+        bottlePath.libusbDylibInBuildDir,
       );
 
       // fixing the rpath in the libusb-1.0.0.dylib
       console.info(
-        `[${bottlePath.identifier}] fixing the rpath in the libusb-1.0.0.dylib...\n`
+        `[${bottlePath.identifier}] fixing the rpath in the libusb-1.0.0.dylib...\n`,
       );
 
       // todo: FIXME
@@ -270,7 +270,7 @@ async function runPrerequisites({ bottles }) {
       await $`install_name_tool -id ${bottlePath.rpath} ${bottlePath.libusbDylib}`;
     } else {
       console.info(
-        `skipping the processing of the libusb dylib which was downloaded from the custom file path`
+        `skipping the processing of the libusb dylib which was downloaded from the custom file path`,
       );
     }
   }

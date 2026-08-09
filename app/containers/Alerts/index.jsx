@@ -37,7 +37,7 @@ const mapDispatchToProps = (dispatch, __) =>
         dispatch(clearAlert());
       },
     },
-    dispatch
+    dispatch,
   );
 
 const mapStateToProps = (state, __) => {
@@ -48,5 +48,5 @@ const mapStateToProps = (state, __) => {
 
 export default withReducer(
   'Alerts',
-  reducers
+  reducers,
 )(connect(mapStateToProps, mapDispatchToProps)(Alerts));

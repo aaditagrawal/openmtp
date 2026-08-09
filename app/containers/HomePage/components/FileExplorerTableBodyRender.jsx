@@ -22,7 +22,7 @@ class FileExplorerTableBodyRender extends PureComponent {
     const { nodes, order, orderBy } = directoryLists[deviceType];
     const _eventTarget = 'tableCellTarget';
 
-    // eslint-disable-next-line  no-unused-vars
+    // oxlint-disable-next-line  no-unused-vars
     const { classes, ...parentProps } = this.props;
 
     switch (type) {

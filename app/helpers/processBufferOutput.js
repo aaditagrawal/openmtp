@@ -1,4 +1,4 @@
-/* eslint-disable no-case-declarations */
+/* oxlint-disable no-case-declarations */
 
 import { EOL } from 'os';
 import { replaceBulk, undefinedOrNull } from '../utils/funcs';
@@ -60,7 +60,7 @@ export const processMtpBuffer = async ({ error, stderr, mtpMode }) => {
           null,
           result.reportError === true,
           // do not report 'device changed' error
-          stderr !== MTP_ERROR.ErrorDeviceChanged
+          stderr !== MTP_ERROR.ErrorDeviceChanged,
         );
       }
     }
@@ -435,7 +435,7 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
       `MTP buffer o/p logging;${EOL}MTP Mode: ${
         MTP_MODE.legacy
       }${EOL}error: ${errorStringified.trim()}${EOL}stderr: ${stderrStringified.trim()}`,
-      'processLegacyMtpBuffer'
+      'processLegacyMtpBuffer',
     );
   }
 
@@ -657,7 +657,7 @@ export const processLocalBuffer = ({ error, stderr }) => {
 
   log.doLog(
     `Local buffer o/p logging;${EOL}error: ${errorStringified.trim()}${EOL}stderr: ${stderrStringified.trim()}`,
-    'processLocalBuffer'
+    'processLocalBuffer',
   );
 
   if (
@@ -719,8 +719,8 @@ const sanitizeErrors = (string) => {
     return `Oops.. Try again`;
   }
 
-  string = string.replace(/^(error: )/, '').trim(); // eslint-disable-line no-param-reassign
-  string = replaceBulk(string, ['error:', 'stat failed:'], ['', '']).trim(); // eslint-disable-line no-param-reassign
+  string = string.replace(/^(error: )/, '').trim(); // oxlint-disable-line no-param-reassign
+  string = replaceBulk(string, ['error:', 'stat failed:'], ['', '']).trim(); // oxlint-disable-line no-param-reassign
 
   return string.charAt(0).toUpperCase() + string.slice(1);
 };

@@ -1,4 +1,4 @@
-// eslint-disable-next-line no-unused-vars
+// oxlint-disable-next-line no-unused-vars
 import { checkIf } from '../../utils/checkIf';
 
 export const commonThemes = {

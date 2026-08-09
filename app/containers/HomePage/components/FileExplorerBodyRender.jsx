@@ -33,7 +33,7 @@ class FileExplorerBodyRender extends PureComponent {
     this.focusItem();
 
     this.fileExplorerBodyWrapper = document.getElementById(
-      this.fileExplorerBodyWrapperId
+      this.fileExplorerBodyWrapperId,
     );
   }
 
@@ -86,7 +86,7 @@ class FileExplorerBodyRender extends PureComponent {
 
         return `${accumulator}, ${itemCurrentKey.join(', ')}`;
       },
-      ''
+      '',
     );
 
     hotkeys(this.fileExplorerKeymapString, (event, handler) => {
@@ -148,7 +148,7 @@ class FileExplorerBodyRender extends PureComponent {
     if (toggle) {
       this.focussedFileExplorerDeviceTypeCached = toggleFileExplorerDeviceType(
         this.focussedFileExplorerDeviceTypeCached,
-        DEVICE_TYPE
+        DEVICE_TYPE,
       );
 
       _focussedFileExplorerDeviceType =
@@ -275,7 +275,7 @@ class FileExplorerBodyRender extends PureComponent {
       deviceType,
       currentBrowsePath,
       onHoverDropZoneActivate,
-      filesDrag, // eslint-disable-line no-unused-vars
+      filesDrag, // oxlint-disable-line no-unused-vars
       onContextMenuClick,
       onBreadcrumbPathClick,
       isStatusBarEnabled,
@@ -293,7 +293,7 @@ class FileExplorerBodyRender extends PureComponent {
           this.acceleratorFileExplorerTabSwitch(
             event,
             'fileExplorerTabSwitch',
-            false
+            false,
           )
         }
         className={styles.root}

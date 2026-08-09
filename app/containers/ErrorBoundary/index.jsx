@@ -28,7 +28,7 @@ class ErrorBoundary extends Component {
       errorInfo?.componentStack,
       `ErrorBoundary.componentDidCatch.errorInfo`,
       null,
-      true
+      true,
     );
   }
 

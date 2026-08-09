@@ -20,7 +20,7 @@ const publicPath = `http://localhost:${PORT}/dist`;
 const dll = path.resolve(PATHS.root, 'dll');
 const manifest = path.resolve(dll, 'renderer.json');
 const requiredByDLLConfig = module.parent.filename.includes(
-  'config.renderer.dev.dll.babel'
+  'config.renderer.dev.dll.babel',
 );
 
 // When an ESLint server is running, we can't set the NODE_ENV so we'll check if it's
@@ -35,8 +35,8 @@ if (process.env.NODE_ENV === 'production') {
 if (!requiredByDLLConfig && !(fs.existsSync(dll) && fs.existsSync(manifest))) {
   console.info(
     chalk.black.bgYellow.bold(
-      'The DLL files are missing. Sit back while we build them for you with "build-dll".'
-    )
+      'The DLL files are missing. Sit back while we build them for you with "build-dll".',
+    ),
   );
   execSync('node ./internals/scripts/run-package-script.js build-dll', {
     cwd: PATHS.root,
@@ -275,7 +275,7 @@ export default merge(baseConfig, {
             env: process.env,
             cwd: PATHS.root,
             stdio: 'inherit',
-          }
+          },
         )
           .on('close', (code) => process.exit(code))
           .on('error', (spawnError) => console.error(spawnError));

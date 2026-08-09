@@ -103,7 +103,7 @@ export class Kalam {
         }, koffi.pointer(onDonePtr));
 
         const FetchDeviceInfo = this.lib.func(
-          this.fnDictionary.FetchDeviceInfo
+          this.fnDictionary.FetchDeviceInfo,
         );
 
         FetchDeviceInfo.async(rawOnDonePtr, (err, _) => {
@@ -443,8 +443,8 @@ export class Kalam {
           default:
             return resolve(
               this._getNapiError(
-                `unsupported 'direction' in Kalam.transferFiles`
-              )
+                `unsupported 'direction' in Kalam.transferFiles`,
+              ),
             );
         }
 
@@ -471,17 +471,17 @@ export class Kalam {
             if (!undefinedOrNull(err)) {
               log.error(
                 err,
-                `Kalam.transferFiles.async - Transfer type: ${direction}`
+                `Kalam.transferFiles.async - Transfer type: ${direction}`,
               );
 
               return resolve(this._getNapiError(err));
             }
-          }
+          },
         );
       } catch (err) {
         log.error(
           err,
-          `Kalam.transferFiles.catch - Transfer type: ${direction}`
+          `Kalam.transferFiles.catch - Transfer type: ${direction}`,
         );
 
         return resolve(this._getNapiError(err));

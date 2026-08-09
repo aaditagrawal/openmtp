@@ -62,7 +62,7 @@ class HelpPhoneNotRecognized extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE.MTP_HELP_PHONE_NOT_CONNECTED_GITHUB_THREAD_TAP,
-      {}
+      {},
     );
   };
 
@@ -392,7 +392,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                           onClick={(events) => {
                             openExternalUrl(
                               'https://github.com/ganeshrvel/openmtp/issues/276',
-                              events
+                              events,
                             );
                           }}
                         >
@@ -831,7 +831,7 @@ class HelpPhoneNotRecognized extends PureComponent {
                     secondary={
                       <img
                         src={imgsrc(
-                          `help/privacy-restricted-folder-access.png`
+                          `help/privacy-restricted-folder-access.png`,
                         )}
                         alt="Files and Folders"
                         className={styles.imagePlaceholder}

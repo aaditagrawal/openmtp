@@ -26,7 +26,7 @@ class ProgressbarPage extends Component {
       'appUpdatesProgressBarCommunication',
       (event, { ...args }) => {
         this.setState({ ...args });
-      }
+      },
     );
   }
 

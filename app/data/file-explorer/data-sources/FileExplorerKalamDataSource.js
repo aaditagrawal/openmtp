@@ -447,7 +447,7 @@ export class FileExplorerKalamDataSource {
       if (stderr) {
         log.doLog(
           stderr,
-          `FileExplorerKalamDataSource.fetchDebugReport.stderr`
+          `FileExplorerKalamDataSource.fetchDebugReport.stderr`,
         );
 
         return { error, stderr, data: null };

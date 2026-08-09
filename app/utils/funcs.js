@@ -69,7 +69,7 @@ export const niceBytes = (a, b) => {
   const e = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
   const f = Math.floor(Math.log(a) / Math.log(c));
 
-  return `${parseFloat((a / c ** f).toFixed(d))} ${e[f]}`; // eslint-disable-line no-restricted-properties
+  return `${parseFloat((a / c ** f).toFixed(d))} ${e[f]}`; // oxlint-disable-line no-restricted-properties
 };
 
 export const replaceBulk = (str, findArray, replaceArray) => {
@@ -108,8 +108,8 @@ export const quickHash = (str) => {
 
   for (i = 0; i < str.length; i += 1) {
     chr = str.charCodeAt(i);
-    hash = (hash << 5) - hash + chr; // eslint-disable-line no-bitwise
-    hash |= 0; // eslint-disable-line no-bitwise
+    hash = (hash << 5) - hash + chr; // oxlint-disable-line no-bitwise
+    hash |= 0; // oxlint-disable-line no-bitwise
   }
 
   return hash;
@@ -150,7 +150,7 @@ export const springTruncate = (str, minChars = 10, ellipsis = '...') => {
     return {
       text: _str,
       truncatedText: `${str.substr(0, center - count)}${ellipsis}${str.substr(
-        strLength - center + count
+        strLength - center + count,
       )}`,
       isTruncated: true,
     };
@@ -238,7 +238,7 @@ export const keymapSearch = (keymap, keyedList) => {
 
 export const toggleFileExplorerDeviceType = (
   currentDeviceType,
-  DEVICE_TYPE
+  DEVICE_TYPE,
 ) => {
   return currentDeviceType === DEVICE_TYPE.local
     ? DEVICE_TYPE.mtp

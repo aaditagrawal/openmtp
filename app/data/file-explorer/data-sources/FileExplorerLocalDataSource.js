@@ -222,7 +222,7 @@ export class FileExplorerLocalDataSource {
 
       files = data.filter(junk.not);
       if (ignoreHidden) {
-        // eslint-disable-next-line no-useless-escape
+        // oxlint-disable-next-line no-useless-escape
         files = data.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
       }
 
@@ -231,13 +231,13 @@ export class FileExplorerLocalDataSource {
 
         const fullPath = path.resolve(filePath, file);
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         const { isFolder, symlink } = await this._getSymlinkInfo({
           fullPath,
         });
 
         if (!existsSync(fullPath)) {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         const stat = statSync(fullPath);
@@ -245,7 +245,7 @@ export class FileExplorerLocalDataSource {
         const { size, atime: dateTime } = stat;
 
         if (findLodash(response, { path: fullPath })) {
-          continue; // eslint-disable-line no-continue
+          continue; // oxlint-disable-line no-continue
         }
 
         response.push({
@@ -287,16 +287,16 @@ export class FileExplorerLocalDataSource {
         try {
           // Directory traversal is intentionally sequential so nested folders are
           // appended to the same breadth-first queue in a predictable order.
-          // eslint-disable-next-line no-await-in-loop
+          // oxlint-disable-next-line no-await-in-loop
           const dirEntries = await this.readdir(currentDir, 'utf8');
           let files = dirEntries.filter(junk.not);
 
           if (ignoreHidden) {
-            // eslint-disable-next-line no-useless-escape
+            // oxlint-disable-next-line no-useless-escape
             files = files.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
           }
 
-          // eslint-disable-next-line no-await-in-loop
+          // oxlint-disable-next-line no-await-in-loop
           const fileDetails = await Promise.all(
             files.map(async (file) => {
               const fullPath = path.resolve(currentDir, file);
@@ -321,7 +321,7 @@ export class FileExplorerLocalDataSource {
                 dateAdded: appDateFormat(dateTime),
                 symlink,
               };
-            })
+            }),
           );
 
           fileDetails.filter(Boolean).forEach((fileDetail) => {
@@ -381,7 +381,7 @@ export class FileExplorerLocalDataSource {
       if (error) {
         log.error(
           `${error}`,
-          `FileExplorerLocalDataSource.renameFile -> mv error`
+          `FileExplorerLocalDataSource.renameFile -> mv error`,
         );
 
         return { error, stderr: null, data: false };
@@ -410,7 +410,7 @@ export class FileExplorerLocalDataSource {
       for (let i = 0; i < fileList.length; i += 1) {
         const filePath = fileList[i];
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         const _accessGranted = await this._requestUsageAccess({ filePath });
 
         if (!_accessGranted) {
@@ -420,13 +420,13 @@ export class FileExplorerLocalDataSource {
           };
         }
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         const { error } = await this._delete(filePath);
 
         if (error) {
           log.error(
             `${error}`,
-            `FileExplorerLocalDataSource.deleteFiles -> rm error`
+            `FileExplorerLocalDataSource.deleteFiles -> rm error`,
           );
 
           return { error, stderr: null, data: false };
@@ -453,7 +453,7 @@ export class FileExplorerLocalDataSource {
         return { error: `Invalid path.`, stderr: null, data: null };
       }
 
-      // eslint-disable-next-line no-await-in-loop
+      // oxlint-disable-next-line no-await-in-loop
       const _accessGranted = await this._requestUsageAccess({
         filePath,
       });
@@ -470,7 +470,7 @@ export class FileExplorerLocalDataSource {
       if (error) {
         log.error(
           `${error}`,
-          `FileExplorerLocalDataSource.makeDirectory -> mkdir error`
+          `FileExplorerLocalDataSource.makeDirectory -> mkdir error`,
         );
 
         return { error, stderr: null, data: false };
@@ -504,7 +504,7 @@ export class FileExplorerLocalDataSource {
         const item = fileList[i];
         const fullPath = path.resolve(item);
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         const _accessGranted = await this._requestUsageAccess({
           filePath: fullPath,
         });
@@ -516,7 +516,7 @@ export class FileExplorerLocalDataSource {
           };
         }
 
-        // eslint-disable-next-line no-await-in-loop
+        // oxlint-disable-next-line no-await-in-loop
         if (await existsSync(fullPath)) {
           return true;
         }

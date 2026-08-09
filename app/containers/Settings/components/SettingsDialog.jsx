@@ -255,7 +255,7 @@ export default class SettingsDialog extends PureComponent {
                             onHiddenFilesChange(
                               e,
                               !hideHiddenFilesLocal,
-                              DEVICE_TYPE.local
+                              DEVICE_TYPE.local,
                             )
                           }
                         />
@@ -271,7 +271,7 @@ export default class SettingsDialog extends PureComponent {
                             onHiddenFilesChange(
                               e,
                               !hideHiddenFilesMtp,
-                              DEVICE_TYPE.mtp
+                              DEVICE_TYPE.mtp,
                             )
                           }
                         />
@@ -296,7 +296,7 @@ export default class SettingsDialog extends PureComponent {
                               fileExplorerListingTypeLocalGrid
                                 ? FILE_EXPLORER_VIEW_TYPE.list
                                 : FILE_EXPLORER_VIEW_TYPE.grid,
-                              DEVICE_TYPE.local
+                              DEVICE_TYPE.local,
                             )
                           }
                         />
@@ -314,7 +314,7 @@ export default class SettingsDialog extends PureComponent {
                               fileExplorerListingTypeMtpGrid
                                 ? FILE_EXPLORER_VIEW_TYPE.list
                                 : FILE_EXPLORER_VIEW_TYPE.grid,
-                              DEVICE_TYPE.mtp
+                              DEVICE_TYPE.mtp,
                             )
                           }
                         />
@@ -343,7 +343,7 @@ export default class SettingsDialog extends PureComponent {
                               !filesPreprocessingBeforeTransfer[
                                 FILE_TRANSFER_DIRECTION.download
                               ],
-                              FILE_TRANSFER_DIRECTION.download
+                              FILE_TRANSFER_DIRECTION.download,
                             )
                           }
                         />
@@ -365,7 +365,7 @@ export default class SettingsDialog extends PureComponent {
                               !filesPreprocessingBeforeTransfer[
                                 FILE_TRANSFER_DIRECTION.upload
                               ],
-                              FILE_TRANSFER_DIRECTION.upload
+                              FILE_TRANSFER_DIRECTION.upload,
                             )
                           }
                         />
@@ -414,7 +414,7 @@ export default class SettingsDialog extends PureComponent {
                           onChange={(e) =>
                             onShowDirectoriesFirstChange(
                               e,
-                              !showDirectoriesFirst
+                              !showDirectoriesFirst,
                             )
                           }
                         />
@@ -478,7 +478,7 @@ export default class SettingsDialog extends PureComponent {
                           onChange={(e) =>
                             onShowLocalPaneOnLeftSideChange(
                               e,
-                              !showLocalPaneOnLeftSide
+                              !showLocalPaneOnLeftSide,
                             )
                           }
                         />
@@ -529,7 +529,7 @@ export default class SettingsDialog extends PureComponent {
                           onChange={(e) =>
                             onEnableBackgroundAutoUpdateChange(
                               e,
-                              !enableBackgroundAutoUpdate
+                              !enableBackgroundAutoUpdate,
                             )
                           }
                         />
@@ -557,7 +557,7 @@ export default class SettingsDialog extends PureComponent {
                           onChange={(e) =>
                             onPrereleaseUpdatesChange(
                               e,
-                              !enablePrereleaseUpdates
+                              !enablePrereleaseUpdates,
                             )
                           }
                         />
@@ -603,7 +603,7 @@ export default class SettingsDialog extends PureComponent {
                         className={styles.a}
                         onClick={() => {
                           ipcRenderer.send(
-                            IpcEvents.OPEN_HELP_PRIVACY_POLICY_WINDOW
+                            IpcEvents.OPEN_HELP_PRIVACY_POLICY_WINDOW,
                           );
                         }}
                       >

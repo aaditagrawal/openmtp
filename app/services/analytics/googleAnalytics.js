@@ -16,7 +16,7 @@ export class GoogleAnalytics {
 
     log.printBoundary();
     log.info(
-      "Google analytics log. This wouldn't show up in the production mode"
+      "Google analytics log. This wouldn't show up in the production mode",
     );
     log.info(_value.toString(), `${key}`);
     log.printBoundary();
@@ -65,7 +65,7 @@ export class GoogleAnalytics {
   }
 
   // todo Fix this error: `TypeError: Cannot read properties of undefined (reading 'app')`
-  // eslint-disable-next-line no-unused-vars
+  // oxlint-disable-next-line no-unused-vars
   async sendDeviceInfo({ deviceInfo, mtpMode }) {
     // checkIf(deviceInfo, 'object');
     // checkIf(mtpMode, 'inObjectValues', MTP_MODE);

@@ -62,7 +62,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
 
     const fileName = springTruncate(
       item.name,
-      FILE_EXPLORER_TABLE_TRUNCATE_MAX_CHARS
+      FILE_EXPLORER_TABLE_TRUNCATE_MAX_CHARS,
     );
 
     return (
@@ -90,7 +90,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
               event,
               { ...item },
               { ...tableData },
-              _eventTarget
+              _eventTarget,
             )
           }
         >
@@ -109,7 +109,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
                 event,
                 { ...item },
                 { ...tableData },
-                _eventTarget
+                _eventTarget,
               )
             }
             onDoubleClick={(event) =>
@@ -137,7 +137,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
                 event,
                 { ...item },
                 { ...tableData },
-                _eventTarget
+                _eventTarget,
               )
             }
             onDoubleClick={(event) =>
@@ -157,7 +157,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
                 event,
                 { ...item },
                 { ...tableData },
-                _eventTarget
+                _eventTarget,
               )
             }
             onDoubleClick={(event) =>

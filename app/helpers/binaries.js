@@ -22,7 +22,7 @@ const binariesPath = ({ includeArchDirectory = true }) => {
   let historicBinaryVersionName;
 
   for (const [key, value] of Object.entries(
-    KALAM_HISTORIC_MACOS_VERSION_RANGE
+    KALAM_HISTORIC_MACOS_VERSION_RANGE,
   )) {
     if (macosVersion.is(value)) {
       historicBinaryVersionName = key;
@@ -31,7 +31,7 @@ const binariesPath = ({ includeArchDirectory = true }) => {
   }
 
   const doesCurrentOsSupportLatestBinaries = undefinedOrNull(
-    historicBinaryVersionName
+    historicBinaryVersionName,
   );
 
   let binariesArchDir;
@@ -41,7 +41,7 @@ const binariesPath = ({ includeArchDirectory = true }) => {
   } else {
     binariesArchDir = path.join(
       historicBinaryVersionName,
-      getBinariesSupportedSystemArchitecture()
+      getBinariesSupportedSystemArchitecture(),
     );
   }
 
@@ -51,7 +51,7 @@ const binariesPath = ({ includeArchDirectory = true }) => {
       root,
       './Contents',
       './Resources',
-      './bin'
+      './bin',
     );
 
     /// if [includeArchDirectory] is true then dont include the architecture directories
@@ -73,18 +73,18 @@ const binariesPath = ({ includeArchDirectory = true }) => {
 };
 
 export const mtpCliPath = path.resolve(
-  path.join(binariesPath({ includeArchDirectory: false }), './mtp-cli')
+  path.join(binariesPath({ includeArchDirectory: false }), './mtp-cli'),
 );
 
 export const kalamDebugReportCli = path.resolve(
   path.join(
     binariesPath({ includeArchDirectory: true }),
-    './kalam_debug_report'
-  )
+    './kalam_debug_report',
+  ),
 );
 
 export const kalamLibPath = path.resolve(
-  path.join(binariesPath({ includeArchDirectory: true }), './kalam.dylib')
+  path.join(binariesPath({ includeArchDirectory: true }), './kalam.dylib'),
 );
 
 // We have now officially retired the support for `Kalam` Kernel on macOS 10.13 (OS X El High Sierra) and lower. Only the "Legacy" MTP mode will continue working on these outdated machines.

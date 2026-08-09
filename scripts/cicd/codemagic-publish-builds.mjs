@@ -35,19 +35,19 @@ if (IS_PROD_WORKFLOW) {
 const MAC_M1_ARM64_ARTIFACTS_ZIP_FILENAME = `mac_m1_arm64_artifacts.zip`;
 const TEMP_MAC_M1_ARM64_ARTIFACTS_ZIP_PATH = path.resolve(
   TEMP_ROOT_DIR,
-  MAC_M1_ARM64_ARTIFACTS_ZIP_FILENAME
+  MAC_M1_ARM64_ARTIFACTS_ZIP_FILENAME,
 );
 
 const MAC_M1_ARM64_ARTIFACTS_ZIP_DIR = `mac_m1_arm64_artifacts`;
 const TEMP_MAC_M1_ARM64_ARTIFACTS_DIR = path.resolve(
   TEMP_ROOT_DIR,
-  MAC_M1_ARM64_ARTIFACTS_ZIP_DIR
+  MAC_M1_ARM64_ARTIFACTS_ZIP_DIR,
 );
 
 const LATEST_MAC_M1_ARM64_YAML_PATH = `latest-mac.yml`;
 const TEMP_LATEST_MAC_M1_ARM64_YAML_PATH = path.resolve(
   TEMP_MAC_M1_ARM64_ARTIFACTS_DIR,
-  LATEST_MAC_M1_ARM64_YAML_PATH
+  LATEST_MAC_M1_ARM64_YAML_PATH,
 );
 /////
 
@@ -55,19 +55,19 @@ const TEMP_LATEST_MAC_M1_ARM64_YAML_PATH = path.resolve(
 const MAC_INTEL_X64_ARTIFACTS_ZIP_FILENAME = `mac_intel_x64_artifacts.zip`;
 const DIST_MAC_INTEL_X64_ARTIFACTS_ZIP_PATH = path.resolve(
   DIST_DIR,
-  MAC_INTEL_X64_ARTIFACTS_ZIP_FILENAME
+  MAC_INTEL_X64_ARTIFACTS_ZIP_FILENAME,
 );
 
 const MAC_INTEL_X64_ARTIFACTS_ZIP_DIR = `mac_intel_x64_artifacts`;
 const TEMP_MAC_INTEL_X64_ARTIFACTS_DIR = path.resolve(
   TEMP_ROOT_DIR,
-  MAC_INTEL_X64_ARTIFACTS_ZIP_DIR
+  MAC_INTEL_X64_ARTIFACTS_ZIP_DIR,
 );
 
 const LATEST_MAC_MAC_INTEL_X64_YAML_PATH = `latest-mac.yml`;
 const TEMP_LATEST_MAC_INTEL_X64_YAML_PATH = path.resolve(
   TEMP_MAC_INTEL_X64_ARTIFACTS_DIR,
-  LATEST_MAC_MAC_INTEL_X64_YAML_PATH
+  LATEST_MAC_MAC_INTEL_X64_YAML_PATH,
 );
 ///
 
@@ -75,13 +75,13 @@ const TEMP_LATEST_MAC_INTEL_X64_YAML_PATH = path.resolve(
 const MERGED_ARTIFACTS_DIR = `merged_artifacts`;
 const TEMP_MERGED_ARTIFACTS_PATH = path.resolve(
   TEMP_ROOT_DIR,
-  MERGED_ARTIFACTS_DIR
+  MERGED_ARTIFACTS_DIR,
 );
 
 const MERGED_MAC_ARTIFACTS_YAML_PATH = `latest-mac.yml`;
 const TEMP_MERGED_MAC_ARTIFACTS_YAML_PATH = path.resolve(
   TEMP_MERGED_ARTIFACTS_PATH,
-  MERGED_MAC_ARTIFACTS_YAML_PATH
+  MERGED_MAC_ARTIFACTS_YAML_PATH,
 );
 ///
 
@@ -89,7 +89,7 @@ const cmArtifactLinksM1Arm64 = process.env.CM_ARTIFACT_LINKS_M1_ARM64;
 
 if (undefinedOrNull(cmArtifactLinksM1Arm64)) {
   throw new Error(
-    `'CM_ARTIFACT_LINKS_M1_ARM64' env variable shouldn't be empty.\nNote: 'macos-intel-x64-build' instance shouldn't be executed directly.\n Start the 'macos-m1-arm64-build-*' instance first.`
+    `'CM_ARTIFACT_LINKS_M1_ARM64' env variable shouldn't be empty.\nNote: 'macos-intel-x64-build' instance shouldn't be executed directly.\n Start the 'macos-m1-arm64-build-*' instance first.`,
   );
 }
 
@@ -98,7 +98,7 @@ try {
   cmArtifactLinksM1Arm64Json = JSON.parse(cmArtifactLinksM1Arm64);
 } catch (e) {
   throw new Error(
-    `the env variable 'CM_ARTIFACT_LINKS_M1_ARM64' isn't a valid JSON: ${e}`
+    `the env variable 'CM_ARTIFACT_LINKS_M1_ARM64' isn't a valid JSON: ${e}`,
   );
 }
 
@@ -112,7 +112,7 @@ try {
   gitReleaseTag = `v${packageObject.version}`;
 } catch (e) {
   throw new Error(
-    `Ann error occured while reading the '${PACKAGE_JSON_PATH}' file: ${e}`
+    `Ann error occured while reading the '${PACKAGE_JSON_PATH}' file: ${e}`,
   );
 }
 
@@ -123,7 +123,7 @@ console.info(`creating the temp directory: ${TEMP_ROOT_DIR}...\n`);
 await ensureDirSync(TEMP_ROOT_DIR, DIR_MODE);
 
 console.info(
-  `creating the temp directory for the merged artifacts: ${TEMP_MERGED_ARTIFACTS_PATH}...\n`
+  `creating the temp directory for the merged artifacts: ${TEMP_MERGED_ARTIFACTS_PATH}...\n`,
 );
 await ensureDirSync(TEMP_MERGED_ARTIFACTS_PATH, DIR_MODE);
 
@@ -151,13 +151,13 @@ for (const artifact of cmArtifactLinksM1Arm64Json) {
 
 if (undefinedOrNull(macM1Arm64ArtifactsZipUrl)) {
   throw new Error(
-    `invalid artifact url in the 'CM_ARTIFACT_LINKS_M1_ARM64' env`
+    `invalid artifact url in the 'CM_ARTIFACT_LINKS_M1_ARM64' env`,
   );
 }
 
 // downloading the M1 arm64 artifact zip file from the macos-m1-arm64-build VM
 console.info(
-  `downloading the M1 arm64 artifact zip file from the macos-m1-arm64-build VM...\n`
+  `downloading the M1 arm64 artifact zip file from the macos-m1-arm64-build VM...\n`,
 );
 await $`curl -L -o ${TEMP_MAC_M1_ARM64_ARTIFACTS_ZIP_PATH} ${macM1Arm64ArtifactsZipUrl}`;
 
@@ -170,11 +170,11 @@ console.info(`reading the M1 arm64 artifact yaml file...\n`);
 let latestMacM1Arm64YamlObject;
 try {
   latestMacM1Arm64YamlObject = yaml.load(
-    readFileSync(TEMP_LATEST_MAC_M1_ARM64_YAML_PATH, 'utf8')
+    readFileSync(TEMP_LATEST_MAC_M1_ARM64_YAML_PATH, 'utf8'),
   );
 } catch (e) {
   throw new Error(
-    `invalid 'latest-mac.yaml' artifact file found for M1 arm64: ${e}`
+    `invalid 'latest-mac.yaml' artifact file found for M1 arm64: ${e}`,
   );
 }
 
@@ -187,11 +187,11 @@ console.info(`reading the intel x64 artifact yaml file...\n`);
 let latestMacIntelX64YamlObject;
 try {
   latestMacIntelX64YamlObject = yaml.load(
-    readFileSync(TEMP_LATEST_MAC_INTEL_X64_YAML_PATH, 'utf8')
+    readFileSync(TEMP_LATEST_MAC_INTEL_X64_YAML_PATH, 'utf8'),
   );
 } catch (e) {
   throw new Error(
-    `invalid 'latest-mac.yaml' artifact file found for intel x64: ${e}`
+    `invalid 'latest-mac.yaml' artifact file found for intel x64: ${e}`,
   );
 }
 

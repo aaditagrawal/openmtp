@@ -34,7 +34,7 @@ export class MixpanelAnalytics {
     log.printBoundary();
     log.info(
       "Mixpanel analytics log. This wouldn't show up in the production mode",
-      ''
+      '',
     );
     log.info(_value.toString(), `${key}`);
     log.printBoundary();

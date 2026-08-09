@@ -27,7 +27,7 @@ class Breadcrumb extends PureComponent {
 
     analyticsService.sendEvent(
       EVENT_TYPE[`${deviceTypeUpperCase}_BREADCRUMB_PATH_TAP`],
-      {}
+      {},
     );
   };
 
@@ -156,7 +156,7 @@ class Breadcrumb extends PureComponent {
           <Paper elevation={0}>
             <ul className={styles.breadcrumb}>
               {this.BreadcrumbCellRender(
-                this.tokenizeCurrentBrowsePath(currentBrowsePath)
+                this.tokenizeCurrentBrowsePath(currentBrowsePath),
               )}
             </ul>
           </Paper>

@@ -62,7 +62,7 @@ class ProgressBar extends PureComponent {
         <DialogContent>
           {values.map((a, index) => {
             return (
-              // eslint-disable-next-line react/no-array-index-key
+              // oxlint-disable-next-line react/no-array-index-key
               <Fragment key={index}>
                 <DialogContentText
                   className={classnames(styles.dialogContentTextTop, {

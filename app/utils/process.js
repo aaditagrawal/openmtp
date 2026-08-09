@@ -43,7 +43,7 @@ export const isProcessRunning = (query) => {
       }
 
       return resolve(
-        (stdout ?? '')?.toLowerCase().indexOf(query?.toLowerCase()) > -1
+        (stdout ?? '')?.toLowerCase().indexOf(query?.toLowerCase()) > -1,
       );
     });
   }).catch((e) => {

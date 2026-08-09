@@ -34,7 +34,7 @@ class FileExplorerTableBodyGridRender extends PureComponent {
               event,
               { ...item },
               { ...tableData },
-              _eventTarget
+              _eventTarget,
             )
           }
         />
@@ -62,7 +62,7 @@ class FileExplorerTableBodyGridRender extends PureComponent {
               event,
               { ...item },
               { ...tableData },
-              _eventTarget
+              _eventTarget,
             )
           }
         />
@@ -86,7 +86,7 @@ class FileExplorerTableBodyGridRender extends PureComponent {
 
     const fileName = springTruncate(
       item.name,
-      FILE_EXPLORER_GRID_TRUNCATE_MAX_CHARS
+      FILE_EXPLORER_GRID_TRUNCATE_MAX_CHARS,
     );
 
     return (
@@ -123,7 +123,7 @@ class FileExplorerTableBodyGridRender extends PureComponent {
                   event,
                   { ...item },
                   { ...tableData },
-                  _eventTarget
+                  _eventTarget,
                 )
               }
             >

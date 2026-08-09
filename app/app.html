@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -17,7 +17,7 @@
         if (diagnosticsEnabled) {
           window.addEventListener('error', (event) => {
             console.error(
-              `[renderer-window-error] ${event.message} @ ${event.filename}:${event.lineno}:${event.colno}`
+              `[renderer-window-error] ${event.message} @ ${event.filename}:${event.lineno}:${event.colno}`,
             );
           });
 
@@ -92,9 +92,9 @@
                       ? ` onload="console.error('[renderer-script-load] ${script}')"` +
                         ` onerror="console.error('[renderer-script-error] ${script}')"`
                       : ''
-                  }><\/script>`
+                  }><\/script>`,
               )
-              .join('')
+              .join(''),
           );
         }
       }

@@ -162,11 +162,7 @@
 //
 // http://w3.org/tr/css3-flexbox/#flex-flow-property
 
-@mixin flex-flow(
-  $values: (
-    row nowrap,
-  )
-) {
+@mixin flex-flow($values: (row nowrap)) {
   // No Webkit Box fallback.
   -webkit-flex-flow: $values;
   -moz-flex-flow: $values;

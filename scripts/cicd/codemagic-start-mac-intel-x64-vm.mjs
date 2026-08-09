@@ -28,6 +28,6 @@ try {
   });
 } catch (e) {
   throw new Error(
-    `starting a new CodeMagic 'macos-intel-x64-build' instance failed: ${e}`
+    `starting a new CodeMagic 'macos-intel-x64-build' instance failed: ${e}`,
   );
 }

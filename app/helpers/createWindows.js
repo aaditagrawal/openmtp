@@ -71,7 +71,7 @@ export const nonBootableDeviceWindow = () => {
   remote.enable(_nonBootableDeviceWindow.webContents);
 
   _nonBootableDeviceWindow.loadURL(
-    `data:text/html;charset=utf-8, ${encodeURI(loadProfileErrorHtml)}`
+    `data:text/html;charset=utf-8, ${encodeURI(loadProfileErrorHtml)}`,
   );
 
   _nonBootableDeviceWindow.webContents.on('did-finish-load', () => {
@@ -120,7 +120,7 @@ const reportBugsCreateWindow = (isRenderedPage) => {
     const allWindows = remote.BrowserWindow.getAllWindows();
     const existingWindow = loadExistingWindow(
       allWindows,
-      REPORT_BUGS_PAGE_TITLE
+      REPORT_BUGS_PAGE_TITLE,
     );
 
     return {
@@ -151,7 +151,7 @@ const reportBugsCreateWindow = (isRenderedPage) => {
 export const reportBugsWindow = (isRenderedPage = false, focus = true) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -223,7 +223,7 @@ const privacyPolicyCreateWindow = (isRenderedPage = false) => {
     const allWindows = remote.BrowserWindow.getAllWindows();
     const existingWindow = loadExistingWindow(
       allWindows,
-      PRIVACY_POLICY_PAGE_TITLE
+      PRIVACY_POLICY_PAGE_TITLE,
     );
 
     return {
@@ -239,7 +239,7 @@ const privacyPolicyCreateWindow = (isRenderedPage = false) => {
   const allWindows = BrowserWindow.getAllWindows();
   const existingWindow = loadExistingWindow(
     allWindows,
-    PRIVACY_POLICY_PAGE_TITLE
+    PRIVACY_POLICY_PAGE_TITLE,
   );
 
   const bWindow = new BrowserWindow(config);
@@ -257,7 +257,7 @@ const privacyPolicyCreateWindow = (isRenderedPage = false) => {
 export const privacyPolicyWindow = (isRenderedPage = false, focus = true) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -345,7 +345,7 @@ export const appUpdateAvailableWindow = () => {
 
     _appUpdateAvailableWindow = _appUpdateAvailableWindowTemp;
     _appUpdateAvailableWindow.loadURL(
-      `${PATHS.loadUrlPath}#appUpdatePage/updateAvailable`
+      `${PATHS.loadUrlPath}#appUpdatePage/updateAvailable`,
     );
     _appUpdateAvailableWindow.webContents.on('did-finish-load', () => {
       _appUpdateAvailableWindow.show();
@@ -391,7 +391,7 @@ const appFeaturesCreateWindow = (isRenderedPage) => {
     const allWindows = remote.BrowserWindow.getAllWindows();
     const existingWindow = loadExistingWindow(
       allWindows,
-      APP_FEATURES_PAGE_TITLE
+      APP_FEATURES_PAGE_TITLE,
     );
 
     return {
@@ -407,7 +407,7 @@ const appFeaturesCreateWindow = (isRenderedPage) => {
   const allWindows = BrowserWindow.getAllWindows();
   const existingWindow = loadExistingWindow(
     allWindows,
-    APP_FEATURES_PAGE_TITLE
+    APP_FEATURES_PAGE_TITLE,
   );
 
   const bWindow = new BrowserWindow(config);
@@ -425,7 +425,7 @@ const appFeaturesCreateWindow = (isRenderedPage) => {
 export const appFeaturesWindow = (isRenderedPage = false, focus = true) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -498,7 +498,7 @@ const keyboardShortcutsCreateWindow = (isRenderedPage) => {
     const allWindows = remote.BrowserWindow.getAllWindows();
     const existingWindow = loadExistingWindow(
       allWindows,
-      KEYBOARD_SHORTCUTS_PAGE_TITLE
+      KEYBOARD_SHORTCUTS_PAGE_TITLE,
     );
 
     return {
@@ -514,7 +514,7 @@ const keyboardShortcutsCreateWindow = (isRenderedPage) => {
   const allWindows = BrowserWindow.getAllWindows();
   const existingWindow = loadExistingWindow(
     allWindows,
-    KEYBOARD_SHORTCUTS_PAGE_TITLE
+    KEYBOARD_SHORTCUTS_PAGE_TITLE,
   );
 
   const bWindow = new BrowserWindow(config);
@@ -531,11 +531,11 @@ const keyboardShortcutsCreateWindow = (isRenderedPage) => {
 //  This is done to avoid issues with 'electron/remote' (in the packaged builds the electron/remote enable doesn't work)
 export const keyboardShortcutsWindow = (
   isRenderedPage = false,
-  focus = true
+  focus = true,
 ) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -560,7 +560,7 @@ export const keyboardShortcutsWindow = (
 
     _keyboardShortcutsWindow = windowObj;
     _keyboardShortcutsWindow.loadURL(
-      `${PATHS.loadUrlPath}#keyboardShortcutsPage`
+      `${PATHS.loadUrlPath}#keyboardShortcutsPage`,
     );
     _keyboardShortcutsWindow.webContents.on('did-finish-load', () => {
       if (focus) {
@@ -639,7 +639,7 @@ const helpFaqsCreateWindow = (isRenderedPage = false) => {
 export const faqsWindow = (isRenderedPage = false, focus = true) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -712,7 +712,7 @@ const helpPhoneNotConnectingCreateWindow = (isRenderedPage = false) => {
     const allWindows = remote.BrowserWindow.getAllWindows();
     const existingWindow = loadExistingWindow(
       allWindows,
-      HELP_PHONE_IS_NOT_CONNECTING
+      HELP_PHONE_IS_NOT_CONNECTING,
     );
 
     return {
@@ -728,7 +728,7 @@ const helpPhoneNotConnectingCreateWindow = (isRenderedPage = false) => {
   const allWindows = BrowserWindow.getAllWindows();
   const existingWindow = loadExistingWindow(
     allWindows,
-    HELP_PHONE_IS_NOT_CONNECTING
+    HELP_PHONE_IS_NOT_CONNECTING,
   );
 
   const bWindow = new BrowserWindow(config);
@@ -745,11 +745,11 @@ const helpPhoneNotConnectingCreateWindow = (isRenderedPage = false) => {
 //  This is done to avoid issues with 'electron/remote' (in the packaged builds the electron/remote enable doesn't work)
 export const helpPhoneNotConnectingWindow = (
   isRenderedPage = false,
-  focus = true
+  focus = true,
 ) => {
   if (isRenderedPage) {
     throw new Error(
-      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`
+      `'isRenderedPage' param is deprecated. Use ipcRenderer.send(IpcEvents.OPEN_<***>_WINDOW) to open a window from a renderer`,
     );
   }
 
@@ -774,7 +774,7 @@ export const helpPhoneNotConnectingWindow = (
 
     _helpPhoneIsNotConnectingWindow = windowObj;
     _helpPhoneIsNotConnectingWindow.loadURL(
-      `${PATHS.loadUrlPath}#helpPhoneNotConnectingPage`
+      `${PATHS.loadUrlPath}#helpPhoneNotConnectingPage`,
     );
     _helpPhoneIsNotConnectingWindow.webContents.on('did-finish-load', () => {
       if (focus) {
@@ -786,7 +786,7 @@ export const helpPhoneNotConnectingWindow = (
     _helpPhoneIsNotConnectingWindow.onerror = (error) => {
       log.error(
         error,
-        `createWindows -> helpPhoneNotConnectingWindow -> onerror`
+        `createWindows -> helpPhoneNotConnectingWindow -> onerror`,
       );
     };
 

@@ -84,16 +84,16 @@ class FileExplorerTableFooterStatusBarRender extends PureComponent {
           ) : (
             <Fragment>{`${total} ${getPluralText(
               'item',
-              total
+              total,
             )} (${directories} ${getPluralText(
               'directory',
               directories,
-              'directories'
+              'directories',
             )}, ${files} ${getPluralText('file', files)})`}</Fragment>
           )}
           {`, ${fileTransferClipboardLength} ${getPluralText(
             'item',
-            fileTransferClipboardLength
+            fileTransferClipboardLength,
           )} in clipboard`}
         </Typography>
       </div>
