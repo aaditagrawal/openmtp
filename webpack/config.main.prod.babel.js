@@ -3,6 +3,7 @@
  */
 
 import path from 'path';
+import { rm } from 'fs/promises';
 import webpack from 'webpack';
 import { merge } from 'webpack-merge';
 import TerserPlugin from 'terser-webpack-plugin';
@@ -12,8 +13,6 @@ import { PATHS } from '../app/constants/paths';
 import { pkginfo } from '../app/utils/pkginfo';
 import { createSentryWebpackPlugin } from './sentry';
 
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-
 const sentryWebpackPlugin = createSentryWebpackPlugin({
   include: 'app/main.prod.js.map',
   ignore: ['node_modules', 'webpack'],
@@ -22,6 +21,15 @@ const sentryWebpackPlugin = createSentryWebpackPlugin({
   rewrite: false,
   release: pkginfo.version,
 });
+
+/** Clean renderer dist before main prod build (output.path is repo root). */
+class CleanDistPlugin {
+  apply(compiler) {
+    compiler.hooks.beforeRun.tapPromise('CleanDistPlugin', async () => {
+      await rm(PATHS.dist, { recursive: true, force: true });
+    });
+  }
+}
 
 export default merge(baseConfig, {
   devtool: 'source-map',
@@ -52,9 +60,7 @@ export default merge(baseConfig, {
   },
 
   plugins: [
-    new CleanWebpackPlugin({
-      cleanOnceBeforeBuildPatterns: [`${PATHS.dist}/*`],
-    }),
+    new CleanDistPlugin(),
 
     new BundleAnalyzerPlugin({
       analyzerMode:

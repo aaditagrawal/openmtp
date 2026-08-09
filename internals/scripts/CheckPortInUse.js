@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { styleText } from 'util';
 import detectPort from 'detect-port';
 import { PORT } from '../../config/env';
 
@@ -8,7 +8,8 @@ import { PORT } from '../../config/env';
   detectPort(_port, (err, availablePort) => {
     if (_port !== String(availablePort)) {
       throw new Error(
-        chalk.whiteBright.bgRed.bold(
+        styleText(
+          ['whiteBright', 'bgRed', 'bold'],
           // oxlint-disable-next-line prefer-template
           'Port "' +
             _port +

@@ -6,7 +6,7 @@ import 'zx/globals';
 import fs from 'fs-extra';
 import { packageDirectory } from 'pkg-dir';
 import replace from 'replace';
-import chalk from 'chalk';
+import { styleText } from 'util';
 import macosVersion from 'macos-version';
 
 await $`export LANG=en_US.UTF-8`;
@@ -19,7 +19,7 @@ const LIBUSB_BOTTLE_TEMP_DIR = `${TEMP_ROOT_DIR}/libusb_cache`;
 const KALAM_NATIVE_DIR = `${PKG_ROOT_DIR}/ffi/kalam/native`;
 const BUILD_BASE_DIR = `${PKG_ROOT_DIR}/build`;
 
-const orangeChalk = chalk.bold.hex('#FFA500');
+const orangeChalk = (text) => styleText(['bold', 'yellow'], text);
 
 // find the brew bottle hashes here: https://github.com/Homebrew/homebrew-core/blob/master/Formula/libusb.rb
 const libusbBrewBottles = {

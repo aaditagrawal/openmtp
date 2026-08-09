@@ -1,6 +1,11 @@
 import 'zx/globals';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 
-require('dotenv').config();
+const envPath = resolve(process.cwd(), '.env');
+if (existsSync(envPath)) {
+  process.loadEnvFile(envPath);
+}
 
 process.env.FORCE_COLOR = 3;
 $.shell = '/bin/zsh';
