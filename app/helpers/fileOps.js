@@ -4,10 +4,10 @@ import {
   appendFile as _appendFileAsync,
   readFileSync as _readFileSync,
   writeFileSync as _writeFileSync,
+  rmSync,
 } from 'fs';
 import { EOL } from 'os';
 import mkdirp from 'mkdirp';
-import rimraf from 'rimraf';
 
 export const writeFileAsync = (filePath, text) => {
   const options = { mode: 0o755 };
@@ -56,5 +56,5 @@ export const createDirSync = async (newFolderPath) => {
 };
 
 export const deleteFilesSync = (filePath) => {
-  rimraf.sync(filePath);
+  rmSync(filePath, { recursive: true, force: true });
 };

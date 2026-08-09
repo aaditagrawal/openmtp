@@ -1,7 +1,6 @@
 import path from 'path';
 import { promisify } from 'node:util';
 import junk from 'junk';
-import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import macosVersion from 'macos-version';
 import {
@@ -12,8 +11,8 @@ import {
   rename as fsRename,
   readlink,
   realpathSync,
+  rm,
 } from 'fs';
-import findLodash from 'lodash/find';
 import { log } from '../../../utils/log';
 import { isArray, isEmpty, undefinedOrNull } from '../../../utils/funcs';
 import { pathUp } from '../../../utils/files';
@@ -85,7 +84,7 @@ export class FileExplorerLocalDataSource {
   _delete = (file) => {
     try {
       return new Promise((resolve) => {
-        rimraf(file, {}, (error) => {
+        rm(file, { recursive: true, force: true }, (error) => {
           resolve({
             data: null,
             stderr: error,
@@ -244,7 +243,7 @@ export class FileExplorerLocalDataSource {
         const extension = path.extname(fullPath);
         const { size, atime: dateTime } = stat;
 
-        if (findLodash(response, { path: fullPath })) {
+        if (response.find((item) => item.path === fullPath)) {
           continue; // oxlint-disable-line no-continue
         }
 

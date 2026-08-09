@@ -20,7 +20,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: '.bun-version'
-      - run: npm install -g cross-env create-dmg
       - name: Attempt to build OpenMTP
         run: |
           bun install --frozen-lockfile
@@ -34,7 +33,7 @@ jobs:
       - name: Attempt to create disk image for generated macOS app
         run: |
           mkdir dist/dmg
-          create-dmg dist/mac/OpenMTP.app dist/dmg 2>&1 || true
+          bunx create-dmg dist/mac/OpenMTP.app dist/dmg 2>&1 || true
           shasum dist/dmg/* >> dist/dmg/CHECKSUM_SHA256.txt
       - name: Upload disk image and checksum as artifact
         uses: actions/upload-artifact@v4
