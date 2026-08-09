@@ -1,7 +1,6 @@
 import path from 'path';
 import { promisify } from 'node:util';
 import junk from 'junk';
-import mkdirp from 'mkdirp';
 import macosVersion from 'macos-version';
 import {
   readdir as fsReaddir,
@@ -33,15 +32,14 @@ export class FileExplorerLocalDataSource {
   async _mkdir({ filePath }) {
     try {
       return new Promise((resolve) => {
-        mkdirp(filePath)
-          .then((data) => {
-            resolve({ data, stderr: null, error: null });
-
-            return data;
-          })
-          .catch((error) => {
+        mkdir(filePath, { recursive: true }, (error) => {
+          if (error) {
             resolve({ data: null, stderr: error, error });
-          });
+            return;
+          }
+
+          resolve({ data: filePath, stderr: null, error: null });
+        });
       });
     } catch (e) {
       log.error(e);
