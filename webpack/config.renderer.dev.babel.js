@@ -8,7 +8,7 @@
 import path from 'path';
 import fs from 'fs';
 import webpack from 'webpack';
-import chalk from 'chalk';
+import { styleText } from 'util';
 import { merge } from 'webpack-merge';
 import { spawn, execSync } from 'child_process';
 import baseConfig from './config.base';
@@ -34,7 +34,8 @@ if (process.env.NODE_ENV === 'production') {
  */
 if (!requiredByDLLConfig && !(fs.existsSync(dll) && fs.existsSync(manifest))) {
   console.info(
-    chalk.black.bgYellow.bold(
+    styleText(
+      ['black', 'bgYellow', 'bold'],
       'The DLL files are missing. Sit back while we build them for you with "build-dll".',
     ),
   );

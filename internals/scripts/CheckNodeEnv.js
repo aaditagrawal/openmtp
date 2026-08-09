@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { styleText } from 'util';
 
 export default function CheckNodeEnv(expectedEnv) {
   if (!expectedEnv) {
@@ -7,7 +7,8 @@ export default function CheckNodeEnv(expectedEnv) {
 
   if (process.env.NODE_ENV !== expectedEnv) {
     console.info(
-      chalk.whiteBright.bgRed.bold(
+      styleText(
+        ['whiteBright', 'bgRed', 'bold'],
         `"process.env.NODE_ENV" must be "${expectedEnv}" to use this webpack config`,
       ),
     );

@@ -1,9 +1,13 @@
-require('dotenv').config();
-
 const path = require('path');
 const fs = require('fs');
 const { notarize: electronNotarize } = require('@electron/notarize');
 const electronBuilderConfig = require('../../electron-builder-config');
+
+try {
+  process.loadEnvFile(path.join(__dirname, '..', '..', '.env'));
+} catch {
+  // optional local secrets file
+}
 
 const electronBuilderData = electronBuilderConfig();
 

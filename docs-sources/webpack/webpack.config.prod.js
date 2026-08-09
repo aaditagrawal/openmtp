@@ -1,20 +1,17 @@
-const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
 const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 
-const buildPath = path.join(__dirname, '..', '..', 'docs');
-
 module.exports = {
+  output: {
+    // Match prior clean-webpack-plugin: only clear stale docs/bundle assets.
+    clean: {
+      keep: (asset) => !asset.startsWith('bundle/'),
+    },
+  },
   plugins: [
     new webpack.ProgressPlugin(),
-    new CleanWebpackPlugin({
-      dry: false,
-      verbose: true,
-      cleanOnceBeforeBuildPatterns: [`${buildPath}/bundle/*`],
-    }),
     new MiniCssExtractPlugin({
       filename: 'bundle/[name].[contenthash].css',
     }),

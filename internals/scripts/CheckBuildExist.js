@@ -1,6 +1,6 @@
 // Check if the renderer and main bundles are built
 import path from 'path';
-import chalk from 'chalk';
+import { styleText } from 'util';
 import fs from 'fs';
 
 function CheckBuildExist() {
@@ -16,7 +16,8 @@ function CheckBuildExist() {
 
   if (!fs.existsSync(mainPath)) {
     throw new Error(
-      chalk.whiteBright.bgRed.bold(
+      styleText(
+        ['whiteBright', 'bgRed', 'bold'],
         'The main process is not built yet. Build it by running "yarn build-main"',
       ),
     );
@@ -24,7 +25,8 @@ function CheckBuildExist() {
 
   if (!fs.existsSync(rendererPath)) {
     throw new Error(
-      chalk.whiteBright.bgRed.bold(
+      styleText(
+        ['whiteBright', 'bgRed', 'bold'],
         'The renderer process is not built yet. Build it by running "yarn build-renderer"',
       ),
     );
