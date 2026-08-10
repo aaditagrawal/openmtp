@@ -2,6 +2,8 @@ import { spawn } from 'child_process';
 import { checkIf } from './checkIf';
 import { log } from './log';
 
+const PGREP_TIMEOUT_MS = 1500;
+
 /**
  * Fast process lookup via macOS `pgrep`.
  * Prefer exact-ish path fragments (e.g. `Preview.app`) over short names.
@@ -11,6 +13,7 @@ export const isProcessRunning = (query) => {
 
   return new Promise((resolve) => {
     let settled = false;
+    let timer = null;
 
     const finish = (value) => {
       if (settled) {
@@ -18,6 +21,12 @@ export const isProcessRunning = (query) => {
       }
 
       settled = true;
+
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+
       resolve(value);
     };
 
@@ -36,7 +45,7 @@ export const isProcessRunning = (query) => {
       });
 
       // Avoid hanging forever if pgrep is stuck.
-      setTimeout(() => {
+      timer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
         } catch (_) {
@@ -44,7 +53,12 @@ export const isProcessRunning = (query) => {
         }
 
         finish(false);
-      }, 1500);
+      }, PGREP_TIMEOUT_MS);
+
+      // Don't keep the event loop alive solely for this watchdog.
+      if (typeof timer.unref === 'function') {
+        timer.unref();
+      }
     } catch (e) {
       log.error(e, 'isProcessRunning -> err');
       finish(false);
@@ -55,13 +69,14 @@ export const isProcessRunning = (query) => {
 export const isAnyProcessRunning = async (queries = []) => {
   checkIf(queries, 'array');
 
-  // eslint-disable-next-line no-restricted-syntax
-  for (const query of queries) {
-    // eslint-disable-next-line no-await-in-loop
-    if (await isProcessRunning(query)) {
-      return true;
-    }
+  if (queries.length === 0) {
+    return false;
   }
 
-  return false;
+  // Parallel lookups: common case is "none running"; wall time ≈ one pgrep.
+  const results = await Promise.all(
+    queries.map((query) => isProcessRunning(query)),
+  );
+
+  return results.some(Boolean);
 };
