@@ -72,7 +72,6 @@ import {
   USB_HOTPLUG_MAX_ATTEMPTS_TIMEOUT,
 } from '../../../constants';
 import {
-  arrayAverage,
   getPluralText,
   isArray,
   isEmpty,
@@ -96,6 +95,7 @@ import {
   twitterShareUrl,
 } from '../../../templates/socialMediaShareBtns';
 import { baseName, pathInfo, pathUp, sanitizePath } from '../../../utils/files';
+import { filterPasteQueueSkippingExisting } from '../../../utils/pasteQueue';
 import {
   computeSmartSyncDiff,
   groupFilesByParentDir,
@@ -123,6 +123,7 @@ import {
   formatUsbConflictWarning,
   getActiveUsbConflictApps,
 } from '../../../utils/usbConflictApps';
+import { createThrottledUpdater } from '../../../utils/throttle';
 
 const remote = getRemoteWindow();
 const { Menu, getCurrentWindow } = remote;
@@ -131,54 +132,8 @@ let allowFileDropFlag = false;
 let multipleSelectDirection = null;
 
 // Coalesce transfer progress Redux updates to ~100ms (matches Kalam FFI cadence).
-const createThrottledProgressUpdater = (updateFn, intervalMs = 100) => {
-  let lastSentAt = 0;
-  let timer = null;
-  let pendingPayload = null;
-
-  const flush = () => {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-
-    if (!pendingPayload) {
-      return;
-    }
-
-    const payload = pendingPayload;
-
-    pendingPayload = null;
-    lastSentAt = Date.now();
-    updateFn(payload);
-  };
-
-  return {
-    update: (payload) => {
-      pendingPayload = payload;
-      const elapsed = Date.now() - lastSentAt;
-
-      if (elapsed >= intervalMs) {
-        flush();
-
-        return;
-      }
-
-      if (!timer) {
-        timer = setTimeout(flush, intervalMs - elapsed);
-      }
-    },
-    flush,
-    cancel: () => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-
-      pendingPayload = null;
-    },
-  };
-};
+const createThrottledProgressUpdater = (updateFn, intervalMs = 100) =>
+  createThrottledUpdater(updateFn, intervalMs);
 
 const supportBtnsList = [
   {
@@ -287,6 +242,30 @@ class FileExplorer extends Component {
     };
     this._usbAttachTimer = null;
     this._lastHotplugAttach = null;
+
+    // Avoid re-sorting the directory listing on every render; invalidate when
+    // nodes reference, order, orderBy, or showDirectoriesFirst change.
+    this._tableSortCache = null;
+
+    this._onAcceleratorKeyDown = (event) =>
+      this._handleAccelerator(true, event);
+    this._onAcceleratorKeyUp = (event) => this._handleAccelerator(false, event);
+    this._onIsFileTransferActiveSeek = (event, { ...args }) => {
+      const { check: checkIsFileTransferActiveSeek } = args;
+
+      if (!checkIsFileTransferActiveSeek) {
+        return null;
+      }
+
+      const { fileTransferProgess } = this.props;
+      const { toggle: isActiveFileTransferProgess } = fileTransferProgess;
+
+      ipcRenderer.send('isFileTransferActiveReply', {
+        isActive: isActiveFileTransferProgess,
+      });
+
+      return null;
+    };
   }
 
   componentDidMount() {
@@ -358,12 +337,10 @@ class FileExplorer extends Component {
 
     this.deregisterAccelerators();
 
-    this.mainWindowRendererProcess.webContents.removeListener(
-      'fileExplorerToolbarActionCommunication',
-      () => {},
+    ipcRenderer.removeListener(
+      'isFileTransferActiveSeek',
+      this._onIsFileTransferActiveSeek,
     );
-    ipcRenderer.removeListener('isFileTransferActiveSeek', () => {});
-    ipcRenderer.removeListener('isFileTransferActiveReply', () => {});
 
     if (this._usbAttachTimer) {
       clearTimeout(this._usbAttachTimer);
@@ -389,25 +366,13 @@ class FileExplorer extends Component {
   }
 
   registerAccelerators = () => {
-    document.addEventListener(
-      'keydown',
-      this._handleAccelerator.bind(this, true),
-    );
-    document.addEventListener(
-      'keyup',
-      this._handleAccelerator.bind(this, false),
-    );
+    document.addEventListener('keydown', this._onAcceleratorKeyDown);
+    document.addEventListener('keyup', this._onAcceleratorKeyUp);
   };
 
   deregisterAccelerators = () => {
-    document.removeEventListener(
-      'keydown',
-      this._handleAccelerator.bind(this, false),
-    );
-    document.removeEventListener(
-      'keyup',
-      this._handleAccelerator.bind(this, false),
-    );
+    document.removeEventListener('keydown', this._onAcceleratorKeyDown);
+    document.removeEventListener('keyup', this._onAcceleratorKeyUp);
   };
 
   registerAppUpdate = () => {
@@ -419,20 +384,10 @@ class FileExplorer extends Component {
      */
 
     if (deviceType === DEVICE_TYPE.local) {
-      ipcRenderer.on('isFileTransferActiveSeek', (event, { ...args }) => {
-        const { check: checkIsFileTransferActiveSeek } = args;
-
-        if (!checkIsFileTransferActiveSeek) {
-          return null;
-        }
-
-        const { fileTransferProgess } = this.props;
-        const { toggle: isActiveFileTransferProgess } = fileTransferProgess;
-
-        ipcRenderer.send('isFileTransferActiveReply', {
-          isActive: isActiveFileTransferProgess,
-        });
-      });
+      ipcRenderer.on(
+        'isFileTransferActiveSeek',
+        this._onIsFileTransferActiveSeek,
+      );
     }
   };
 
@@ -1969,13 +1924,11 @@ class FileExplorer extends Component {
     const destinationFolder = currentBrowsePath[deviceType];
     const existingSet = new Set(existingPaths || []);
 
-    const filteredQueue = (fileTransferClipboard.queue || []).filter(
-      (sourcePath) => {
-        const destPath = `${destinationFolder}/${baseName(sourcePath)}`;
-
-        return !existingSet.has(destPath);
-      },
-    );
+    const filteredQueue = filterPasteQueueSkippingExisting({
+      queue: fileTransferClipboard.queue,
+      destinationFolder,
+      existingPaths,
+    });
 
     analyticsService.sendEvent(
       EVENT_TYPE[`${deviceTypeUpperCase}_PASTE_FILES_DIALOG_CLOSE`],
@@ -2543,16 +2496,18 @@ class FileExplorer extends Component {
 
     const { directoryLists, actionCreateTableClick } = this.props;
     const { selected } = directoryLists[deviceType].queue;
-    const nodes = directoryLists[deviceType]?.nodes || [];
+    const { nodes = [], order, orderBy } = directoryLists[deviceType] || {};
+    // Range against the same sorted order the UI renders (not unsorted nodes).
+    const sortedNodes = this.tableSort({ nodes, order, orderBy });
 
     // Shift-click range selection: select every item between the anchor
     // (last plain click) and the clicked item, inclusive. Matches the
     // standard file-manager behavior on macOS/Windows/Linux.
     if (event?.shiftKey) {
       const anchorPath = this._selectionAnchor[deviceType];
-      const clickedIndex = nodes.findIndex((n) => n.path === path);
+      const clickedIndex = sortedNodes.findIndex((n) => n.path === path);
       const anchorIndex = anchorPath
-        ? nodes.findIndex((n) => n.path === anchorPath)
+        ? sortedNodes.findIndex((n) => n.path === anchorPath)
         : -1;
 
       if (clickedIndex !== -1) {
@@ -2572,7 +2527,7 @@ class FileExplorer extends Component {
               ? [anchorIndex, clickedIndex]
               : [clickedIndex, anchorIndex];
 
-          rangeSelected = nodes.slice(start, end + 1).map((n) => n.path);
+          rangeSelected = sortedNodes.slice(start, end + 1).map((n) => n.path);
           // Anchor stays put — successive shift-clicks expand/contract
           // from the original anchor, matching native file managers.
         }
@@ -2649,8 +2604,20 @@ class FileExplorer extends Component {
     const { showDirectoriesFirst } = this.props;
     const { nodes, order, orderBy } = args;
 
-    if (typeof nodes === 'undefined' || !nodes.length < 0) {
+    if (typeof nodes === 'undefined' || !nodes?.length) {
       return [];
+    }
+
+    const cache = this._tableSortCache;
+
+    if (
+      cache &&
+      cache.nodes === nodes &&
+      cache.order === order &&
+      cache.orderBy === orderBy &&
+      cache.showDirectoriesFirst === showDirectoriesFirst
+    ) {
+      return cache.result;
     }
 
     let _sortedNode = [...nodes].sort((a, b) => {
@@ -2689,6 +2656,14 @@ class FileExplorer extends Component {
       _sortedNode = [..._folders, ..._files];
     }
 
+    this._tableSortCache = {
+      nodes,
+      order,
+      orderBy,
+      showDirectoriesFirst,
+      result: _sortedNode,
+    };
+
     return _sortedNode;
   };
 
@@ -2703,7 +2678,7 @@ class FileExplorer extends Component {
     if (isNumber(item)) {
       if (isInt(item)) {
         _primer = parseInt(item, 10);
-      } else if (isFloat) {
+      } else if (isFloat(item)) {
         _primer = parseFloat(item);
       }
     }
@@ -3229,7 +3204,8 @@ const mapDispatchToProps = (dispatch, _) =>
         ({ ...pasteArgs }, { ...listDirectoryArgs }, deviceType) =>
         (_, getState) => {
           let sessionElapsedTime = 0;
-          const sessionTransferSpeeds = [];
+          let sessionTransferSpeedSum = 0;
+          let sessionTransferSpeedCount = 0;
           let sessionTotalFiles = 0;
           let sessionTransferDirection;
           let latestWindowProgressBar = 0;
@@ -3307,7 +3283,8 @@ const mapDispatchToProps = (dispatch, _) =>
                 )}`;
                 windowProgressBar = activeFileProgress / 100;
 
-                sessionTransferSpeeds.push(parseFloat(speed) / 1000 / 1000);
+                sessionTransferSpeedSum += parseFloat(speed) / 1000 / 1000;
+                sessionTransferSpeedCount += 1;
 
                 const _speed = speed ? `${niceBytes(speed)}` : `--`;
 
@@ -3323,7 +3300,8 @@ const mapDispatchToProps = (dispatch, _) =>
                 checkIf(direction, 'string');
                 checkIf(direction, 'inObjectValues', FILE_TRANSFER_DIRECTION);
 
-                sessionTransferSpeeds.push(parseFloat(speed));
+                sessionTransferSpeedSum += parseFloat(speed);
+                sessionTransferSpeedCount += 1;
 
                 // active file progress
                 bodyText1 = `${Math.floor(activeFileProgress)}% complete of "${
@@ -3422,12 +3400,15 @@ const mapDispatchToProps = (dispatch, _) =>
                 listDirectory({ ...listDirectoryArgs }, deviceType, getState),
               );
 
+              const averageTransferSpeed =
+                sessionTransferSpeedCount > 0
+                  ? sessionTransferSpeedSum / sessionTransferSpeedCount
+                  : 0;
+
               analyticsService.sendEvent(EVENT_TYPE.FILE_TRANSFER_COMPLETED, {
                 'Transfer direction': sessionTransferDirection,
                 'Total files': sessionTotalFiles,
-                'Average transfer speed': `${arrayAverage(
-                  sessionTransferSpeeds,
-                )} MB/s`,
+                'Average transfer speed': `${averageTransferSpeed} MB/s`,
                 'Elapsed time': sessionElapsedTime,
                 'Is files preprocessing enabled':
                   filesPreprocessingBeforeTransfer[sessionTransferDirection],

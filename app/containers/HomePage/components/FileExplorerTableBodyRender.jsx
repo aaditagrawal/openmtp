@@ -12,9 +12,15 @@ import { DEVICE_TYPE, FILE_EXPLORER_VIEW_TYPE } from '../../../enums';
 class FileExplorerTableBodyRender extends PureComponent {
   isSelected = (path) => {
     const { directoryLists, deviceType } = this.props;
-    const _directoryLists = directoryLists[deviceType].queue.selected;
+    const selected = directoryLists[deviceType].queue.selected;
 
-    return _directoryLists.indexOf(path) !== -1;
+    // Cache a Set so row checks are O(1) instead of indexOf per row.
+    if (this._selectedListRef !== selected) {
+      this._selectedListRef = selected;
+      this._selectedSet = new Set(selected);
+    }
+
+    return this._selectedSet.has(path);
   };
 
   ListingSwitcher = (type = FILE_EXPLORER_VIEW_TYPE.grid) => {

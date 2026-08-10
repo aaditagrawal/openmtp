@@ -33,7 +33,7 @@ export default class ToolbarAreaPane extends PureComponent {
 
     const _directoryLists = directoryLists[deviceType];
     const _currentBrowsePath = currentBrowsePath[deviceType];
-    const _activeToolbarList = toolbarList[deviceType];
+    const sourceToolbarList = toolbarList[deviceType];
     const isMtp = deviceType === DEVICE_TYPE.mtp;
 
     let enabled = true;
@@ -42,33 +42,36 @@ export default class ToolbarAreaPane extends PureComponent {
       enabled = !mtpDevice.isLoading;
     }
 
-    Object.keys(_activeToolbarList).map((a) => {
-      const item = _activeToolbarList[a];
+    // Build a fresh tree — never mutate Redux-owned toolbarList objects.
+    const nextToolbarList = {};
+
+    Object.keys(sourceToolbarList).forEach((a) => {
+      const item = sourceToolbarList[a];
 
       switch (a) {
         case 'up':
-          _activeToolbarList[a] = {
+          nextToolbarList[a] = {
             ...item,
             enabled: _currentBrowsePath !== '/' && enabled,
           };
           break;
 
         case 'refresh':
-          _activeToolbarList[a] = {
+          nextToolbarList[a] = {
             ...item,
             enabled,
           };
           break;
 
         case 'delete':
-          _activeToolbarList[a] = {
+          nextToolbarList[a] = {
             ...item,
             enabled: _directoryLists.queue.selected.length > 0 && enabled,
           };
           break;
 
         case 'storage':
-          _activeToolbarList[a] = {
+          nextToolbarList[a] = {
             ...item,
             enabled:
               Object.keys(mtpStoragesList).length > 0 &&
@@ -79,24 +82,19 @@ export default class ToolbarAreaPane extends PureComponent {
           break;
 
         case 'settings':
-          _activeToolbarList[a] = {
+        case 'mtpMode':
+          nextToolbarList[a] = {
             ...item,
           };
           break;
 
-        case 'mtpMode':
-          _activeToolbarList[a] = {
-            ...item,
-          };
-          break;
         default:
+          nextToolbarList[a] = item;
           break;
       }
-
-      return _activeToolbarList;
     });
 
-    return _activeToolbarList;
+    return nextToolbarList;
   };
 
   render() {
