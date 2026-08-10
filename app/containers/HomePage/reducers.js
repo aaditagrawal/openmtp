@@ -8,7 +8,7 @@ import {
   Plug,
 } from 'lucide-react';
 import { Github, Paypal } from '../../components/Icon/brands';
-import { actionTypes } from './actions';
+import { actionTypes } from './actionTypes';
 import { PATHS } from '../../constants/paths';
 import {
   DEVICES_DEFAULT_PATH,
@@ -20,6 +20,14 @@ import {
   supportUsingPayPal,
 } from '../../templates/fileExplorer';
 import { isKalamModeSupported } from '../../helpers/binaries';
+import { isArraysEqual } from '../../utils/funcs';
+import {
+  EMPTY_NODES,
+  EMPTY_SELECTED,
+  mtpDevicePatchIsNoop,
+  normalizeNodes,
+  normalizeSelected,
+} from './homeStateHelpers';
 
 export const initialState = {
   focussedFileExplorerDeviceType: {
@@ -147,18 +155,18 @@ export const initialState = {
       order: 'asc',
       orderBy: 'name',
       queue: {
-        selected: [],
+        selected: EMPTY_SELECTED,
       },
-      nodes: [],
+      nodes: EMPTY_NODES,
       isLoaded: false,
     },
     [DEVICE_TYPE.mtp]: {
       order: 'asc',
       orderBy: 'name',
       queue: {
-        selected: [],
+        selected: EMPTY_SELECTED,
       },
-      nodes: [],
+      nodes: EMPTY_NODES,
       isLoaded: false,
     },
   },
@@ -312,21 +320,33 @@ export default function Home(state = initialState, action) {
         },
       };
 
-    case actionTypes.SET_SELECTED_DIR_LISTS:
+    case actionTypes.SET_SELECTED_DIR_LISTS: {
+      const dir = state.directoryLists[deviceType];
+      const selected = normalizeSelected(payload.selected);
+
+      if (isArraysEqual(dir.queue.selected, selected)) {
+        return state;
+      }
+
       return {
         ...state,
         directoryLists: {
           ...state.directoryLists,
           [deviceType]: {
-            ...state.directoryLists[deviceType],
+            ...dir,
             queue: {
-              selected: payload.selected,
+              selected,
             },
           },
         },
       };
+    }
 
-    case actionTypes.SET_CURRENT_BROWSE_PATH:
+    case actionTypes.SET_CURRENT_BROWSE_PATH: {
+      if (state.currentBrowsePath[deviceType] === payload) {
+        return state;
+      }
+
       return {
         ...state,
         currentBrowsePath: {
@@ -334,8 +354,13 @@ export default function Home(state = initialState, action) {
           [deviceType]: payload,
         },
       };
+    }
 
-    case actionTypes.SET_MTP_STATUS:
+    case actionTypes.SET_MTP_STATUS: {
+      if (mtpDevicePatchIsNoop(state.mtpDevice, payload)) {
+        return state;
+      }
+
       return {
         ...state,
         mtpDevice: {
@@ -343,19 +368,95 @@ export default function Home(state = initialState, action) {
           ...payload,
         },
       };
+    }
 
-    case actionTypes.LIST_DIRECTORY:
+    case actionTypes.LIST_DIRECTORY: {
+      const dir = state.directoryLists[deviceType];
+      const nodes = normalizeNodes(payload.nodes);
+
+      if (dir.nodes === nodes && dir.isLoaded === payload.isLoaded) {
+        return state;
+      }
+
       return {
         ...state,
         directoryLists: {
           ...state.directoryLists,
           [deviceType]: {
-            ...state.directoryLists[deviceType],
-            nodes: [...payload.nodes],
+            ...dir,
+            nodes,
             isLoaded: payload.isLoaded,
           },
         },
       };
+    }
+
+    case actionTypes.BEGIN_LIST_DIRECTORY: {
+      const { path } = payload;
+      const dir = state.directoryLists[deviceType];
+      const pathUnchanged = state.currentBrowsePath[deviceType] === path;
+      const selectionEmpty = dir.queue.selected.length === 0;
+      const alreadyPending = dir.nodes.length === 0 && dir.isLoaded === false;
+
+      // Same path already mid-load with empty selection — nothing to do.
+      if (pathUnchanged && selectionEmpty && alreadyPending) {
+        return state;
+      }
+
+      let nextState = state;
+
+      if (!pathUnchanged) {
+        nextState = {
+          ...nextState,
+          currentBrowsePath: {
+            ...nextState.currentBrowsePath,
+            [deviceType]: path,
+          },
+        };
+      }
+
+      if (!selectionEmpty || !alreadyPending) {
+        nextState = {
+          ...nextState,
+          directoryLists: {
+            ...nextState.directoryLists,
+            [deviceType]: {
+              ...dir,
+              nodes: EMPTY_NODES,
+              isLoaded: false,
+              queue: selectionEmpty ? dir.queue : { selected: EMPTY_SELECTED },
+            },
+          },
+        };
+      }
+
+      return nextState;
+    }
+
+    case actionTypes.RESET_DIRECTORY_LIST: {
+      const dir = state.directoryLists[deviceType];
+      const alreadyReset =
+        dir.nodes.length === 0 &&
+        dir.isLoaded === true &&
+        dir.queue.selected.length === 0;
+
+      if (alreadyReset) {
+        return state;
+      }
+
+      return {
+        ...state,
+        directoryLists: {
+          ...state.directoryLists,
+          [deviceType]: {
+            ...dir,
+            nodes: EMPTY_NODES,
+            isLoaded: true,
+            queue: { selected: EMPTY_SELECTED },
+          },
+        },
+      };
+    }
 
     case actionTypes.CHANGE_MTP_STORAGE:
       return {

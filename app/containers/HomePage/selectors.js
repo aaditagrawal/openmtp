@@ -2,56 +2,64 @@ import { createSelector } from 'reselect';
 import { initialState } from './reducers';
 import { getSelectedStorageIdFromState } from './actions';
 
-const make = (state, __) => (state ? state.Home : {});
+// Stable fallback keeps reselect memoization honest when Home is missing.
+const selectHome = (state) => state?.Home ?? initialState;
 
 export const makeFocussedFileExplorerDeviceType = createSelector(
-  make,
-  (state) =>
-    state
-      ? state.focussedFileExplorerDeviceType
-      : initialState.focussedFileExplorerDeviceType,
+  selectHome,
+  (home) => home.focussedFileExplorerDeviceType,
 );
 
-export const makeToolbarList = createSelector(make, (state) =>
-  state ? state.toolbarList : initialState.toolbarList,
+export const makeToolbarList = createSelector(
+  selectHome,
+  (home) => home.toolbarList,
 );
 
-export const makeSidebarFavouriteList = createSelector(make, (state) =>
-  state ? state.sidebarFavouriteList : initialState.sidebarFavouriteList,
+export const makeSidebarFavouriteList = createSelector(
+  selectHome,
+  (home) => home.sidebarFavouriteList,
 );
 
-export const makeCurrentBrowsePath = createSelector(make, (state) =>
-  state ? state.currentBrowsePath : initialState.currentBrowsePath,
+export const makeCurrentBrowsePath = createSelector(
+  selectHome,
+  (home) => home.currentBrowsePath,
 );
 
-export const makeDirectoryLists = createSelector(make, (state) =>
-  state ? state.directoryLists : initialState.directoryLists,
+export const makeDirectoryLists = createSelector(
+  selectHome,
+  (home) => home.directoryLists,
 );
 
-export const makeMtpDevice = createSelector(make, (state) =>
-  state ? state.mtpDevice : initialState.mtpDevice,
+export const makeMtpDevice = createSelector(
+  selectHome,
+  (home) => home.mtpDevice,
 );
 
-export const makeContextMenuList = createSelector(make, (state) =>
-  state ? state.contextMenuList : initialState.contextMenuList,
+export const makeContextMenuList = createSelector(
+  selectHome,
+  (home) => home.contextMenuList,
 );
 
-export const makeMtpStoragesList = createSelector(make, (state) =>
-  state ? state.mtpStoragesList : initialState.mtpStoragesList,
+export const makeMtpStoragesList = createSelector(
+  selectHome,
+  (home) => home.mtpStoragesList,
 );
 
-export const makeStorageId = createSelector(make, (state) =>
-  state ? getSelectedStorageIdFromState(state) : {},
+export const makeStorageId = createSelector(selectHome, (home) =>
+  getSelectedStorageIdFromState(home),
 );
 
-export const makeFileTransferClipboard = createSelector(make, (state) =>
-  state ? state.fileTransfer.clipboard : initialState.fileTransfer.clipboard,
+export const makeFileTransferClipboard = createSelector(
+  selectHome,
+  (home) => home.fileTransfer.clipboard,
 );
 
-export const makeFileTransferProgess = createSelector(make, (state) =>
-  state ? state.fileTransfer.progress : initialState.fileTransfer.progress,
+export const makeFileTransferProgess = createSelector(
+  selectHome,
+  (home) => home.fileTransfer.progress,
 );
 
-export const makeFilesDrag = createSelector(make, (state) =>
-  state ? state.filesDrag : initialState.filesDrag,
+export const makeFilesDrag = createSelector(
+  selectHome,
+  (home) => home.filesDrag,
 );
