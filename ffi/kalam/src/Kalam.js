@@ -33,6 +33,21 @@ export class Kalam {
         'void UploadFiles(char* uploadFilesInputJson, on_cb_result_t* onPreprocessPtr, on_cb_result_t* onProgressPtr, on_cb_result_t* onDonePtr)',
       Dispose: 'void Dispose(on_cb_result_t* onDonePtr)',
     });
+
+    // Bind once — koffi.func parsing on every Walk/transfer was pure overhead.
+    this.fns = Object.freeze({
+      Initialize: this.lib.func(this.fnDictionary.Initialize),
+      FetchDeviceInfo: this.lib.func(this.fnDictionary.FetchDeviceInfo),
+      FetchStorages: this.lib.func(this.fnDictionary.FetchStorages),
+      FileExists: this.lib.func(this.fnDictionary.FileExists),
+      DeleteFile: this.lib.func(this.fnDictionary.DeleteFile),
+      MakeDirectory: this.lib.func(this.fnDictionary.MakeDirectory),
+      RenameFile: this.lib.func(this.fnDictionary.RenameFile),
+      Walk: this.lib.func(this.fnDictionary.Walk),
+      DownloadFiles: this.lib.func(this.fnDictionary.DownloadFiles),
+      UploadFiles: this.lib.func(this.fnDictionary.UploadFiles),
+      Dispose: this.lib.func(this.fnDictionary.Dispose),
+    });
   }
 
   _getNapiError(error) {
@@ -67,7 +82,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const Initialize = this.lib.func(this.fnDictionary.Initialize);
+        const Initialize = this.fns.Initialize;
 
         Initialize.async(rawOnDonePtr, (err, _) => {
           koffi.unregister(rawOnDonePtr);
@@ -102,9 +117,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const FetchDeviceInfo = this.lib.func(
-          this.fnDictionary.FetchDeviceInfo,
-        );
+        const FetchDeviceInfo = this.fns.FetchDeviceInfo;
 
         FetchDeviceInfo.async(rawOnDonePtr, (err, _) => {
           koffi.unregister(rawOnDonePtr);
@@ -139,7 +152,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const FetchStorages = this.lib.func(this.fnDictionary.FetchStorages);
+        const FetchStorages = this.fns.FetchStorages;
 
         FetchStorages.async(rawOnDonePtr, (err, _) => {
           koffi.unregister(rawOnDonePtr);
@@ -171,7 +184,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const MakeDirectory = this.lib.func(this.fnDictionary.MakeDirectory);
+        const MakeDirectory = this.fns.MakeDirectory;
 
         const _storageId = parseInt(storageId, 10);
         const args = { storageId: _storageId, fullPath };
@@ -207,7 +220,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const FileExists = this.lib.func(this.fnDictionary.FileExists);
+        const FileExists = this.fns.FileExists;
 
         const _storageId = parseInt(storageId, 10);
 
@@ -244,7 +257,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const DeleteFile = this.lib.func(this.fnDictionary.DeleteFile);
+        const DeleteFile = this.fns.DeleteFile;
 
         const _storageId = parseInt(storageId, 10);
 
@@ -282,7 +295,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const RenameFile = this.lib.func(this.fnDictionary.RenameFile);
+        const RenameFile = this.fns.RenameFile;
 
         const _storageId = parseInt(storageId, 10);
 
@@ -330,7 +343,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const Walk = this.lib.func(this.fnDictionary.Walk);
+        const Walk = this.fns.Walk;
 
         const _storageId = parseInt(storageId, 10);
 
@@ -432,11 +445,11 @@ export class Kalam {
 
         switch (direction) {
           case FILE_TRANSFER_DIRECTION.download:
-            TransferFiles = this.lib.func(this.fnDictionary.DownloadFiles);
+            TransferFiles = this.fns.DownloadFiles;
 
             break;
           case FILE_TRANSFER_DIRECTION.upload:
-            TransferFiles = this.lib.func(this.fnDictionary.UploadFiles);
+            TransferFiles = this.fns.UploadFiles;
 
             break;
 
@@ -499,7 +512,7 @@ export class Kalam {
           return resolve(this._getData(json));
         }, koffi.pointer(onDonePtr));
 
-        const Dispose = this.lib.func(this.fnDictionary.Dispose);
+        const Dispose = this.fns.Dispose;
 
         Dispose.async(rawOnDonePtr, (err, _) => {
           koffi.unregister(rawOnDonePtr);

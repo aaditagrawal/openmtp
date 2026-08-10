@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -46,14 +45,15 @@ func _initialize(i mtpx.Init) (*mtp.Device, error) {
 	return d, nil
 }
 
+// skipDeviceChangeCheckMode skips the FetchDeviceInfo serial round-trip.
+// Use on hot read-only paths (Walk/list/exists). Keep the check on Initialize
+// (via _fetchDeviceInfo), transfers, and mutating ops so a swapped device is
+// still detected before write/transfer work.
+var skipDeviceChangeCheckMode = verifyMtpSessionMode{skipDeviceChangeCheck: true}
+
 func _fetchDeviceInfo() (*mtp.DeviceInfo, error) {
-	v := verifyMtpSessionMode{skipDeviceChangeCheck: true}
-
-	if !v.skipDeviceChangeCheck {
-		log.Panicln("'skipDeviceChangeCheck' should be 'true' in _fetchDeviceInfo.verifyMtpSessionMode")
-	}
-
-	if err := verifyMtpSession(v); err != nil {
+	// Always skip here: this path itself fetches and stores DeviceInfo.
+	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
 		return nil, err
 	}
 
@@ -70,7 +70,7 @@ func _fetchDeviceInfo() (*mtp.DeviceInfo, error) {
 }
 
 func _fetchStorages() ([]mtpx.StorageData, error) {
-	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
+	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
 		return nil, err
 	}
 
@@ -96,7 +96,7 @@ func _makeDirectory(storageId uint32, fullPath string) error {
 }
 
 func _fileExists(storageId uint32, fileProps []mtpx.FileProp) (exists []mtpx.FileExistsContainer, error error) {
-	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
+	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
 		return []mtpx.FileExistsContainer{}, err
 	}
 
@@ -135,7 +135,7 @@ func _renameFile(storageId uint32, fileProp mtpx.FileProp, newFileName string) (
 }
 
 func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []*mtpx.FileInfo, err error) {
-	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
+	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
 		return []*mtpx.FileInfo{}, err
 	}
 
