@@ -35,8 +35,14 @@ export const computeSmartSyncDiff = ({
         filesToTransfer.push(file);
         newFiles += 1;
       } else {
-        const sourceDate = new Date(file.dateAdded).getTime();
-        const destDate = new Date(destFile.dateAdded).getTime();
+        const sourceDate =
+          typeof file.mtimeMs === 'number'
+            ? file.mtimeMs
+            : new Date(file.dateAdded).getTime();
+        const destDate =
+          typeof destFile.mtimeMs === 'number'
+            ? destFile.mtimeMs
+            : new Date(destFile.dateAdded).getTime();
         const sizeDiffers = file.size !== destFile.size;
         const sourceNewer = sourceDate > destDate;
 
