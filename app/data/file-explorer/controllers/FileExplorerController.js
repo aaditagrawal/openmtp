@@ -192,7 +192,10 @@ class FileExplorerController {
       storageId,
     });
 
-    this._sentEvent({ result, deviceType, eventKey: 'LIST_FILES' });
+    // Folder open is a hot path — only pay analytics/buffer work on errors.
+    if (result?.error || result?.stderr) {
+      this._sentEvent({ result, deviceType, eventKey: 'LIST_FILES' });
+    }
 
     return result;
   }
@@ -209,7 +212,9 @@ class FileExplorerController {
       storageId,
     });
 
-    this._sentEvent({ result, deviceType, eventKey: 'LIST_FILES' });
+    if (result?.error || result?.stderr) {
+      this._sentEvent({ result, deviceType, eventKey: 'LIST_FILES' });
+    }
 
     return result;
   }
