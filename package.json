@@ -37,8 +37,10 @@
     "lint-styles-fix": "node ./internals/scripts/run-package-script.js lint-styles --fix && node ./internals/scripts/run-package-script.js format; exit 0",
     "prepare": "husky",
     "preinstall": "internals/scripts/preinstall.sh",
-    "postinstall": "node ./internals/scripts/ensure-electron.js && node ./internals/scripts/run-package-script.js build-dll && node ./internals/scripts/install-app-deps.js",
-    "ensure-electron": "node ./internals/scripts/ensure-electron.js"
+    "postinstall": "node ./internals/scripts/ensure-electron.js && node ./internals/scripts/maybe-build-dll.js && node ./internals/scripts/install-app-deps.js",
+    "ensure-electron": "node ./internals/scripts/ensure-electron.js",
+    "test": "bun test --preload ./app/test/electron-mock.js ./app",
+    "test:watch": "bun test --watch --preload ./app/test/electron-mock.js ./app"
   },
   "main": "./app/main.prod.js",
   "repository": {
