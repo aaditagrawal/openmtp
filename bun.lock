@@ -13,6 +13,7 @@
         "baseline-browser-mapping": "^2.10.0",
         "caniuse-lite": "^1.0.30001777",
         "classnames": "^2.3.1",
+        "core-js": "^3.50.0",
         "dayjs": "^1.10.7",
         "electron-debug": "^3.2.0",
         "electron-ga": "^1.0.6",
@@ -44,6 +45,7 @@
         "react-router-dom": "^7.13.1",
         "redux": "^4.2.1",
         "redux-thunk": "^2.4.2",
+        "regenerator-runtime": "0.14.1",
         "reselect": "^4.1.8",
         "run-electron": "^1.0.0",
         "sanitize-html": "^2.17.1",
@@ -1090,6 +1092,8 @@
 
     "cookie-signature": ["cookie-signature@1.0.7", "", {}, "sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA=="],
 
+    "core-js": ["core-js@3.50.0", "", {}, "sha512-BRWgOLKkFeCgRudR6zrs8p9XJZcE14grzKMMssoYrk6krtuEZ7MTKPIY5RzOnqsEKIR9kst7wNzphttraT+Yqw=="],
+
     "core-js-compat": ["core-js-compat@3.50.0", "", { "dependencies": { "browserslist": "^4.28.7" } }, "sha512-XGpFGbMLHwSt74YLTKho7Ib242qi6O8MSX+sRokV4oz7iKXvQWGYZthjIhjRGMxjzVkAubBO512dKGYcefmX3Q=="],
 
     "core-util-is": ["core-util-is@1.0.3", "", {}, "sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ=="],
@@ -2123,6 +2127,8 @@
     "regenerate": ["regenerate@1.4.2", "", {}, "sha512-zrceR/XhGYU/d/opr2EKO7aRHUeiBI8qjtfHqADTwZd6Szfy16la6kqD0MIUs5z5hx6AaKa+PixpPrR289+I0A=="],
 
     "regenerate-unicode-properties": ["regenerate-unicode-properties@10.2.2", "", { "dependencies": { "regenerate": "^1.4.2" } }, "sha512-m03P+zhBeQd1RGnYxrGyDAPpWX/epKirLrp8e3qevZdVkKtnCrjjWczIbYc8+xd6vcTStVlqfycTx1KR4LOr0g=="],
+
+    "regenerator-runtime": ["regenerator-runtime@0.14.1", "", {}, "sha512-dYnhHh0nJoMfnkZs6GmmhFknAGRrLznOu5nc9ML+EJxGvrx6H7teuevqVqCuPcPK//3eDrrjQhehXVx9cnkGdw=="],
 
     "regexpp": ["regexpp@2.0.1", "", {}, "sha512-lv0M6+TkDVniA3aD1Eg0DVpfU/booSu7Eev3TDO/mZKHBfVjgCGTV4t4buppESEYDtkArYFOxTJWv6S5C+iaNw=="],
 
