@@ -175,22 +175,14 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
       return (
         <TableRow className={styles.emptyTableRowWrapper}>
           <TableCell colSpan={6} className={styles.tableCell}>
-            <Paper style={{ height: `100%` }} elevation={0}>
+            <Paper className={styles.fullHeight} elevation={0}>
               {usbConflictWarning ? (
-                <Paper
-                  elevation={0}
-                  style={{
-                    margin: '12px 16px 0',
-                    padding: '12px 14px',
-                    border: '1px solid #d97706',
-                    background: 'rgba(217, 119, 6, 0.12)',
-                  }}
-                >
+                <Paper elevation={0} className={styles.usbConflictWarning}>
                   <ListItemText
                     primary="USB conflict detected"
                     secondary={usbConflictWarning}
                     primaryTypographyProps={{
-                      style: { fontWeight: 600, color: '#b45309' },
+                      className: styles.usbConflictWarningTitle,
                     }}
                   />
                 </Paper>

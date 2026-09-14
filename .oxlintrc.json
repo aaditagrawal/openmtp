@@ -1,6 +1,21 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["import", "jsx-a11y", "react", "promise", "oxc"],
+  "jsPlugins": ["@shadcn/lint"],
+  "ignorePatterns": [
+    "node_modules",
+    "coverage",
+    "dist",
+    "release",
+    "dll",
+    "app/dll",
+    "app/vendors",
+    "docs",
+    "build",
+    "tmp",
+    "*.prod.js",
+    "*.js.map"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -78,6 +93,12 @@
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
     "oxc/no-map-spread": "off",
-    "oxc/no-this-in-exported-function": "off"
+    "oxc/no-this-in-exported-function": "off",
+    "shadcn/no-arbitrary-values": "off",
+    "shadcn/no-inline-styles": "error",
+    "shadcn/no-raw-colors": "off",
+    "shadcn/no-restyle": "off",
+    "shadcn/no-unknown-classes": "off",
+    "shadcn/require-static-classes": "warn"
   }
 }
