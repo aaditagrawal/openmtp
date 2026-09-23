@@ -118,7 +118,7 @@ class Breadcrumb extends PureComponent {
                 <Tooltip title={label}>
                   <a
                     className={classNames(styles.breadcrumbLiA, {
-                      [`& bold`]: bold,
+                      bold,
                     })}
                     onClick={(event) => {
                       this._handleClickPath(enabled, path, event);

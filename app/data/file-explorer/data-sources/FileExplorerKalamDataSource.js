@@ -17,22 +17,27 @@ export class FileExplorerKalamDataSource {
   /**
    * Execute a binary file
    * @param command
-   * @return {Promise<unknown>}
+   * @return {Promise<{data: string|null, stderr: string|null, error: Error|null}>}
    * @private
    */
   async _exec(command) {
     try {
-      return new Promise((resolve) => {
-        this.execPromise(command, (error, stdout, stderr) => {
-          return resolve({
-            data: stdout,
-            stderr,
-            error,
-          });
-        });
-      });
+      // execPromise is already promisified — do not wrap it in a callback again.
+      const { stdout, stderr } = await this.execPromise(command);
+
+      return {
+        data: stdout,
+        stderr: stderr || null,
+        error: null,
+      };
     } catch (e) {
       log.error(e);
+
+      return {
+        data: null,
+        stderr: e?.stderr || null,
+        error: e,
+      };
     }
   }
 
@@ -89,13 +94,15 @@ export class FileExplorerKalamDataSource {
 
       const storageList = {};
 
-      data.forEach((a, index) => {
+      for (let index = 0; index < data.length; index += 1) {
+        const a = data[index];
+
         storageList[a.Sid] = {
           name: a.Info.StorageDescription,
           selected: index === 0,
           info: a.Info,
         };
-      });
+      }
 
       return { error, stderr, data: storageList };
     } catch (e) {
@@ -216,14 +223,24 @@ export class FileExplorerKalamDataSource {
       // Fail closed: treat as all existing so the conflict dialog is shown
       // instead of silently overwriting.
       if (error || stderr || isEmpty(data)) {
-        return [...fileList];
+        return fileList.slice();
       }
 
-      return data.filter((a) => a.exists).map((a) => a.fullpath);
+      const existing = [];
+
+      for (let i = 0; i < data.length; i += 1) {
+        const item = data[i];
+
+        if (item.exists) {
+          existing.push(item.fullpath);
+        }
+      }
+
+      return existing;
     } catch (e) {
       log.error(e);
 
-      return [...fileList];
+      return fileList.slice();
     }
   }
 

@@ -8,15 +8,12 @@ import (
 type ErrorType string
 
 type FileInfo struct {
-	Size       int64  `json:"size"`
-	IsDir      bool   `json:"isFolder"`
-	ModTime    string `json:"dateAdded"`
-	Name       string `json:"name"`
-	FullPath   string `json:"path"`
-	ParentPath string `json:"parentPath"`
-	Extension  string `json:"extension"`
-	ParentId   uint32 `json:"parentId"`
-	ObjectId   uint32 `json:"objectId"`
+	Size      int64  `json:"size"`
+	IsDir     bool   `json:"isFolder"`
+	ModTime   string `json:"dateAdded"`
+	Name      string `json:"name"`
+	FullPath  string `json:"path"`
+	Extension string `json:"extension"`
 }
 
 type FileExistsData struct {

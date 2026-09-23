@@ -1,4 +1,3 @@
-import prefixer from '../../helpers/reducerPrefixer';
 import { throwAlert } from '../Alerts/actions';
 import {
   processMtpBuffer,
@@ -12,25 +11,14 @@ import { checkIf } from '../../utils/checkIf';
 import { MTP_ERROR } from '../../enums/mtpError';
 import { DEVICES_DEFAULT_PATH } from '../../constants';
 import { analyticsService } from '../../services/analytics';
+import { actionTypes } from './actionTypes';
+import {
+  mtpDevicePatchIsNoop,
+  normalizeNodes,
+  normalizeSelected,
+} from './homeStateHelpers';
 
-const prefix = '@@Home';
-const actionTypesList = [
-  'SET_FOCUSSED_FILE_EXPLORER_DEVICE_TYPE',
-  'SET_CURRENT_BROWSE_PATH',
-  'SET_SORTING_DIR_LISTS',
-  'SET_SELECTED_DIR_LISTS',
-  'LIST_DIRECTORY',
-  'SET_MTP_ERRORS',
-  'SET_MTP_STATUS',
-  'CHANGE_MTP_STORAGE',
-  'SET_FILE_TRANSFER_CLIPBOARD',
-  'SET_FILE_TRANSFER_PROGRESS',
-  'CLEAR_FILE_TRANSFER',
-  'SET_FILES_DRAG',
-  'CLEAR_FILES_DRAG',
-];
-
-export const actionTypes = prefixer(prefix, actionTypesList);
+export { actionTypes };
 
 // Generation stamp so a slow listDirectory response cannot paint into a
 // newer browse path after the user has already navigated away.
@@ -38,6 +26,20 @@ const listDirectoryGeneration = {
   [DEVICE_TYPE.local]: 0,
   [DEVICE_TYPE.mtp]: 0,
 };
+
+function nextListDirectoryGeneration(deviceType) {
+  listDirectoryGeneration[deviceType] += 1;
+
+  return listDirectoryGeneration[deviceType];
+}
+
+function isCurrentListDirectoryGeneration(deviceType, requestId) {
+  return requestId === listDirectoryGeneration[deviceType];
+}
+
+function invalidateListDirectoryGeneration(deviceType) {
+  listDirectoryGeneration[deviceType] += 1;
+}
 
 export function setFocussedFileExplorerDeviceType(data) {
   return {
@@ -63,7 +65,7 @@ export function actionSetSelectedDirLists(data, deviceType) {
     type: actionTypes.SET_SELECTED_DIR_LISTS,
     deviceType,
     payload: {
-      ...data,
+      selected: normalizeSelected(data?.selected),
     },
   };
 }
@@ -76,14 +78,33 @@ export function setCurrentBrowsePath(path, deviceType) {
   };
 }
 
-function actionListDirectory(data, deviceType, _) {
+function actionListDirectory(data, deviceType) {
   return {
     type: actionTypes.LIST_DIRECTORY,
     deviceType,
     payload: {
-      nodes: data ?? [],
+      nodes: normalizeNodes(data),
       isLoaded: true,
     },
+  };
+}
+
+// Atomically update browse path, clear selection, and drop stale nodes so
+// rapid navigation does not flash the previous folder under a new path.
+function actionBeginListDirectory(filePath, deviceType) {
+  return {
+    type: actionTypes.BEGIN_LIST_DIRECTORY,
+    deviceType,
+    payload: {
+      path: filePath,
+    },
+  };
+}
+
+function actionResetDirectoryList(deviceType) {
+  return {
+    type: actionTypes.RESET_DIRECTORY_LIST,
+    deviceType,
   };
 }
 
@@ -132,8 +153,10 @@ export function initializeMtp(
   checkIf(changeLegacyMtpStorageOnlyOnDeviceChange, 'boolean');
   checkIf(getState, 'function');
 
-  const { mtpStoragesList } = getState().Home;
-  const { mtpMode } = getState().Settings;
+  const {
+    Home: { mtpStoragesList },
+    Settings: { mtpMode },
+  } = getState();
 
   return async (dispatch) => {
     try {
@@ -199,13 +222,12 @@ export function disposeMtp({ deviceType, onSuccess, onError }, getState) {
                 data,
                 mtpMode,
                 onSuccess: ({ _, __, data }) => {
+                  // Drop in-flight listDirectory results for this pane.
+                  invalidateListDirectoryGeneration(deviceType);
                   dispatch(
                     actionSetMtpStatus({ info: {}, isAvailable: false }),
                   );
-                  dispatch(actionListDirectory([], deviceType));
-                  dispatch(
-                    actionSetSelectedDirLists({ selected: [] }, deviceType),
-                  );
+                  dispatch(actionResetDirectoryList(deviceType));
                   dispatch(actionChangeMtpStorage({}));
 
                   const _return = {
@@ -250,16 +272,16 @@ function initKalamMtp({ filePath, ignoreHidden, deviceType }, getState) {
     checkIf(deviceType, 'string');
 
     try {
-      const { mtpMode } = getState().Settings;
-      const { mtpDevice: preInitMtpDevice } = getState().Home;
+      const {
+        Settings: { mtpMode },
+        Home: { mtpDevice: preInitMtpDevice },
+      } = getState();
 
       checkIf(preInitMtpDevice, 'object');
 
-      dispatch(
-        actionSetMtpStatus({
-          isLoading: true,
-        }),
-      );
+      dispatchMtpStatusIfChanged(dispatch, getState, {
+        isLoading: true,
+      });
 
       // if the app was expecting the user to allow access to mtp storage
       // then don't reinitialize mtp
@@ -319,11 +341,9 @@ function initKalamMtp({ filePath, ignoreHidden, deviceType }, getState) {
         dispatch(actionChangeMtpStorage({}));
       }
 
-      dispatch(
-        actionSetMtpStatus({
-          isLoading: true,
-        }),
-      );
+      dispatchMtpStatusIfChanged(dispatch, getState, {
+        isLoading: true,
+      });
 
       await new Promise((resolve) => {
         dispatch(
@@ -352,11 +372,9 @@ function initKalamMtp({ filePath, ignoreHidden, deviceType }, getState) {
         return;
       }
 
-      dispatch(
-        actionSetMtpStatus({
-          isLoading: true,
-        }),
-      );
+      dispatchMtpStatusIfChanged(dispatch, getState, {
+        isLoading: true,
+      });
 
       dispatch(
         reloadDirList(
@@ -515,6 +533,16 @@ export function actionSetMtpStatus({ ...args }) {
   };
 }
 
+function dispatchMtpStatusIfChanged(dispatch, getState, patch) {
+  const { mtpDevice } = getState().Home;
+
+  if (mtpDevicePatchIsNoop(mtpDevice, patch)) {
+    return;
+  }
+
+  dispatch(actionSetMtpStatus(patch));
+}
+
 // This is the main entry point of data received from the MTP kernel.
 // The data received here undergoes processing and the neccessary actions are taken accordingly
 export function churnMtpBuffer({
@@ -529,7 +557,7 @@ export function churnMtpBuffer({
   checkIf(onSuccess, 'function');
   checkIf(mtpMode, 'string');
 
-  return async (dispatch) => {
+  return async (dispatch, getState) => {
     try {
       const {
         mtpStatus,
@@ -539,17 +567,14 @@ export function churnMtpBuffer({
         reportError: mtpReportError,
       } = await processMtpBuffer({ error, stderr, mtpMode });
 
-      dispatch(
-        actionSetMtpStatus({
-          isAvailable: mtpStatus,
-          error: mtpMode === MTP_MODE.kalam ? stderr : error,
-          isLoading: false,
-        }),
-      );
+      dispatchMtpStatusIfChanged(dispatch, getState, {
+        isAvailable: mtpStatus,
+        error: mtpMode === MTP_MODE.kalam ? stderr : error,
+        isLoading: false,
+      });
 
       if (!mtpStatus) {
-        dispatch(actionListDirectory([], deviceType));
-        dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
+        dispatch(actionResetDirectoryList(deviceType));
 
         if (onError) {
           onError({ error, stderr, data: null });
@@ -625,6 +650,146 @@ export function churnLocalBuffer({
   };
 }
 
+function restoreBrowseSnapshot(dispatch, deviceType, snapshot) {
+  if (!snapshot) {
+    return;
+  }
+
+  if (!undefinedOrNull(snapshot.path)) {
+    dispatch(setCurrentBrowsePath(snapshot.path, deviceType));
+  }
+
+  dispatch({
+    type: actionTypes.LIST_DIRECTORY,
+    deviceType,
+    payload: {
+      nodes: normalizeNodes(snapshot.nodes),
+      isLoaded: snapshot.isLoaded,
+    },
+  });
+}
+
+async function runListDirectory({
+  dispatch,
+  getState,
+  deviceType,
+  filePath,
+  ignoreHidden,
+  storageId,
+  mtpMode,
+  onError,
+  onSuccess,
+}) {
+  const homeState = getState().Home;
+  const directoryList = homeState?.directoryLists?.[deviceType];
+  const previousSnapshot = {
+    path: homeState?.currentBrowsePath?.[deviceType],
+    nodes: directoryList?.nodes,
+    isLoaded: directoryList?.isLoaded === true,
+  };
+  const requestId = nextListDirectoryGeneration(deviceType);
+
+  // One reducer update: path + clear selection + drop stale nodes / loader.
+  dispatch(actionBeginListDirectory(filePath, deviceType));
+
+  const { error, stderr, data } = await fileExplorerController.listFiles({
+    deviceType,
+    filePath,
+    ignoreHidden,
+    storageId,
+  });
+
+  if (!isCurrentListDirectoryGeneration(deviceType, requestId)) {
+    return;
+  }
+
+  if (deviceType === DEVICE_TYPE.local) {
+    if (error) {
+      log.error(error, 'listDirectory -> listFiles');
+      restoreBrowseSnapshot(dispatch, deviceType, previousSnapshot);
+
+      dispatch(
+        churnLocalBuffer({
+          deviceType,
+          error,
+          stderr,
+          data,
+          onSuccess: () => {},
+        }),
+      );
+
+      return;
+    }
+
+    dispatch(actionListDirectory(data, deviceType));
+
+    return;
+  }
+
+  // MTP happy path: skip churnMtpBuffer / processMtpBuffer — no error
+  // handling needed, and that path previously added an unnecessary
+  // await on every folder open.
+  if (!error && !stderr) {
+    dispatchMtpStatusIfChanged(dispatch, getState, {
+      isAvailable: true,
+      isLoading: false,
+    });
+    dispatch(actionListDirectory(data, deviceType));
+
+    if (onSuccess) {
+      onSuccess({ error: null, stderr: null, data });
+    }
+
+    return;
+  }
+
+  // Revert optimistic navigation before churn so a hard failure does not
+  // leave the pane stuck on an empty loading state.
+  restoreBrowseSnapshot(dispatch, deviceType, previousSnapshot);
+
+  dispatch(
+    churnMtpBuffer({
+      deviceType,
+      error,
+      stderr,
+      data,
+      mtpMode,
+      onSuccess: ({
+        error: successError,
+        stderr: successStderr,
+        data: successData,
+      }) => {
+        if (!isCurrentListDirectoryGeneration(deviceType, requestId)) {
+          return;
+        }
+
+        dispatch(setCurrentBrowsePath(filePath, deviceType));
+        dispatch(actionListDirectory(successData, deviceType));
+
+        if (onSuccess) {
+          onSuccess({
+            error: successError,
+            stderr: successStderr,
+            data: successData,
+          });
+        }
+      },
+
+      onError: ({ error: errError, stderr: errStderr, data: errData }) => {
+        if (!isCurrentListDirectoryGeneration(deviceType, requestId)) {
+          return;
+        }
+
+        // churnMtpBuffer may clear the directory on unavailable MTP; keep
+        // that outcome. Only invoke the caller hook.
+        if (onError) {
+          onError({ error: errError, stderr: errStderr, data: errData });
+        }
+      },
+    }),
+  );
+}
+
 export function listDirectory(
   { filePath, ignoreHidden, onError, onSuccess },
   deviceType,
@@ -640,50 +805,17 @@ export function listDirectory(
     switch (deviceType) {
       case DEVICE_TYPE.local:
         return async (dispatch) => {
-          const previousPath = getState().Home?.currentBrowsePath?.[deviceType];
-          const requestId = (listDirectoryGeneration[deviceType] += 1);
-
-          // Update path/selection immediately so open-folder feels instant;
-          // listing results replace the nodes when they arrive.
-          dispatch(setCurrentBrowsePath(filePath, deviceType));
-          dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
-
-          const {
-            error: localError,
-            stderr: localStderr,
-            data: localData,
-          } = await fileExplorerController.listFiles({
+          await runListDirectory({
+            dispatch,
+            getState,
             deviceType,
             filePath,
             ignoreHidden,
             storageId: null,
+            mtpMode,
+            onError,
+            onSuccess,
           });
-
-          if (requestId !== listDirectoryGeneration[deviceType]) {
-            return;
-          }
-
-          if (localError) {
-            log.error(localError, 'listDirectory -> listFiles');
-
-            if (!undefinedOrNull(previousPath)) {
-              dispatch(setCurrentBrowsePath(previousPath, deviceType));
-            }
-
-            dispatch(
-              churnLocalBuffer({
-                deviceType,
-                error: localError,
-                stderr: localStderr,
-                data: localData,
-                onSuccess: () => {},
-              }),
-            );
-
-            return;
-          }
-
-          dispatch(actionListDirectory(localData, deviceType), getState);
         };
 
       case DEVICE_TYPE.mtp:
@@ -694,77 +826,17 @@ export function listDirectory(
             return;
           }
 
-          const previousPath = getState().Home?.currentBrowsePath?.[deviceType];
-          const requestId = (listDirectoryGeneration[deviceType] += 1);
-
-          // Same optimistic path/selection update as local — breadcrumb and
-          // selection clear before the MTP round-trip finishes.
-          dispatch(setCurrentBrowsePath(filePath, deviceType));
-          dispatch(actionSetSelectedDirLists({ selected: [] }, deviceType));
-
-          const { error, stderr, data } =
-            await fileExplorerController.listFiles({
-              deviceType,
-              filePath,
-              ignoreHidden,
-              storageId,
-            });
-
-          if (requestId !== listDirectoryGeneration[deviceType]) {
-            return;
-          }
-
-          // Happy path: skip churnMtpBuffer / processMtpBuffer — no error
-          // handling needed, and that path previously added an unnecessary
-          // await on every folder open.
-          if (!error && !stderr) {
-            dispatch(
-              actionSetMtpStatus({
-                isAvailable: true,
-                isLoading: false,
-              }),
-            );
-            dispatch(actionListDirectory(data, deviceType), getState);
-
-            if (onSuccess) {
-              onSuccess({ error: null, stderr: null, data });
-            }
-
-            return;
-          }
-
-          if (!undefinedOrNull(previousPath)) {
-            dispatch(setCurrentBrowsePath(previousPath, deviceType));
-          }
-
-          dispatch(
-            churnMtpBuffer({
-              deviceType,
-              error,
-              stderr,
-              data,
-              mtpMode,
-              onSuccess: ({ error, stderr, data }) => {
-                // Only apply if this request is still the latest navigation.
-                if (requestId !== listDirectoryGeneration[deviceType]) {
-                  return;
-                }
-
-                dispatch(setCurrentBrowsePath(filePath, deviceType));
-                dispatch(actionListDirectory(data, deviceType), getState);
-
-                if (onSuccess) {
-                  onSuccess({ error, stderr, data });
-                }
-              },
-
-              onError: ({ error, stderr, data }) => {
-                if (onError) {
-                  onError({ error, stderr, data });
-                }
-              },
-            }),
-          );
+          await runListDirectory({
+            dispatch,
+            getState,
+            deviceType,
+            filePath,
+            ignoreHidden,
+            storageId,
+            mtpMode,
+            onError,
+            onSuccess,
+          });
         };
 
       default:
@@ -784,8 +856,10 @@ export function reloadDirList(
   checkIf(ignoreHidden, 'boolean');
   checkIf(getState, 'function');
 
-  const { mtpDevice } = getState().Home;
-  const { mtpMode } = getState().Settings;
+  const {
+    Home: { mtpDevice },
+    Settings: { mtpMode },
+  } = getState();
 
   checkIf(mtpDevice, 'object');
 
@@ -813,11 +887,9 @@ export function reloadDirList(
 
           case MTP_MODE.kalam:
           default:
-            dispatch(
-              actionSetMtpStatus({
-                isLoading: true,
-              }),
-            );
+            dispatchMtpStatusIfChanged(dispatch, getState, {
+              isLoading: true,
+            });
 
             // if mtpdevice is available then list directory
             if (mtpDevice.isAvailable) {

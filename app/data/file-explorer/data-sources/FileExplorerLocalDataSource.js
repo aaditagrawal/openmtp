@@ -1,17 +1,13 @@
 import path from 'path';
-import { promisify } from 'node:util';
-import junk from 'junk';
-import macosVersion from 'macos-version';
+import { readdir, rename as fsRename, rm, mkdir } from 'fs/promises';
 import {
-  readdir as fsReaddir,
   existsSync,
   statSync,
   lstatSync,
-  rename as fsRename,
   readlinkSync,
   realpathSync,
-  rm,
 } from 'fs';
+import macosVersion from 'macos-version';
 import { log } from '../../../utils/log';
 import { isArray, isEmpty, undefinedOrNull } from '../../../utils/funcs';
 import { pathUp } from '../../../utils/files';
@@ -19,30 +15,20 @@ import { appDateFormat } from '../../../utils/date';
 import { checkIf } from '../../../utils/checkIf';
 import { PATHS } from '../../../constants/paths';
 import { NODE_MAC_PERMISSIONS_MIN_OS } from '../../../constants';
+import { filterDirents } from '../../../utils/dirListing';
 
 export class FileExplorerLocalDataSource {
-  constructor() {
-    this.readdir = promisify(fsReaddir);
-  }
-
   /**
    * description - make directory helper
    *
    */
   async _mkdir({ filePath }) {
     try {
-      return new Promise((resolve) => {
-        mkdir(filePath, { recursive: true }, (error) => {
-          if (error) {
-            resolve({ data: null, stderr: error, error });
-            return;
-          }
+      await mkdir(filePath, { recursive: true });
 
-          resolve({ data: filePath, stderr: null, error: null });
-        });
-      });
-    } catch (e) {
-      log.error(e);
+      return { data: filePath, stderr: null, error: null };
+    } catch (error) {
+      return { data: null, stderr: error, error };
     }
   }
 
@@ -50,26 +36,22 @@ export class FileExplorerLocalDataSource {
    * description - Rename file helper
    *
    */
-  _rename({ filePath, newFilename }) {
+  async _rename({ filePath, newFilename }) {
     try {
       const parentDir = pathUp(filePath);
       const newFilePath = path.join(parentDir, newFilename);
 
-      return new Promise((resolve) => {
-        fsRename(filePath, newFilePath, (error) => {
-          return resolve({
-            data: null,
-            stderr: error,
-            error,
-          });
-        });
-      });
-    } catch (e) {
-      log.error(e);
+      await fsRename(filePath, newFilePath);
 
       return {
         data: null,
         stderr: null,
+        error: null,
+      };
+    } catch (e) {
+      return {
+        data: null,
+        stderr: e,
         error: e,
       };
     }
@@ -79,17 +61,15 @@ export class FileExplorerLocalDataSource {
    * description - Delete file helper
    *
    */
-  _delete = (file) => {
+  _delete = async (file) => {
     try {
-      return new Promise((resolve) => {
-        rm(file, { recursive: true, force: true }, (error) => {
-          resolve({
-            data: null,
-            stderr: error,
-            error,
-          });
-        });
-      });
+      await rm(file, { recursive: true, force: true });
+
+      return {
+        data: null,
+        stderr: null,
+        error: null,
+      };
     } catch (e) {
       log.error(e);
 
@@ -146,21 +126,33 @@ export class FileExplorerLocalDataSource {
    * Synchronous on purpose: listDirectory is on the open-folder hot path
    * (double-click / Enter) and awaiting readlink per entry made navigation
    * feel lagged even for ordinary non-symlink directories.
+   * When `dirent` is provided and is not a symlink, skip lstat entirely.
    * @private
    *
    * @param fullPath
+   * @param dirent
    * @returns {{isFolder: boolean, symlink: string|null}}
    * @private
    */
-  _getSymlinkInfo = ({ fullPath }) => {
+  _getSymlinkInfo = ({ fullPath, dirent = null }) => {
     try {
-      const lstat = lstatSync(fullPath);
-
-      if (!lstat.isSymbolicLink()) {
+      // Dirent already answered "not a symlink" — skip lstat on the hot path.
+      if (dirent && !dirent.isSymbolicLink()) {
         return {
-          isFolder: lstat.isDirectory(),
+          isFolder: dirent.isDirectory(),
           symlink: null,
         };
+      }
+
+      if (!dirent) {
+        const lstat = lstatSync(fullPath);
+
+        if (!lstat.isSymbolicLink()) {
+          return {
+            isFolder: lstat.isDirectory(),
+            symlink: null,
+          };
+        }
       }
 
       let symlink = null;
@@ -188,6 +180,41 @@ export class FileExplorerLocalDataSource {
   };
 
   /**
+   * Build one list entry from a dirent. Returns null if the path raced away.
+   * @private
+   */
+  _buildListEntry = ({ file, fullPath, dirent, dateField = 'mtime' }) => {
+    const { isFolder, symlink } = this._getSymlinkInfo({
+      fullPath,
+      dirent,
+    });
+
+    let stat;
+
+    try {
+      // One stat for size/date; replaces the old existsSync + separate statSync.
+      stat = statSync(fullPath);
+    } catch (_) {
+      return null;
+    }
+
+    const extension = path.extname(fullPath);
+    const size = stat.size;
+    const dateTime = dateField === 'atime' ? stat.atime : stat.mtime;
+
+    return {
+      name: file,
+      path: fullPath,
+      extension,
+      size,
+      isFolder,
+      dateAdded: appDateFormat(dateTime),
+      mtimeMs: dateTime.getTime(),
+      symlink,
+    };
+  };
+
+  /**
    * description - Fetch local files in the path
    *
    * @param filePath
@@ -205,68 +232,44 @@ export class FileExplorerLocalDataSource {
         };
       }
 
-      const response = [];
-      const { error, data } = await this.readdir(filePath, 'utf8')
-        .then((res) => {
-          return {
-            data: res,
-            error: null,
-          };
-        })
-        .catch((e) => {
-          return {
-            data: null,
-            error: e,
-          };
-        });
+      let dirents;
 
-      if (error) {
+      try {
+        dirents = await readdir(filePath, { withFileTypes: true });
+      } catch (error) {
         log.error(error, `FileExplorerLocalDataSource.listFiles`);
 
         return { error, data: null };
       }
 
-      let files = data;
-
-      files = data.filter(junk.not);
-      if (ignoreHidden) {
-        // oxlint-disable-next-line no-useless-escape
-        files = data.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
-      }
+      const files = filterDirents(dirents, { ignoreHidden });
+      const response = [];
+      const seenPaths = new Set();
 
       for (let i = 0; i < files.length; i += 1) {
-        const file = files[i];
+        const dirent = files[i];
+        const fullPath = path.resolve(filePath, dirent.name);
 
-        const fullPath = path.resolve(filePath, file);
-
-        if (!existsSync(fullPath)) {
+        if (seenPaths.has(fullPath)) {
           continue; // oxlint-disable-line no-continue
         }
 
-        const { isFolder, symlink } = this._getSymlinkInfo({
+        const entry = this._buildListEntry({
+          file: dirent.name,
           fullPath,
+          dirent,
+          dateField: 'mtime',
         });
 
-        const stat = statSync(fullPath);
-        const extension = path.extname(fullPath);
-        const { size, atime: dateTime } = stat;
-
-        if (response.find((item) => item.path === fullPath)) {
+        if (!entry) {
           continue; // oxlint-disable-line no-continue
         }
 
-        response.push({
-          name: file,
-          path: fullPath,
-          extension,
-          size,
-          isFolder,
-          dateAdded: appDateFormat(dateTime),
-          symlink,
-        });
+        seenPaths.add(fullPath);
+        response.push(entry);
       }
 
-      return { error, data: response };
+      return { error: null, data: response };
     } catch (e) {
       log.error(e);
 
@@ -299,69 +302,46 @@ export class FileExplorerLocalDataSource {
 
       const response = [];
       const queue = [filePath];
+      let queueIndex = 0;
 
-      while (queue.length > 0) {
-        const currentDir = queue.shift();
+      while (queueIndex < queue.length) {
+        const currentDir = queue[queueIndex];
+
+        queueIndex += 1;
 
         try {
           // Directory traversal is intentionally sequential so nested folders are
           // appended to the same breadth-first queue in a predictable order.
           // oxlint-disable-next-line no-await-in-loop
-          const dirEntries = await this.readdir(currentDir, 'utf8');
-          let files = dirEntries.filter(junk.not);
+          const dirents = await readdir(currentDir, { withFileTypes: true });
+          const files = filterDirents(dirents, { ignoreHidden });
 
-          if (ignoreHidden) {
-            // oxlint-disable-next-line no-useless-escape
-            files = files.filter((item) => !/(^|\/)\.[^\/\.]/g.test(item));
+          for (let i = 0; i < files.length; i += 1) {
+            const dirent = files[i];
+            const fullPath = path.resolve(currentDir, dirent.name);
+            const entry = this._buildListEntry({
+              file: dirent.name,
+              fullPath,
+              dirent,
+              // Use mtime (modification time) so Smart Sync's diff can
+              // reliably detect when the source is newer than destination.
+              // atime (access time) updates on read and is unreliable for
+              // "is this file newer?" comparisons.
+              dateField: 'mtime',
+            });
+
+            if (!entry) {
+              continue; // oxlint-disable-line no-continue
+            }
+
+            if (entry.isFolder) {
+              queue.push(entry.path);
+
+              continue; // oxlint-disable-line no-continue
+            }
+
+            response.push(entry);
           }
-
-          const fileDetails = files.map((file) => {
-            const fullPath = path.resolve(currentDir, file);
-
-            if (!existsSync(fullPath)) {
-              return null;
-            }
-
-            const { isFolder, symlink } = this._getSymlinkInfo({
-              fullPath,
-            });
-
-            const stat = statSync(fullPath);
-            const extension = path.extname(fullPath);
-            // Use mtime (modification time) so Smart Sync's diff can
-            // reliably detect when the source is newer than destination.
-            // atime (access time) updates on read and is unreliable for
-            // "is this file newer?" comparisons.
-            const { size, mtime: dateTime } = stat;
-
-            return {
-              file,
-              fullPath,
-              extension,
-              size,
-              isFolder,
-              dateAdded: appDateFormat(dateTime),
-              symlink,
-            };
-          });
-
-          fileDetails.filter(Boolean).forEach((fileDetail) => {
-            if (fileDetail.isFolder) {
-              queue.push(fileDetail.fullPath);
-
-              return;
-            }
-
-            response.push({
-              name: fileDetail.file,
-              path: fileDetail.fullPath,
-              extension: fileDetail.extension,
-              size: fileDetail.size,
-              isFolder: fileDetail.isFolder,
-              dateAdded: fileDetail.dateAdded,
-              symlink: fileDetail.symlink,
-            });
-          });
         } catch (error) {
           log.error(error, `FileExplorerLocalDataSource.listFilesRecursive`);
         }
@@ -474,7 +454,6 @@ export class FileExplorerLocalDataSource {
         return { error: `Invalid path.`, stderr: null, data: null };
       }
 
-      // oxlint-disable-next-line no-await-in-loop
       const _accessGranted = await this._requestUsageAccess({
         filePath,
       });
@@ -523,6 +502,7 @@ export class FileExplorerLocalDataSource {
         const item = fileList[i];
         const fullPath = path.resolve(item);
 
+        // Permission prompts stay sequential (macOS TCC dialogs).
         // oxlint-disable-next-line no-await-in-loop
         const _accessGranted = await this._requestUsageAccess({
           filePath: fullPath,
@@ -530,11 +510,10 @@ export class FileExplorerLocalDataSource {
 
         if (!_accessGranted) {
           // Fail closed so the conflict dialog is shown instead of overwriting.
-          return [...fileList];
+          return fileList.slice();
         }
 
-        // oxlint-disable-next-line no-await-in-loop
-        if (await existsSync(fullPath)) {
+        if (existsSync(fullPath)) {
           existing.push(item);
         }
       }
@@ -543,7 +522,7 @@ export class FileExplorerLocalDataSource {
     } catch (e) {
       log.error(e);
 
-      return [...fileList];
+      return fileList.slice();
     }
   }
 

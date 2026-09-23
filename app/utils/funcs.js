@@ -254,7 +254,7 @@ export const isString = (variable) => {
 };
 
 export const removeArrayDuplicates = (array) => {
-  return array.filter((v, i) => array.indexOf(v) === i);
+  return Array.from(new Set(array));
 };
 
 export const getPluralText = (string, count, customPluralString = null) => {

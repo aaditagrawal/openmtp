@@ -13,6 +13,19 @@ export const styles = (theme) => ({
   refreshConnectionWrap: {
     margin: '12px 16px 4px',
   },
+  fullHeight: {
+    height: '100%',
+  },
+  usbConflictWarning: {
+    margin: '12px 16px 0',
+    padding: '12px 14px',
+    border: '1px solid #d97706',
+    background: 'rgba(217, 119, 6, 0.12)',
+  },
+  usbConflictWarningTitle: {
+    fontWeight: 600,
+    color: '#b45309',
+  },
   hotplugTip: {
     margin: '4px 16px 8px',
     color: theme.palette.text.secondary,
