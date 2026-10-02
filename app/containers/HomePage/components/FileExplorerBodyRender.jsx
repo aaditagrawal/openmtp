@@ -1,6 +1,6 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Paper from '@material-ui/core/Paper';
+import { withStyles } from 'tss-react/mui';
+import Paper from '@mui/material/Paper';
 import classNames from 'classnames';
 import hotkeys from 'hotkeys-js';
 import FileExplorerTableBodyRender from './FileExplorerTableBodyRender';
@@ -338,4 +338,4 @@ class FileExplorerBodyRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerBodyRender);
+export default withStyles(FileExplorerBodyRender, styles);

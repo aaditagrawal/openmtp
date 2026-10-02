@@ -6,13 +6,18 @@
 
 import { join } from 'path';
 import webpack from 'webpack';
-import { rootPath } from 'electron-root-path';
+import { rootPath } from '../app/utils/runtimePaths';
 import { PATHS } from '../app/constants/paths';
 
 const pkg = require(join(rootPath, 'package.json'));
 
 export default {
-  externals: [...Object.keys(pkg.dependencies || {})],
+  // ESM-only packages must be bundled for Electron's CommonJS renderer.
+  externals: Object.keys(pkg.dependencies || {}).filter(
+    (name) =>
+      !['@sindresorhus/is', 'junk', 'uuid', 'macos-version'].includes(name),
+  ),
+  cache: { type: 'filesystem', buildDependencies: { config: [__filename] } },
 
   module: {
     rules: [

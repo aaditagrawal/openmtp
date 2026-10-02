@@ -105,6 +105,7 @@ export default class AppUpdate {
     this.progressbarWindowDomReadyFlag = null;
     this.updateInitFlag = false;
     this.updateForceCheckFlag = false;
+    this.handledUpdateErrors = new WeakSet();
     this._errorDialog = {
       timeGenerated: 0,
       title: null,
@@ -121,32 +122,24 @@ export default class AppUpdate {
         return;
       }
 
-      this.autoUpdater.on('error', (error) => {
-        if (progressbarWindow !== null) {
-          progressbarWindow.close();
-        }
+      this.autoUpdater.on('error', (error) => this.handleUpdateError(error));
 
+      this.autoUpdater.on('checking-for-update', () => {
+        if (this.updateForceCheckFlag) this.setCheckUpdatesProgress();
+      });
+
+      this.autoUpdater.on('update-not-available', () => {
+        const manual = this.updateForceCheckFlag;
+        this.updateForceCheckFlag = false;
         this.closeActiveUpdates();
-
-        if (this.isNetworkError(error)) {
-          this.spitMessageDialog(
-            'Update Error',
-            'Oops.. A network error occured. Try again!',
-            'error',
-          );
-
-          log.doLog(error, `AppUpdate -> onerror -> isNetworkError`);
-
-          return null;
+        if (progressbarWindow !== null) progressbarWindow.close();
+        if (manual) {
+          void dialog.showMessageBox({
+            title: 'No Updates Found',
+            message: 'You have the latest version installed.',
+            buttons: ['Close'],
+          });
         }
-
-        this.spitMessageDialog(
-          'Update Error',
-          'Oops.. Some error occured while updating the app. Try again!',
-          'error',
-        );
-
-        log.error(error, `AppUpdate -> onerror`);
       });
 
       this.autoUpdater.on('update-available', (info) => {
@@ -168,6 +161,7 @@ export default class AppUpdate {
 
         _appUpdateAvailableWindow.on('close', () => {
           if (this.updateStatus !== UPDATER_STATUS.updateInProgress) {
+            this.updateForceCheckFlag = false;
             this.closeActiveUpdates();
           }
         });
@@ -184,6 +178,7 @@ export default class AppUpdate {
 
           if (!confirm) {
             if (this.updateStatus !== UPDATER_STATUS.updateInProgress) {
+              this.updateForceCheckFlag = false;
               this.closeActiveUpdates();
             }
 
@@ -194,12 +189,15 @@ export default class AppUpdate {
             progressbarWindow.close();
           }
 
-          this.closeActiveUpdates(-1);
+          this.updateForceCheckFlag = true;
+          this.closeActiveUpdates(UPDATER_STATUS.updateInProgress);
           this.initDownloadUpdatesProgress();
 
           // this is to prevent race condition
           if (!this.autoUpdater.autoDownload) {
-            this.autoUpdater.downloadUpdate();
+            void this.autoUpdater
+              .downloadUpdate()
+              .catch((error) => this.handleUpdateError(error));
           }
         });
       });
@@ -213,6 +211,7 @@ export default class AppUpdate {
       });
 
       this.autoUpdater.on('update-downloaded', async () => {
+        this.updateForceCheckFlag = false;
         this.closeActiveUpdates();
         if (progressbarWindow !== null) {
           progressbarWindow.close();
@@ -238,112 +237,72 @@ export default class AppUpdate {
     }
   }
 
-  checkForUpdates() {
+  handleUpdateError(error) {
+    // electron-updater emits an error and rejects the same request. Handle it
+    // once, while consuming the promise rejection to keep startup stable.
+    if (error && typeof error === 'object') {
+      if (this.handledUpdateErrors.has(error)) return;
+      this.handledUpdateErrors.add(error);
+    }
+    const manual = this.updateForceCheckFlag;
+    this.updateForceCheckFlag = false;
+    if (progressbarWindow !== null) progressbarWindow.close();
+    this.closeActiveUpdates();
+    log.info(error, 'AppUpdate -> update check failed', true, false, false);
+    if (!manual) return;
+
+    let message = 'Could not check for updates. Please try again later.';
+    if (this.isNetworkError(error)) {
+      message =
+        'Could not connect to the update server. Check your internet connection and try again.';
+    } else if (
+      /No published versions|ERR_UPDATER_NO_PUBLISHED_VERSIONS/i.test(
+        `${error?.message} ${error?.code}`,
+      )
+    ) {
+      message =
+        'No releases have been published for this OpenMTP fork yet. Your installed app is ready to use.';
+    }
+    void this.spitMessageDialog('Update Error', message, 'error');
+  }
+
+  async checkForUpdates() {
     try {
       this.setMainWindow();
-
-      if (!mainWindow) {
+      if (!mainWindow || !(await isConnected())) return;
+      if (
+        this.updateStatus !== UPDATER_STATUS.inactive ||
+        this.disableAutoUpdateCheck
+      )
         return;
-      }
-
-      isConnected()
-        .then((connected) => {
-          if (!connected) {
-            return null;
-          }
-
-          if (
-            this.updateStatus === UPDATER_STATUS.checkInProgress ||
-            this.disableAutoUpdateCheck
-          ) {
-            return null;
-          }
-
-          this.autoUpdater.on('update-not-available', () => {
-            this.updateStatus = UPDATER_STATUS.inactive;
-          });
-
-          this.autoUpdater.checkForUpdates();
-
-          this.updateStatus = UPDATER_STATUS.checkInProgress;
-
-          return true;
-        })
-        .catch(() => {});
-    } catch (e) {
-      log.error(e, `AppUpdate -> checkForUpdates`);
+      this.updateForceCheckFlag = false;
+      this.updateStatus = UPDATER_STATUS.checkInProgress;
+      await this.autoUpdater.checkForUpdates();
+    } catch (error) {
+      this.handleUpdateError(error);
     }
   }
 
   async forceCheck() {
     try {
       this.setMainWindow();
-
-      if (!mainWindow) {
-        return;
-      }
-
-      if (
-        !this.updateForceCheckFlag &&
-        this.updateStatus !== UPDATER_STATUS.checkInProgress
-      ) {
-        this.autoUpdater.on('checking-for-update', () => {
-          this.setCheckUpdatesProgress();
-        });
-
-        this.autoUpdater.on('update-not-available', async () => {
-          // an another 'update-not-available' event is registered at checkForUpdates() as well
-          this.closeActiveUpdates();
-
-          if (progressbarWindow !== null) {
-            progressbarWindow.close();
-          }
-
-          const { response: buttonIndex } = await dialog.showMessageBox({
-            title: 'No Updates Found',
-            message: 'You have the latest version installed.',
-            buttons: ['Close'],
-          });
-
-          switch (buttonIndex) {
-            case 0:
-            default:
-              break;
-          }
-        });
-      }
-
-      if (this.updateStatus === UPDATER_STATUS.checkInProgress) {
-        return null;
-      }
-
+      if (!mainWindow) return;
+      if (this.updateStatus === UPDATER_STATUS.checkInProgress) return;
       if (this.updateStatus === UPDATER_STATUS.updateInProgress) {
-        const { response: buttonIndex } = await dialog.showMessageBox({
+        const { response } = await dialog.showMessageBox({
           title: 'Update in progress',
-          message:
-            'Another update is in progess. Are you sure want to restart the update?',
+          message: 'Another update is in progress. Restart the update?',
           buttons: ['Cancel', 'Yes'],
         });
-
-        switch (buttonIndex) {
-          case 1:
-            this.autoUpdater.checkForUpdates();
-            this.updateStatus = UPDATER_STATUS.updateInProgress;
-            break;
-          case 0:
-          default:
-            break;
-        }
-
-        return null;
+        if (response !== 1) return;
       }
-
-      this.autoUpdater.checkForUpdates();
+      // Set intent before invoking the updater: checking-for-update can fire
+      // synchronously, including when the request immediately fails.
       this.updateForceCheckFlag = true;
-      this.disableAutoUpdateCheck = true;
       this.updateStatus = UPDATER_STATUS.checkInProgress;
-    } catch (e) {
-      log.error(e, `AppUpdate -> forceCheck`);
+      await this.autoUpdater.checkForUpdates();
+    } catch (error) {
+      this.handleUpdateError(error);
     }
   }
 
@@ -360,6 +319,11 @@ export default class AppUpdate {
             return null;
           }
 
+          if (
+            !this.updateForceCheckFlag ||
+            this.updateStatus !== UPDATER_STATUS.checkInProgress
+          )
+            return null;
           fireProgressbar();
           this.setTaskBarProgressBar(2);
 
@@ -464,12 +428,12 @@ export default class AppUpdate {
 
   isNetworkError(errorObj) {
     return (
-      errorObj.message === 'net::ERR_INTERNET_DISCONNECTED' ||
-      errorObj.message === 'net::ERR_PROXY_CONNECTION_FAILED' ||
-      errorObj.message === 'net::ERR_CONNECTION_RESET' ||
-      errorObj.message === 'net::ERR_CONNECTION_CLOSE' ||
-      errorObj.message === 'net::ERR_NAME_NOT_RESOLVED' ||
-      errorObj.message === 'net::ERR_CONNECTION_TIMED_OUT'
+      errorObj?.message === 'net::ERR_INTERNET_DISCONNECTED' ||
+      errorObj?.message === 'net::ERR_PROXY_CONNECTION_FAILED' ||
+      errorObj?.message === 'net::ERR_CONNECTION_RESET' ||
+      errorObj?.message === 'net::ERR_CONNECTION_CLOSE' ||
+      errorObj?.message === 'net::ERR_NAME_NOT_RESOLVED' ||
+      errorObj?.message === 'net::ERR_CONNECTION_TIMED_OUT'
     );
   }
 
@@ -479,7 +443,7 @@ export default class AppUpdate {
 
     if (
       _timeGenerated !== 0 &&
-      _timeGenerated - unixTimestampNow() < delayTime
+      unixTimestampNow() - _timeGenerated < delayTime
     ) {
       return null;
     }

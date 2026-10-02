@@ -9,12 +9,18 @@
  */
 export const imgsrc = (filePath, returnNoImageFound = true) => {
   try {
-    return require('../public/images/' + filePath).default;
+    const image = require('../public/images/' + filePath);
+
+    // Webpack asset/resource exports a URL string; older file-loader builds
+    // wrapped that URL in a default export.
+    return typeof image === 'string' ? image : image.default;
   } catch (e) {
     if (!returnNoImageFound) {
       return null;
     }
 
-    return require('../public/images/no-image.png').default;
+    const fallback = require('../public/images/no-image.png');
+
+    return typeof fallback === 'string' ? fallback : fallback.default;
   }
 };

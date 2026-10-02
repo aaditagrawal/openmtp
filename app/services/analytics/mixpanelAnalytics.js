@@ -1,4 +1,4 @@
-import { isObject } from 'nice-utils';
+import { isObject } from '../../utils/isObject';
 import mixpanel from 'mixpanel-browser';
 import { release } from 'os';
 import { log } from '../../utils/log';

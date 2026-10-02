@@ -1,7 +1,7 @@
 import React, { PureComponent, Fragment } from 'react';
 import { Smartphone, Laptop } from 'lucide-react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
 import Icon from '../../../components/Icon';
 import { styles } from '../styles/FileExplorerTableFooterStatusBarRender';
 import { getPluralText } from '../../../utils/funcs';
@@ -101,4 +101,4 @@ class FileExplorerTableFooterStatusBarRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableFooterStatusBarRender);
+export default withStyles(FileExplorerTableFooterStatusBarRender, styles);

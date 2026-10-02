@@ -1,10 +1,10 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import { Wrench, Bug, DownloadCloud } from 'lucide-react';
 import Icon from '../../../components/Icon';
 import { styles } from '../styles/WhatsNew';
@@ -61,4 +61,4 @@ class WhatsNew extends PureComponent {
   }
 }
 
-export default withStyles(styles)(WhatsNew);
+export default withStyles(WhatsNew, styles);

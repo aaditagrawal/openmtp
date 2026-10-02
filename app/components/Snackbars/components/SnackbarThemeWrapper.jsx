@@ -1,9 +1,9 @@
 import React from 'react';
 import classNames from 'classnames';
 import { CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react';
-import Button from '@material-ui/core/Button';
-import SnackbarContent from '@material-ui/core/SnackbarContent';
-import { withStyles } from '@material-ui/core/styles';
+import Button from '@mui/material/Button';
+import SnackbarContent from '@mui/material/SnackbarContent';
+import { withStyles } from 'tss-react/mui';
 import Icon from '../../Icon';
 import { styles } from '../styles/SnackbarThemeWrapper';
 
@@ -48,4 +48,4 @@ function SnackbarThemeWrapper(props) {
   );
 }
 
-export default withStyles(styles)(SnackbarThemeWrapper);
+export default withStyles(SnackbarThemeWrapper, styles);

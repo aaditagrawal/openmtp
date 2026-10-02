@@ -72,91 +72,24 @@ type TransferProgressInfo struct {
 	Status mtpx.TransferStatus `json:"status"`
 }
 
-type ErrorResult struct {
-	ErrorType ErrorType   `json:"errorType"`
-	Error     string      `json:"error"`
-	Data      interface{} `json:"data"`
-}
-
 type DeviceInfo struct {
 	MtpDeviceInfo *mtp.DeviceInfo    `json:"mtpDeviceInfo"`
 	UsbDeviceInfo *mtp.UsbDeviceInfo `json:"usbDeviceInfo"`
 }
 
-type InitializeResult struct {
-	ErrorType ErrorType  `json:"errorType"`
-	Error     string     `json:"error"`
-	Data      DeviceInfo `json:"data"`
+// Result preserves the wire envelope for every callback. A typed nil slice
+// still marshals as null, matching older clients and packaged native libraries.
+type Result struct {
+	ErrorType ErrorType   `json:"errorType"`
+	Error     string      `json:"error"`
+	Data      interface{} `json:"data"`
 }
 
-type DeviceInfoResult struct {
-	ErrorType ErrorType  `json:"errorType"`
-	Error     string     `json:"error"`
-	Data      DeviceInfo `json:"data"`
-}
-
-type StoragesResult struct {
-	ErrorType ErrorType          `json:"errorType"`
-	Error     string             `json:"error"`
-	Data      []mtpx.StorageData `json:"data"`
-}
-
-type MakeDirectoryResult struct {
-	ErrorType ErrorType `json:"errorType"`
-	Error     string    `json:"error"`
-	Data      bool      `json:"data"`
-}
-
-type FileExistsResult struct {
-	ErrorType ErrorType        `json:"errorType"`
-	Error     string           `json:"error"`
-	Data      []FileExistsData `json:"data"`
-}
-
-type DeleteFileResult struct {
-	ErrorType ErrorType `json:"errorType"`
-	Error     string    `json:"error"`
-	Data      bool      `json:"data"`
-}
-
-type RenameFileResult struct {
-	ErrorType ErrorType `json:"errorType"`
-	Error     string    `json:"error"`
-	Data      bool      `json:"data"`
-}
-
-type WalkResult struct {
-	ErrorType ErrorType  `json:"errorType"`
-	Error     string     `json:"error"`
-	Data      []FileInfo `json:"data"`
-}
-
-type UploadFilesPreprocessResult struct {
-	ErrorType ErrorType              `json:"errorType"`
-	Error     string                 `json:"error"`
-	Data      TransferPreprocessData `json:"data"`
-}
-
-type UploadFilesProgressResult struct {
-	ErrorType ErrorType            `json:"errorType"`
-	Error     string               `json:"error"`
-	Data      TransferProgressInfo `json:"data"`
-}
-
-type DownloadFilesPreprocessResult struct {
-	ErrorType ErrorType              `json:"errorType"`
-	Error     string                 `json:"error"`
-	Data      TransferPreprocessData `json:"data"`
-}
-
-type UploadFilesDoneResult struct {
-	ErrorType ErrorType `json:"errorType"`
-	Error     string    `json:"error"`
-	Data      bool      `json:"data"`
-}
-
-type DisposeResult struct {
-	ErrorType ErrorType `json:"errorType"`
-	Error     string    `json:"error"`
-	Data      bool      `json:"data"`
+func NewFileInfo(file *mtpx.FileInfo) FileInfo {
+	return FileInfo{
+		Size: file.Size, IsDir: file.IsDir,
+		// DateTimeFormat ends in a literal Z, so normalize the instant first.
+		ModTime: file.ModTime.UTC().Format(DateTimeFormat),
+		Name:    file.Name, FullPath: file.FullPath, Extension: file.Extension,
+	}
 }

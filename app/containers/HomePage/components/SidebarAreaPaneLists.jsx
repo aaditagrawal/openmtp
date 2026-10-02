@@ -1,11 +1,11 @@
 import React, { PureComponent, Fragment } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import Divider from '@material-ui/core/Divider';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
 import { Folder } from 'lucide-react';
 import Icon from '../../../components/Icon';
 import { styles } from '../styles/SidebarAreaPaneLists';
@@ -34,9 +34,9 @@ class SidebarAreaPaneLists extends PureComponent {
       <List component="nav" dense className={styles.listsBottom}>
         {listData.map((item) => {
           return (
-            <ListItem
+            <ListItemButton
               key={quickHash(item.path)}
-              button
+
               selected={currentBrowsePath === item.path}
               disabled={!item.enabled}
               onClick={() =>
@@ -51,7 +51,7 @@ class SidebarAreaPaneLists extends PureComponent {
                 {item.icon === 'folder' && <Icon icon={Folder} />}
               </ListItemIcon>
               <ListItemText primary={item.label} />
-            </ListItem>
+            </ListItemButton>
           );
         })}
       </List>
@@ -80,4 +80,4 @@ class SidebarAreaPaneLists extends PureComponent {
   }
 }
 
-export default withStyles(styles)(SidebarAreaPaneLists);
+export default withStyles(SidebarAreaPaneLists, styles);

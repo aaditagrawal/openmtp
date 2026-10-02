@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import { Helmet } from 'react-helmet';
+import { withStyles } from 'tss-react/mui';
+import { Helmet } from 'react-helmet-async';
 import { APP_TITLE } from '../../constants/meta';
 import { resetOverFlowY } from '../../utils/styleResets';
 import { styles } from './styles';
@@ -9,7 +9,7 @@ import WhatsNew from '../Onboarding/components/WhatsNew';
 import { APP_FEATURES_PAGE_TITLE } from '../../templates/appFeaturesPage';
 
 class AppFeaturesPage extends Component {
-  componentWillMount() {
+  componentDidMount() {
     resetOverFlowY();
   }
 
@@ -31,4 +31,4 @@ class AppFeaturesPage extends Component {
   }
 }
 
-export default withStyles(styles)(AppFeaturesPage);
+export default withStyles(AppFeaturesPage, styles);

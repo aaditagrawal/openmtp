@@ -33,11 +33,3 @@ export const getAppThemeMode = (appThemeModeSettings) => {
       return APP_THEME_MODE_TYPE.light;
   }
 };
-
-export const getContrastingTheme = (appThemeMode) => {
-  if (appThemeMode === APP_THEME_MODE_TYPE.dark) {
-    return APP_THEME_MODE_TYPE.light;
-  }
-
-  return APP_THEME_MODE_TYPE.dark;
-};

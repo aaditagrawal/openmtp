@@ -3,14 +3,14 @@ import { checkIf } from '../../utils/checkIf';
 
 export const commonThemes = {
   resetUl: {
-    'margin-block-start': 'unset',
+    marginBlockStart: 'unset',
   },
   noselect: {
-    [`-webkitTouchCallout`]: `none`,
-    [`-webkitUserSelect`]: `none`,
-    [`-khtmlUserSelect`]: `none`,
-    [`-mozUserSelect`]: `none`,
-    [`-msUserSelect`]: `none`,
+    WebkitTouchCallout: `none`,
+    WebkitUserSelect: `none`,
+    KhtmlUserSelect: `none`,
+    MozUserSelect: `none`,
+    msUserSelect: `none`,
     [`userSelect`]: `none`,
   },
   noDrag: {
@@ -36,12 +36,12 @@ export const commonThemes = {
   },
   get appDragEnable() {
     return {
-      [`-webkitAppRegion`]: `drag`,
+      WebkitAppRegion: `drag`,
       ...this.noselect,
     };
   },
   appDragDisable: {
-    [`-webkitAppRegion`]: `no-drag`,
+    WebkitAppRegion: `no-drag`,
   },
 };
 

@@ -1,7 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'node:util';
 import { log } from '../../../utils/log';
-import { Kalam } from '../../../../ffi/kalam/src/Kalam';
 import { checkIf } from '../../../utils/checkIf';
 import { isArray, isEmpty } from '../../../utils/funcs';
 import { getFilesPreprocessingBeforeTransferSetting } from '../../../helpers/settings';
@@ -10,8 +9,17 @@ import { kalamDebugReportCli } from '../../../helpers/binaries';
 
 export class FileExplorerKalamDataSource {
   constructor() {
-    this.kalamFfi = new Kalam();
+    this._kalamFfi = null;
     this.execPromise = promisify(exec);
+  }
+
+  get kalamFfi() {
+    if (!this._kalamFfi) {
+      // Native load failures belong to the MTP operation, not renderer startup.
+      const { Kalam } = require('../../../../ffi/kalam/src/Kalam');
+      this._kalamFfi = new Kalam();
+    }
+    return this._kalamFfi;
   }
 
   /**
@@ -48,7 +56,7 @@ export class FileExplorerKalamDataSource {
    */
   async initialize() {
     try {
-      return this.kalamFfi.initialize();
+      return await this.kalamFfi.initialize();
     } catch (e) {
       log.error(e);
 
@@ -67,7 +75,8 @@ export class FileExplorerKalamDataSource {
    */
   async dispose() {
     try {
-      return this.kalamFfi.dispose();
+      if (!this._kalamFfi) return { error: null, stderr: null, data: true };
+      return await this._kalamFfi.dispose();
     } catch (e) {
       log.error(e);
 

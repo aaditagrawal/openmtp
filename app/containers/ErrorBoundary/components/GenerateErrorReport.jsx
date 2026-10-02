@@ -3,7 +3,7 @@ import { shell, ipcRenderer } from 'electron';
 import path from 'path';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { styles } from '../styles/GenerateErrorReport';
 import { PATHS } from '../../../constants/paths';
 import { fileExistsSync } from '../../../helpers/fileOps';
@@ -167,4 +167,4 @@ const mapStateToProps = (_, __) => {
 export default connect(
   mapStateToProps,
   mapDispatchToProps,
-)(withStyles(styles)(GenerateErrorReport));
+)(withStyles(GenerateErrorReport, styles));

@@ -1,6 +1,6 @@
 import React, { PureComponent, Fragment } from 'react';
 import classnames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import FileExplorer from './components/FileExplorer';
 import ToolbarAreaPane from './components/ToolbarAreaPane';
@@ -83,4 +83,4 @@ const mapStateToProps = (state) => {
   };
 };
 
-export default connect(mapStateToProps, null)(withStyles(styles)(Home));
+export default connect(mapStateToProps, null)(withStyles(Home, styles));

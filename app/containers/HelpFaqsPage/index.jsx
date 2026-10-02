@@ -1,9 +1,7 @@
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import { connect } from 'react-redux';
-import { bindActionCreators } from 'redux';
-import { Helmet } from 'react-helmet';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import { Helmet } from 'react-helmet-async';
 import { APP_TITLE } from '../../constants/meta';
 import { resetOverFlowY } from '../../utils/styleResets';
 import { styles } from './styles';
@@ -14,7 +12,7 @@ import {
 import HelpPhoneNotRecognized from './components/HelpPhoneNotRecognized';
 
 class FaqsPage extends Component {
-  componentWillMount() {
+  componentDidMount() {
     resetOverFlowY();
   }
 
@@ -43,13 +41,4 @@ class FaqsPage extends Component {
   }
 }
 
-const mapDispatchToProps = (dispatch, __) => bindActionCreators({}, dispatch);
-
-const mapStateToProps = (_, __) => {
-  return {};
-};
-
-export default connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(withStyles(styles)(FaqsPage));
+export default withStyles(FaqsPage, styles);

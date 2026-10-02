@@ -70,7 +70,8 @@ app/vendors-*.renderer.dev.js
 app/renderer.dev.js
 app/*.woff
 app/*.woff2
-app/images/app/
+app/images/
+app/fonts/
 
 build/entitlements.mas.plist
 *embedded.provisionprofile

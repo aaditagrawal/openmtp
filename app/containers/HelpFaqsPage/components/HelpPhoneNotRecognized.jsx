@@ -1,10 +1,10 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Paper from '@material-ui/core/Paper';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
+import { withStyles } from 'tss-react/mui';
+import Paper from '@mui/material/Paper';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import {
   Trash2,
   X,
@@ -26,10 +26,10 @@ import {
   Download,
 } from 'lucide-react';
 import Icon from '../../../components/Icon';
-import Accordion from '@material-ui/core/Accordion';
-import AccordionSummary from '@material-ui/core/AccordionSummary';
-import AccordionDetails from '@material-ui/core/AccordionDetails';
-import Typography from '@material-ui/core/Typography';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import Typography from '@mui/material/Typography';
 import { styles } from '../styles/HelpPhoneNotRecognized';
 import { openExternalUrl } from '../../../utils/url';
 import {
@@ -56,6 +56,32 @@ import { imgsrc } from '../../../utils/imgsrc';
 import { helpPhoneNotConnecting } from '../../../templates/fileExplorer';
 import { isKalamModeSupported } from '../../../helpers/binaries';
 
+function HelpSection({ styles, title, children }) {
+  return (
+    <Accordion className={styles.expansionRoot}>
+      <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
+        <Typography className={styles.heading}>{title}</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <List component="div" disablePadding>
+          {children}
+        </List>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function Instruction({ icon, ...text }) {
+  return (
+    <ListItem>
+      <ListItemIcon>
+        <Icon icon={icon} />
+      </ListItemIcon>
+      <ListItemText {...text} />
+    </ListItem>
+  );
+}
+
 const hotplugSettingText = `Check if 'Enable auto device detection (USB Hotplug)' is enabled under Settings > General Tab`;
 const deviceLabel = DEVICES_LABEL[DEVICE_TYPE.mtp];
 
@@ -74,37 +100,29 @@ class HelpPhoneNotRecognized extends PureComponent {
 
     return (
       <>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={MousePointerClick} />
-          </ListItemIcon>
-          <ListItemText
-            primary="On your device, tap the 'Charging this device via
+        <Instruction
+          icon={MousePointerClick}
+          primary="On your device, tap the 'Charging this device via
                   USB' notification"
-            secondary={
-              <img
-                src={imgsrc(`help/usb-notification-charging-via-usb.png`)}
-                alt="Use USB for"
-                className={styles.imagePlaceholder}
-              />
-            }
-          />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={CircleDot} />
-          </ListItemIcon>
-          <ListItemText
-            primary="Under 'Use USB for' select File Transfer"
-            secondary={
-              <img
-                src={imgsrc(`help/transfer-media-permission.png`)}
-                alt="Allow access to the device data"
-                className={styles.imagePlaceholder}
-              />
-            }
-          />
-        </ListItem>
+          secondary={
+            <img
+              src={imgsrc(`help/usb-notification-charging-via-usb.png`)}
+              alt="Use USB for"
+              className={styles.imagePlaceholder}
+            />
+          }
+        />
+        <Instruction
+          icon={CircleDot}
+          primary="Under 'Use USB for' select File Transfer"
+          secondary={
+            <img
+              src={imgsrc(`help/transfer-media-permission.png`)}
+              alt="Allow access to the device data"
+              className={styles.imagePlaceholder}
+            />
+          }
+        />
       </>
     );
   };
@@ -116,90 +134,61 @@ class HelpPhoneNotRecognized extends PureComponent {
 
     return (
       <>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={Lock} />
-          </ListItemIcon>
-          <ListItemText primary="Unlock your Android device" />
-        </ListItem>
+        <Instruction icon={Lock} primary="Unlock your Android device" />
 
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={Usb} />
-          </ListItemIcon>
-          <ListItemText
-            primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
-            secondary={`Follow the instructions below if your ${deviceLabel.toLowerCase()} is still undetected`}
-          />
-        </ListItem>
+        <Instruction
+          icon={Usb}
+          primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
+          secondary={`Follow the instructions below if your ${deviceLabel.toLowerCase()} is still undetected`}
+        />
 
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={MousePointerClick} />
-          </ListItemIcon>
-          <ListItemText
-            primary="On your device, tap the 'Transferring media files' notification"
-            secondary={
-              <img
-                src={imgsrc(`help/usb-notification-transferring-media.png`)}
-                alt="Transferring media files"
-                className={styles.imagePlaceholder}
-              />
-            }
-          />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={CircleDot} />
-          </ListItemIcon>
-          <ListItemText
-            primary="Under 'Use USB for' select 'Charging'"
-            secondary={
-              <img
-                src={imgsrc(`help/charge-only-permission.png`)}
-                alt="Charging"
-                className={styles.imagePlaceholder}
-              />
-            }
-          />
-        </ListItem>
+        <Instruction
+          icon={MousePointerClick}
+          primary="On your device, tap the 'Transferring media files' notification"
+          secondary={
+            <img
+              src={imgsrc(`help/usb-notification-transferring-media.png`)}
+              alt="Transferring media files"
+              className={styles.imagePlaceholder}
+            />
+          }
+        />
+        <Instruction
+          icon={CircleDot}
+          primary="Under 'Use USB for' select 'Charging'"
+          secondary={
+            <img
+              src={imgsrc(`help/charge-only-permission.png`)}
+              alt="Charging"
+              className={styles.imagePlaceholder}
+            />
+          }
+        />
 
         <RenderFileTransfer />
 
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={Circle} />
-          </ListItemIcon>
-          <ListItemText
-            primary="It should connect automatically"
-            secondary={hotplugSettingText}
-          />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={RefreshCw} />
-          </ListItemIcon>
-          <ListItemText
-            primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
-            secondary={hotplugSettingText}
-          />
-        </ListItem>
+        <Instruction
+          icon={Circle}
+          primary="It should connect automatically"
+          secondary={hotplugSettingText}
+        />
+        <Instruction
+          icon={RefreshCw}
+          primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
+          secondary={hotplugSettingText}
+        />
 
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={MousePointerClick} />
-          </ListItemIcon>
-          <ListItemText
-            primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
-            secondary={
-              <img
-                src={imgsrc(`help/allow-data-access.png`)}
-                alt="Allow access to the device data"
-                className={styles.imagePlaceholder}
-              />
-            }
-          />
-        </ListItem>
+        <Instruction
+          icon={MousePointerClick}
+          primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
+          secondary={
+            <img
+              src={imgsrc(`help/allow-data-access.png`)}
+              alt="Allow access to the device data"
+              className={styles.imagePlaceholder}
+            />
+          }
+        />
       </>
     );
   };
@@ -213,45 +202,28 @@ class HelpPhoneNotRecognized extends PureComponent {
     return (
       <>
         {showUnlockPhone && (
-          <ListItem>
-            <ListItemIcon>
-              <Icon icon={Lock} />
-            </ListItemIcon>
-            <ListItemText primary="Unlock your Android device" />
-          </ListItem>
+          <Instruction icon={Lock} primary="Unlock your Android device" />
         )}
 
         {showUnplugPhone && (
-          <ListItem>
-            <ListItemIcon>
-              <Icon icon={Usb} />
-            </ListItemIcon>
-            <ListItemText
-              primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
-            />
-          </ListItem>
+          <Instruction
+            icon={Usb}
+            primary={`Unplug your ${deviceLabel.toLowerCase()} and reconnect it`}
+          />
         )}
 
         <RenderFileTransfer />
 
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={Circle} />
-          </ListItemIcon>
-          <ListItemText
-            primary="It should connect automatically"
-            secondary={hotplugSettingText}
-          />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon>
-            <Icon icon={RefreshCw} />
-          </ListItemIcon>
-          <ListItemText
-            primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
-            secondary={hotplugSettingText}
-          />
-        </ListItem>
+        <Instruction
+          icon={Circle}
+          primary="It should connect automatically"
+          secondary={hotplugSettingText}
+        />
+        <Instruction
+          icon={RefreshCw}
+          primary={`Tap on the 'Refresh' button in the app if the ${deviceLabel.toLowerCase()} doesn't get connected automatically`}
+          secondary={hotplugSettingText}
+        />
       </>
     );
   };
@@ -336,590 +308,399 @@ class HelpPhoneNotRecognized extends PureComponent {
           )}
 
           {isKalamModeDisabled && (
-            <Accordion className={styles.expansionRoot}>
-              {/* <----- Kalam Mode is disabed -----> */}
+            <HelpSection
+              styles={styles}
+              title={
+                <>{`Upgrade you mac's OS version for better app experience`}</>
+              }
+            >
+              <Instruction
+                icon={Download}
+                primary={`We have now officially retired the support for '${MTP_MODE.kalam}' Kernel on 'macOS 10.13' (OS X El High Sierra) and lower. Only the '${MTP_MODE.legacy}' MTP mode will continue working on these outdated machines.`}
+              />
 
-              <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-                <Typography className={styles.heading}>
-                  {`Upgrade you mac's OS version for better app experience`}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <List component="div" disablePadding>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Icon icon={Download} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`We have now officially retired the support for '${MTP_MODE.kalam}' Kernel on 'macOS 10.13' (OS X El High Sierra) and lower. Only the '${MTP_MODE.legacy}' MTP mode will continue working on these outdated machines.`}
-                    />
-                  </ListItem>
-
-                  <ListItem>
-                    <ListItemIcon>
-                      <Icon icon={Download} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`Only the latest 3 versions of macOS will receive the '${MTP_MODE.kalam}' Kernel updates, which includes new devices support, fixes, stability improvements`}
-                    />
-                  </ListItem>
-                </List>
-              </AccordionDetails>
-            </Accordion>
+              <Instruction
+                icon={Download}
+                primary={`Only the latest 3 versions of macOS will receive the '${MTP_MODE.kalam}' Kernel updates, which includes new devices support, fixes, stability improvements`}
+              />
+            </HelpSection>
           )}
 
-          <Accordion className={styles.expansionRoot}>
-            {/* <----- my device is not connecting -----> */}
-
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
-                {`My ${deviceLabel.toLowerCase()} is not connecting`}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={X} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Quit Google drive, Android File Transfer, Dropbox, OneDrive, Preview (for macOS ventura) or any other app that might be reading USB`}
-                    secondary={
-                      <span>
-                        {`Uninstall 'Android File Transfer' by Google if it
+          <HelpSection
+            styles={styles}
+            title={<>{`My ${deviceLabel.toLowerCase()} is not connecting`}</>}
+          >
+            <Instruction
+              icon={X}
+              primary={`Quit Google drive, Android File Transfer, Dropbox, OneDrive, Preview (for macOS ventura) or any other app that might be reading USB`}
+              secondary={
+                <span>
+                  {`Uninstall 'Android File Transfer' by Google if it
                               keeps popping up everytime you connect your
                               Android device. The most recent versions of Google
                               drive and Dropbox are known to interfere with ${APP_NAME}. Completely quiting these apps may fix
                               this issue. `}
-                        <a
-                          onClick={(events) => {
-                            openExternalUrl(
-                              'https://github.com/ganeshrvel/openmtp/issues/276',
-                              events,
-                            );
-                          }}
-                        >
-                          Read more...
-                        </a>
-                      </span>
-                    }
-                  />
-                </ListItem>
+                  <a
+                    onClick={(events) => {
+                      openExternalUrl(
+                        'https://github.com/ganeshrvel/openmtp/issues/276',
+                        events,
+                      );
+                    }}
+                  >
+                    Read more...
+                  </a>
+                </span>
+              }
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={ToggleLeft} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you face frequent device disconnections, turn off 'USB Hotplug'`}
-                    secondary={`Settings > General Tab`}
-                  />
-                </ListItem>
+            <Instruction
+              icon={ToggleLeft}
+              primary={`If you face frequent device disconnections, turn off 'USB Hotplug'`}
+              secondary={`Settings > General Tab`}
+            />
 
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- Google drive is interfering with OpenMTP-----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I have Google drive installed on my ${
                   DEVICES_LABEL[DEVICE_TYPE.local]
                 }`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={Trash2}
+              primary={`The most recent versions of Google drive is known to interfere with ${APP_NAME}. Simply quiting Google drive may fix this issue`}
+              secondary={
+                <img
+                  src={imgsrc(`help/google-drive-not-connecting.png`)}
+                  alt="Files and Folders"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Trash2} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`The most recent versions of Google drive is known to interfere with ${APP_NAME}. Simply quiting Google drive may fix this issue`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/google-drive-not-connecting.png`)}
-                        alt="Files and Folders"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- Dropbox is interfering with OpenMTP-----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I have Dropbox installed on my ${
                   DEVICES_LABEL[DEVICE_TYPE.local]
                 }`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={Trash2}
+              primary={`The most recent versions of Dropbox is known to interfere with ${APP_NAME}. Simply quiting Dropbox may fix this issue`}
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Trash2} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`The most recent versions of Dropbox is known to interfere with ${APP_NAME}. Simply quiting Dropbox may fix this issue`}
-                  />
-                </ListItem>
-
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- The app goes blank while trying to connect a Samsung device -----> */}
 
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`The app goes blank while trying to connect a Samsung device`}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Trash2} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Uninstall Samsung SmartSwitch, if installed"
-                    secondary={
-                      <a
-                        onClick={(events) => {
-                          openExternalUrl(DELETE_KEIS_SMARTSWITCH_URL, events);
-                        }}
-                      >
-                        How to remove Samsung SmartSwitch and drivers from your
-                        MacBook
-                      </a>
-                    }
-                  />
-                </ListItem>
+              </>
+            }
+          >
+            <Instruction
+              icon={Trash2}
+              primary="Uninstall Samsung SmartSwitch, if installed"
+              secondary={
+                <a
+                  onClick={(events) => {
+                    openExternalUrl(DELETE_KEIS_SMARTSWITCH_URL, events);
+                  }}
+                >
+                  How to remove Samsung SmartSwitch and drivers from your
+                  MacBook
+                </a>
+              }
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={RotateCcw} />
-                  </ListItemIcon>
-                  <ListItemText primary={`Restart ${APP_NAME}`} />
-                </ListItem>
+            <Instruction icon={RotateCcw} primary={`Restart ${APP_NAME}`} />
 
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- i keep seeing setting up device -----> */}
 
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I keep seeing "${mtpErrors[[MTP_ERROR.ErrorDeviceSetup]]}"`}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+              </>
+            }
+          >
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- i keep seeing allow storage access -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I keep seeing "${
                   mtpErrors[[MTP_ERROR.ErrorAllowStorageAccess]]
                 }"`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction icon={Lock} primary="Unlock your Android device" />
+            <Instruction
+              icon={MousePointerClick}
+              primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
+              secondary={
+                <img
+                  src={imgsrc(`help/allow-data-access.png`)}
+                  alt="Allow access to the device data"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
+            <Instruction
+              icon={Circle}
+              primary={`If you don't see the "Allow access to the device data" pop up then reconnect your ${deviceLabel.toLowerCase()}`}
+              secondary={`Follow the instructions below if your ${deviceLabel.toLowerCase()} is still undetected`}
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Lock} />
-                  </ListItemIcon>
-                  <ListItemText primary="Unlock your Android device" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={MousePointerClick} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Tap on the "Allow" button, if you see the "Allow access to the device data" pop up`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/allow-data-access.png`)}
-                        alt="Allow access to the device data"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you don't see the "Allow access to the device data" pop up then reconnect your ${deviceLabel.toLowerCase()}`}
-                    secondary={`Follow the instructions below if your ${deviceLabel.toLowerCase()} is still undetected`}
-                  />
-                </ListItem>
-
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you are prompted to "Allow access to the device data" multiple times then reconnect your ${deviceLabel.toLowerCase()} and try again`}
-                  />
-                </ListItem>
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <Instruction
+              icon={Circle}
+              primary={`If you are prompted to "Allow access to the device data" multiple times then reconnect your ${deviceLabel.toLowerCase()} and try again`}
+            />
+          </HelpSection>
 
           {/* <----- Allow access to the device data" multiple times -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I am prompted to "Allow access to the device data" multiple times`}
-              </Typography>
-            </AccordionSummary>
-
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <RenderRefreshButtonIsStuck />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+              </>
+            }
+          >
+            <RenderRefreshButtonIsStuck />
+          </HelpSection>
 
           {/* <----- refresh button is stuck -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
-                {`Refresh button is stuck`}
-              </Typography>
-            </AccordionSummary>
-
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <RenderRefreshButtonIsStuck />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+          <HelpSection styles={styles} title={<>{`Refresh button is stuck`}</>}>
+            <RenderRefreshButtonIsStuck />
+          </HelpSection>
 
           {/* <----- i keep seeing multiple devices error -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I keep seeing "${
                   mtpErrors[[MTP_ERROR.ErrorMultipleDevice]]
                 }"`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction icon={Circle} primary="Unplug all your MTP devices" />
+            <Instruction icon={Usb} primary="Plug your MTP devices" />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText primary="Unplug all your MTP devices" />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Usb} />
-                  </ListItemIcon>
-                  <ListItemText primary="Plug your MTP devices" />
-                </ListItem>
-
-                <RenderBasicConnection showUnplugPhone={false} />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection showUnplugPhone={false} />
+          </HelpSection>
 
           {/* <----- phone gets disconnected everytime screen goes into sleep -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`My ${deviceLabel.toLowerCase()} gets disconnected everytime the display goes into sleep`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={Circle}
+              primary={`In a very rare case your ${deviceLabel.toLowerCase()} may get disconnected when your display goes into sleep. This may disrupt any active file transfers`}
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`In a very rare case your ${deviceLabel.toLowerCase()} may get disconnected when your display goes into sleep. This may disrupt any active file transfers`}
-                  />
-                </ListItem>
+            <Instruction icon={Lock} primary="Unlock your Android device" />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Lock} />
-                  </ListItemIcon>
-                  <ListItemText primary="Unlock your Android device" />
-                </ListItem>
+            <Instruction
+              icon={CircleDot}
+              primary={`Open ${deviceLabel.toLowerCase()}'s Settings > Display > Sleep and set it as 30 minutes or whatever is the highest`}
+              secondary={
+                <img
+                  src={imgsrc(`help/sleep-setting.jpg`)}
+                  alt="Sleep settings"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={CircleDot} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Open ${deviceLabel.toLowerCase()}'s Settings > Display > Sleep and set it as 30 minutes or whatever is the highest`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/sleep-setting.jpg`)}
-                        alt="Sleep settings"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-
-                <RenderBasicConnection showUnlockPhone={false} />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection showUnlockPhone={false} />
+          </HelpSection>
 
           {/* <----- i keep seeing quit android file transfer error -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I keep seeing "Quit 'Android File Transfer' app (by Google) and Refresh"`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={Trash2}
+              primary="Quit and uninstall Google's 'Android File Transfer' app"
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Trash2} />
-                  </ListItemIcon>
-                  <ListItemText primary="Quit and uninstall Google's 'Android File Transfer' app" />
-                </ListItem>
-
-                <RenderBasicConnection showUnplugPhone={false} />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection showUnplugPhone={false} />
+          </HelpSection>
 
           {/* <----- my phone is still not detected -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
-                {`My phone is still not connecting`}
-              </Typography>
-            </AccordionSummary>
+          <HelpSection
+            styles={styles}
+            title={<>{`My phone is still not connecting`}</>}
+          >
+            <Instruction
+              icon={Trash2}
+              primary="Uninstall Samsung SmartSwitch, if installed"
+              secondary={
+                <a
+                  onClick={(events) => {
+                    openExternalUrl(DELETE_KEIS_SMARTSWITCH_URL, events);
+                  }}
+                >
+                  How to remove Samsung SmartSwitch and drivers from your
+                  MacBook
+                </a>
+              }
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Trash2} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Uninstall Samsung SmartSwitch, if installed"
-                    secondary={
-                      <a
-                        onClick={(events) => {
-                          openExternalUrl(DELETE_KEIS_SMARTSWITCH_URL, events);
-                        }}
-                      >
-                        How to remove Samsung SmartSwitch and drivers from your
-                        MacBook
-                      </a>
-                    }
-                  />
-                </ListItem>
+            <Instruction
+              icon={Power}
+              primary="Try changing the MTP mode"
+              secondary={`Settings > Tab > Change the "MTP Mode"`}
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Power} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Try changing the MTP mode"
-                    secondary={`Settings > Tab > Change the "MTP Mode"`}
-                  />
-                </ListItem>
-
-                <RenderBasicConnection />
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <RenderBasicConnection />
+          </HelpSection>
 
           {/* <----- Operation not permitted error -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I keep seeing "${localErrorDictionary.noPerm}" error whenever I try to open a folder in the Local Disk pane`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={FolderHeart}
+              primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={FolderHeart} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
-                  />
-                </ListItem>
+            <Instruction
+              icon={ThumbsUp}
+              primary={`Tap on the "Ok" button, if you see a "${APP_NAME} would like to access files in your..." pop up while trying to open a folder`}
+              secondary={
+                <img
+                  src={imgsrc(`help/macos-directory-access.jpg`)}
+                  alt="Directory access permission prompt"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
+            <Instruction
+              icon={Circle}
+              primary={`If you keep getting the "${localErrorDictionary.noPerm}" error then you may need to give access to these folders by going to "Security and Privacy" in "System Preferences"`}
+            />
+            <Instruction
+              icon={Settings}
+              primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
+              secondary={`Tap on the "Click the lock to make changes" button and authenticate yourself`}
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={ThumbsUp} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Tap on the "Ok" button, if you see a "${APP_NAME} would like to access files in your..." pop up while trying to open a folder`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/macos-directory-access.jpg`)}
-                        alt="Directory access permission prompt"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you keep getting the "${localErrorDictionary.noPerm}" error then you may need to give access to these folders by going to "Security and Privacy" in "System Preferences"`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Settings} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
-                    secondary={`Tap on the "Click the lock to make changes" button and authenticate yourself`}
-                  />
-                </ListItem>
+            <Instruction
+              icon={ListIcon}
+              primary={`In the left hand side pane find the "Files and Folders" option, select it. In the right hand side pane find "${APP_NAME}"`}
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={ListIcon} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`In the left hand side pane find the "Files and Folders" option, select it. In the right hand side pane find "${APP_NAME}"`}
-                  />
-                </ListItem>
-
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Check} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Mark all the folders to which you want to provide ${APP_NAME} access`}
-                    secondary={
-                      <img
-                        src={imgsrc(
-                          `help/privacy-restricted-folder-access.png`,
-                        )}
-                        alt="Files and Folders"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <Instruction
+              icon={Check}
+              primary={`Mark all the folders to which you want to provide ${APP_NAME} access`}
+              secondary={
+                <img
+                  src={imgsrc(`help/privacy-restricted-folder-access.png`)}
+                  alt="Files and Folders"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
+          </HelpSection>
 
           {/* <----- Full disk access -----> */}
-          <Accordion className={styles.expansionRoot}>
-            <AccordionSummary expandIcon={<Icon icon={ChevronDown} />}>
-              <Typography className={styles.heading}>
+          <HelpSection
+            styles={styles}
+            title={
+              <>
                 {`I am still being denied access to some of the folders in the Local Disk pane`}
-              </Typography>
-            </AccordionSummary>
+              </>
+            }
+          >
+            <Instruction
+              icon={FolderHeart}
+              primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
+            />
+            <Instruction
+              icon={Circle}
+              primary={`If you still keep getting the "${localErrorDictionary.noPerm}" error then you may grant "Full Disk Access" by going to "Security and Privacy" in "System Preferences"`}
+            />
+            <Instruction
+              icon={Settings}
+              primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
+              secondary={`Tap on the "Click the lock to make changes" button and authenticate yourself`}
+            />
 
-            <AccordionDetails>
-              <List component="div" disablePadding>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={FolderHeart} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`macOS requires that you provide access to your Documents, Desktop, Downloads, and Bin folders, iCloud Drive, the folders of third-party cloud storage providers, removable media, and external drives`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Circle} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you still keep getting the "${localErrorDictionary.noPerm}" error then you may grant "Full Disk Access" by going to "Security and Privacy" in "System Preferences"`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Settings} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`Open macOS "System Preferences" > "Security and Privacy" > "Privacy Tab"`}
-                    secondary={`Tap on the "Click the lock to make changes" button and authenticate yourself`}
-                  />
-                </ListItem>
+            <Instruction
+              icon={ListIcon}
+              primary={`In the left hand side pane find the "Full Disk Access" option, select it. In the right hand side pane find "${APP_NAME}"`}
+              secondary={
+                <img
+                  src={imgsrc(`help/full-disk-access.png`)}
+                  alt="Files and Folders"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
 
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={ListIcon} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`In the left hand side pane find the "Full Disk Access" option, select it. In the right hand side pane find "${APP_NAME}"`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/full-disk-access.png`)}
-                        alt="Files and Folders"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-
-                <ListItem>
-                  <ListItemIcon>
-                    <Icon icon={Check} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={`If you didn't find ${APP_NAME} in the list, then tap on the "+" button and select "${APP_NAME}" by navigating to the "Application" folder`}
-                    secondary={
-                      <img
-                        src={imgsrc(`help/full-disk-access-file-picker.jpeg`)}
-                        alt="Files and Folders"
-                        className={styles.imagePlaceholder}
-                      />
-                    }
-                  />
-                </ListItem>
-              </List>
-            </AccordionDetails>
-          </Accordion>
+            <Instruction
+              icon={Check}
+              primary={`If you didn't find ${APP_NAME} in the list, then tap on the "+" button and select "${APP_NAME}" by navigating to the "Application" folder`}
+              secondary={
+                <img
+                  src={imgsrc(`help/full-disk-access-file-picker.jpeg`)}
+                  alt="Files and Folders"
+                  className={styles.imagePlaceholder}
+                />
+              }
+            />
+          </HelpSection>
         </Paper>
       </div>
     );
   }
 }
 
-export default withStyles(styles)(HelpPhoneNotRecognized);
+export default withStyles(HelpPhoneNotRecognized, styles);

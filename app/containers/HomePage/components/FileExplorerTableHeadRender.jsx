@@ -1,11 +1,11 @@
 import React, { PureComponent, Fragment } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import TableSortLabel from '@material-ui/core/TableSortLabel';
-import Checkbox from '@material-ui/core/Checkbox';
-import Tooltip from '@material-ui/core/Tooltip';
+import { withStyles } from 'tss-react/mui';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
+import Checkbox from '@mui/material/Checkbox';
+import Tooltip from '@mui/material/Tooltip';
 import { styles } from '../styles/FileExplorerTableHeadRender';
 
 const rows = [
@@ -63,7 +63,7 @@ class FileExplorerTableHeadRender extends PureComponent {
               <TableCell
                 key={row.id}
                 align={row.numeric ? 'right' : 'inherit'}
-                padding={row.disablePadding ? 'none' : 'default'}
+                padding={row.disablePadding ? 'none' : 'normal'}
                 sortDirection={orderBy === row.id ? order : false}
                 className={styles.tableHeadCell}
               >
@@ -91,4 +91,4 @@ class FileExplorerTableHeadRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableHeadRender);
+export default withStyles(FileExplorerTableHeadRender, styles);

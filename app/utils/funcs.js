@@ -1,4 +1,4 @@
-import { isObject } from 'nice-utils';
+import { isObject } from './isObject';
 import semver from 'semver';
 import { APP_TITLEBAR_DOM_ID } from '../constants/dom';
 import { APP_VERSION } from '../constants/meta';
@@ -125,10 +125,6 @@ export const truncate = (str, length) => {
   return str.substring(0, length) + dots;
 };
 
-export const stripRootSlash = (str) => {
-  return str.replace(/^\//g, '');
-};
-
 export const springTruncate = (str, minChars = 10, ellipsis = '...') => {
   const _str = str;
   const strLength = str.length;
@@ -179,63 +175,6 @@ export const isEmpty = (x) => {
   return x.length < 1;
 };
 
-export const diffObj = (obj1, obj2) => {
-  let isSame = true;
-
-  // eslint-disable-next-line no-restricted-syntax
-  for (const p in obj1) {
-    if (typeof obj1[p] === 'object') {
-      const objectValue1 = obj1[p];
-      const objectValue2 = obj2[p];
-
-      // eslint-disable-next-line no-restricted-syntax, guard-for-in
-      for (const value in objectValue1) {
-        isSame = diffObj(objectValue1[value], objectValue2[value]);
-        if (isSame === false) {
-          return false;
-        }
-      }
-    } else if (obj1 !== obj2) {
-      isSame = false;
-    }
-  }
-
-  return isSame;
-};
-
-export const arrayEquality = (array1, array2) => {
-  return (
-    array1.length === array2.length &&
-    array1.sort().every((value, index) => {
-      return value === array2.sort()[index];
-    })
-  );
-};
-
-export const arrayIntersection = (array1, array2) => {
-  return array1.filter((element) => array2.includes(element));
-};
-
-export const keymapSearch = (keymap, keyedList) => {
-  let matchedWith = null;
-
-  Object.keys(keymap).map((a) => {
-    const item = keymap[a];
-
-    if (matchedWith !== null) {
-      return null;
-    }
-
-    if (arrayEquality(item, keyedList)) {
-      matchedWith = a;
-    }
-
-    return true;
-  });
-
-  return matchedWith;
-};
-
 export const toggleFileExplorerDeviceType = (
   currentDeviceType,
   DEVICE_TYPE,
@@ -269,14 +208,6 @@ export const getPluralText = (string, count, customPluralString = null) => {
   return string;
 };
 
-export const asserts = (condition, message) => {
-  if (condition) {
-    return;
-  }
-
-  throw message || 'Assertion failed';
-};
-
 export const capitalize = (s) => {
   if (isEmpty(s)) {
     return '';
@@ -287,14 +218,6 @@ export const capitalize = (s) => {
   }
 
   return s.charAt(0).toUpperCase() + s.slice(1);
-};
-
-export const arrayAverage = (array) => {
-  if (isEmpty(array)) {
-    return 0;
-  }
-
-  return array.reduce((a, b) => a + b) / array.length;
 };
 
 export const isPrereleaseVersion = () => {

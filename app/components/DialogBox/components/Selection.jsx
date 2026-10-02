@@ -1,14 +1,14 @@
 import React, { PureComponent, Fragment } from 'react';
 import classnames from 'classnames';
-import Tooltip from '@material-ui/core/Tooltip';
-import { withStyles } from '@material-ui/core/styles';
-import List from '@material-ui/core/List';
-import Avatar from '@material-ui/core/Avatar';
-import ListItemAvatar from '@material-ui/core/ListItemAvatar';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import Dialog from '@material-ui/core/Dialog';
+import Tooltip from '@mui/material/Tooltip';
+import { withStyles } from 'tss-react/mui';
+import List from '@mui/material/List';
+import Avatar from '@mui/material/Avatar';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Dialog from '@mui/material/Dialog';
 import Icon from '../../Icon';
 import { styles } from '../styles/Selection';
 import { isEmpty } from '../../../utils/funcs';
@@ -43,8 +43,7 @@ class Selection extends PureComponent {
             {list.map((item) => {
               return (
                 <Fragment key={item.value}>
-                  <ListItem
-                    button
+                  <ListItemButton
                     onClick={() => {
                       this._handleListItemClick({
                         selectedValue: item.value,
@@ -73,7 +72,7 @@ class Selection extends PureComponent {
                     <Tooltip title={item.hint ?? ''}>
                       <ListItemText primary={item.name} />
                     </Tooltip>
-                  </ListItem>
+                  </ListItemButton>
                 </Fragment>
               );
             })}
@@ -84,4 +83,4 @@ class Selection extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Selection);
+export default withStyles(Selection, styles);

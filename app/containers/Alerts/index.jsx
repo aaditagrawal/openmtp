@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { withReducer } from '../../store/reducers/withReducer';
-import reducers from './reducers';
 import { clearAlert } from './actions';
 import Snackbars from '../../components/Snackbars';
 
@@ -46,7 +44,4 @@ const mapStateToProps = (state, __) => {
   };
 };
 
-export default withReducer(
-  'Alerts',
-  reducers,
-)(connect(mapStateToProps, mapDispatchToProps)(Alerts));
+export default connect(mapStateToProps, mapDispatchToProps)(Alerts);

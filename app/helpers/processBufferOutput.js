@@ -16,6 +16,13 @@ import { isNoMtpError } from './mtpErrorDetect';
 
 export { isNoMtpError } from './mtpErrorDetect';
 
+const bufferError = (error, flags = {}) => ({
+  error,
+  throwAlert: true,
+  logError: true,
+  ...flags,
+});
+
 export const processMtpBuffer = async ({ error, stderr, mtpMode }) => {
   checkIf(mtpMode, 'inObjectValues', MTP_MODE);
 
@@ -91,14 +98,6 @@ export const mtpErrors = {
   } has gone crazy! Try again.`,
 };
 
-/**
- *
- * Helper function for processKalamMtpBuffer
- *
- * @param [stderr] variable will hold the kalam ffi errorTypes
- * @return {Promise<{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: string}|{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: null}>}
- * @private
- */
 export const _processKalamMtpBuffer = async ({ error, stderr }) => {
   const noMtpError = isNoMtpError({
     error,
@@ -117,22 +116,18 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
     const conflictWarning = formatUsbConflictWarning(conflictApps);
 
     if (conflictWarning) {
-      return {
-        error: conflictWarning,
-        throwAlert: true,
-        logError: true,
+      return bufferError(conflictWarning, {
         mtpStatus: false,
         reportError: false,
-      };
+      });
     }
 
-    return {
-      error: mtpErrors[MTP_ERROR.ErrorMtpDetectFailed],
+    return bufferError(mtpErrors[MTP_ERROR.ErrorMtpDetectFailed], {
       throwAlert: false,
       logError: false,
       mtpStatus: false,
       reportError: false,
-    };
+    });
   }
 
   switch (stderr) {
@@ -142,24 +137,18 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
       const conflictWarning = formatUsbConflictWarning(conflictApps);
 
       if (conflictWarning) {
-        return {
-          error: conflictWarning,
-          throwAlert: true,
-          logError: true,
+        return bufferError(conflictWarning, {
           mtpStatus: false,
           reportError: false,
-        };
+        });
       }
 
       // Keep the older AFT-only path as a fallback for exact process names.
       if (await isGoogleAndroidFileTransferActive()) {
-        return {
-          error: `Quit 'Android File Transfer' app (by Google) and Refresh`,
-          throwAlert: true,
-          logError: true,
-          mtpStatus: false,
-          reportError: false,
-        };
+        return bufferError(
+          `Quit 'Android File Transfer' app (by Google) and Refresh`,
+          { mtpStatus: false, reportError: false },
+        );
       }
 
       break;
@@ -169,190 +158,52 @@ export const _processKalamMtpBuffer = async ({ error, stderr }) => {
   }
 
   switch (stderr) {
-    /* No MTP device found */
-    case MTP_ERROR.ErrorMtpDetectFailed:
-      return {
-        error: processedErrorValue,
-        throwAlert: false,
-        logError: false,
-        mtpStatus: false,
-        reportError: false,
-      };
-
     case MTP_ERROR.ErrorStorageFull:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: false,
-        reportError: false,
-      };
-
-    case MTP_ERROR.ErrorNoStorage:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: false,
-        reportError: true,
-      };
-
-    case MTP_ERROR.ErrorStorageInfo:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: false,
-        reportError: true,
-      };
-
-    case MTP_ERROR.ErrorDeviceInfo:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: false,
-        reportError: true,
-      };
-
     case MTP_ERROR.ErrorMultipleDevice:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
+    case MTP_ERROR.ErrorAllowStorageAccess:
+    case MTP_ERROR.ErrorDeviceLocked:
+      return bufferError(processedErrorValue, {
         mtpStatus: false,
         reportError: false,
-      };
-
+      });
+    case MTP_ERROR.ErrorNoStorage:
+    case MTP_ERROR.ErrorStorageInfo:
+    case MTP_ERROR.ErrorDeviceInfo:
     case MTP_ERROR.ErrorDeviceSetup:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
+      return bufferError(processedErrorValue, {
         mtpStatus: false,
         reportError: true,
-      };
-
+      });
     case MTP_ERROR.ErrorSendObject:
     case MTP_ERROR.ErrorFileObjectRead:
     case MTP_ERROR.ErrorFileTransfer: {
       const conflictApps = await getActiveUsbConflictApps();
-      const conflictWarning = formatUsbConflictWarning(conflictApps);
-      const transferError = conflictWarning
-        ? `${processedErrorValue} ${conflictWarning}`
-        : processedErrorValue;
-
-      return {
-        error: transferError,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
+      const warning = formatUsbConflictWarning(conflictApps);
+      return bufferError(
+        warning ? `${processedErrorValue} ${warning}` : processedErrorValue,
+        { mtpStatus: true, reportError: true },
+      );
     }
-
-    case MTP_ERROR.ErrorInvalidPath:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
-
-    case MTP_ERROR.ErrorLocalFileRead:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
-
-    case MTP_ERROR.ErrorFilePermission:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
-
     case MTP_ERROR.ErrorFileNotFound:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: false,
-      };
-
-    case MTP_ERROR.ErrorListDirectory:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: true,
-        reportError: true,
-      };
-
-    case MTP_ERROR.ErrorAllowStorageAccess:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
-        mtpStatus: false,
-        reportError: false,
-      };
-
-    case MTP_ERROR.ErrorDeviceChanged:
-      return {
-        error: processedErrorValue,
-        throwAlert: false,
-        logError: true,
-        mtpStatus: false,
-        reportError: false,
-      };
-
     case MTP_ERROR.ErrorMtpLockExists:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
+      return bufferError(processedErrorValue, {
         mtpStatus: true,
         reportError: false,
-      };
-
-    case MTP_ERROR.ErrorDeviceLocked:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
+      });
+    case MTP_ERROR.ErrorDeviceChanged:
+      return bufferError(processedErrorValue, {
+        throwAlert: false,
         mtpStatus: false,
         reportError: false,
-      };
-
-    case MTP_ERROR.ErrorGeneral:
+      });
     default:
-      return {
-        error: processedErrorValue,
-        throwAlert: true,
-        logError: true,
+      return bufferError(processedErrorValue, {
         mtpStatus: true,
         reportError: true,
-      };
+      });
   }
 };
 
-/**
- *
- * Helper function for processLegacyMtpBuffer
- *
- * @param [error] - error
- * @param [stderr] variable will hold the kalam ffi errorTypes
- * @return {Promise<{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: string}|{throwAlert: boolean, logError: boolean, mtpStatus: boolean, reportError: boolean, error: null}>}
- * @private
- */
 export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
   // Error string are used for partial error string matching
   // this will be later used to pick the appropriate error out from the [errorDictionary]
@@ -400,23 +251,14 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     typeof stderr !== 'undefined' && stderr !== null ? stderr.toString() : '';
 
   if (!errorStringified && !stderrStringified) {
-    return {
-      error: null,
-      throwAlert: false,
-      logError: true,
-      mtpStatus: true,
-    };
+    return bufferError(null, { throwAlert: false, mtpStatus: true });
   }
 
-  const checkError = (errorTplKey) => {
-    return (
-      stderrStringified
-        .toLowerCase()
-        .indexOf(errorTpl[errorTplKey].toLowerCase()) !== -1 ||
-      errorStringified
-        .toLowerCase()
-        .indexOf(errorTpl[errorTplKey].toLowerCase()) !== -1
-    );
+  const lowerError = errorStringified.toLowerCase();
+  const lowerStderr = stderrStringified.toLowerCase();
+  const checkError = (key) => {
+    const needle = errorTpl[key].toLowerCase();
+    return lowerError.includes(needle) || lowerStderr.includes(needle);
   };
 
   const noMtpError = isNoMtpError({ error, stderr, mtpMode: MTP_MODE.legacy });
@@ -438,87 +280,65 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     const conflictWarning = formatUsbConflictWarning(conflictApps);
 
     if (conflictWarning) {
-      return {
-        error: conflictWarning,
-        throwAlert: true,
-        logError: true,
+      return bufferError(conflictWarning, {
         mtpStatus: false,
         reportError: false,
-      };
+      });
     }
 
     if (await isGoogleAndroidFileTransferActive()) {
-      return {
-        error: errorDictionary.googleAndroidFileTransferIsActive,
-        throwAlert: true,
-        logError: true,
+      return bufferError(errorDictionary.googleAndroidFileTransferIsActive, {
         mtpStatus: false,
         reportError: false,
-      };
+      });
     }
 
-    return {
-      error: errorDictionary.noMtp,
+    return bufferError(errorDictionary.noMtp, {
       throwAlert: false,
       logError: false,
       mtpStatus: false,
-
       reportError: false,
-    };
+    });
   }
 
   if (
     /* MTP device may be locked */
     checkError('deviceLocked')
   ) {
-    return {
-      error: errorDictionary.deviceLocked,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.deviceLocked, {
       mtpStatus: false,
-
       reportError: false,
-    };
+    });
   }
 
   if (
     /* error: Get: invalid response code InvalidObjectHandle (0x2009) */
     checkError('invalidObjectHandle')
   ) {
-    return {
-      error: errorDictionary.unResponsive,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.unResponsive, {
       mtpStatus: false,
-
       reportError: true,
-    };
+    });
   }
 
   if (
     /* error: Get: invalid response code InvalidStorageID */
     checkError('invalidStorageID')
   ) {
-    return {
-      error: errorDictionary.unResponsive,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.unResponsive, {
       mtpStatus: false,
       reportError: true,
-    };
+    });
   }
 
   if (
     /* error: (*interface)->WritePipe(interface, ep->GetRefIndex(), buffer.data(), r): error 0xe00002eb */
     checkError('writePipe')
   ) {
-    return {
-      error: errorDictionary.unResponsive,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.unResponsive, {
       mtpStatus: false,
       reportError: true,
-    };
+    });
   }
 
   if (
@@ -526,52 +346,40 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     checkError('mtpStorageNotAccessible1') ||
     checkError('mtpStorageNotAccessible2')
   ) {
-    return {
-      error: errorDictionary.mtpStorageNotAccessible,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.mtpStorageNotAccessible, {
       mtpStatus: false,
       reportError: true,
-    };
+    });
   }
 
   if (
     /* Path not found */
     checkError('fileNotFound')
   ) {
-    return {
-      error: sanitizeErrors(stderrStringified || errorStringified),
-      throwAlert: true,
-      logError: true,
+    return bufferError(sanitizeErrors(stderrStringified || errorStringified), {
       mtpStatus: true,
       reportError: true,
-    };
+    });
   }
 
   if (
     /* No Permission */
     checkError('noPerm1')
   ) {
-    return {
-      error: errorDictionary.noPerm,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.noPerm, {
       mtpStatus: true,
       reportError: true,
-    };
+    });
   }
 
   if (
     /* No such file or directory */
     checkError('noSuchFiles')
   ) {
-    return {
-      error: errorDictionary.fileNotFound,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.fileNotFound, {
       mtpStatus: true,
       reportError: true,
-    };
+    });
   }
 
   if (
@@ -579,36 +387,27 @@ export const _processLegacyMtpBuffer = async ({ error, stderr }) => {
     checkError('noFilesSelected') ||
     checkError('invalidPath')
   ) {
-    return {
-      error: sanitizeErrors(stderrStringified || errorStringified),
-      throwAlert: true,
-      logError: true,
+    return bufferError(sanitizeErrors(stderrStringified || errorStringified), {
       mtpStatus: true,
       reportError: true,
-    };
+    });
   }
 
   if (
     /* No files selected */
     checkError('partialDeletion')
   ) {
-    return {
-      error: errorDictionary.partialDeletion,
-      throwAlert: true,
-      logError: true,
+    return bufferError(errorDictionary.partialDeletion, {
       mtpStatus: true,
       reportError: true,
-    };
+    });
   }
 
   /* common errors */
-  return {
-    error: errorDictionary.common,
-    throwAlert: true,
-    logError: true,
+  return bufferError(errorDictionary.common, {
     mtpStatus: true,
     reportError: true,
-  };
+  });
 };
 
 // Error output shown to the user as a snackbar.
@@ -638,22 +437,14 @@ export const processLocalBuffer = ({ error, stderr }) => {
     typeof stderr !== 'undefined' && stderr !== null ? stderr.toString() : '';
 
   if (!errorStringified && !stderrStringified) {
-    return {
-      error: null,
-      throwAlert: false,
-      logError: true,
-    };
+    return bufferError(null, { throwAlert: false });
   }
 
-  const checkError = (errorTplKey) => {
-    return (
-      stderrStringified
-        .toLowerCase()
-        .indexOf(errorTpl[errorTplKey].toLowerCase()) !== -1 ||
-      errorStringified
-        .toLowerCase()
-        .indexOf(errorTpl[errorTplKey].toLowerCase()) !== -1
-    );
+  const lowerError = errorStringified.toLowerCase();
+  const lowerStderr = stderrStringified.toLowerCase();
+  const checkError = (key) => {
+    const needle = errorTpl[key].toLowerCase();
+    return lowerError.includes(needle) || lowerStderr.includes(needle);
   };
 
   log.doLog(
@@ -666,53 +457,32 @@ export const processLocalBuffer = ({ error, stderr }) => {
     checkError('noPerm1') ||
     checkError('noPerm2')
   ) {
-    return {
-      error: localErrorDictionary.noPerm,
-      throwAlert: true,
-      logError: true,
-    };
+    return bufferError(localErrorDictionary.noPerm);
   }
 
   if (
     /* Command failed */
     checkError('commandFailed')
   ) {
-    return {
-      error: localErrorDictionary.commandFailed,
-      throwAlert: true,
-      logError: true,
-    };
+    return bufferError(localErrorDictionary.commandFailed);
   }
 
   if (
     /* No such file or directory */
     checkError('noSuchFiles')
   ) {
-    return {
-      error: localErrorDictionary.fileNotFound,
-      throwAlert: true,
-      logError: true,
-      mtpStatus: true,
-    };
+    return bufferError(localErrorDictionary.fileNotFound, { mtpStatus: true });
   }
 
   if (
     /* Resource busy or locked */
     checkError('resourceBusy')
   ) {
-    return {
-      error: localErrorDictionary.commandFailed,
-      throwAlert: true,
-      logError: true,
-    };
+    return bufferError(localErrorDictionary.commandFailed);
   }
 
   /* common errors */
-  return {
-    error: localErrorDictionary.common,
-    throwAlert: true,
-    logError: true,
-  };
+  return bufferError(localErrorDictionary.common);
 };
 
 const sanitizeErrors = (string) => {

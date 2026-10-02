@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
 	"github.com/ganeshrvel/go-mtpx"
-	jsoniter "github.com/json-iterator/go"
 	"kalam/send_to_js"
 )
 
@@ -30,8 +30,9 @@ func Initialize(onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
-	_, err := _initialize(mtpx.Init{DebugMode: false})
+	_, err := _initialize(mtpx.Init{DebugMode: os.Getenv("OPENMTP_NATIVE_DEBUG") == "1"})
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, err)
 
@@ -40,6 +41,7 @@ func Initialize(onDonePtr *C.on_cb_result_t) {
 
 	dInfo, err := _fetchDeviceInfo()
 	if err != nil {
+		_ = _dispose()
 		send_to_js.SendError(sendToJsOnDonePtr, err)
 
 		return
@@ -47,6 +49,7 @@ func Initialize(onDonePtr *C.on_cb_result_t) {
 
 	usbDesc, err := container.dev.GetUsbInfo()
 	if err != nil {
+		_ = _dispose()
 		send_to_js.SendError(sendToJsOnDonePtr, err)
 
 		return
@@ -65,6 +68,7 @@ func FetchDeviceInfo(onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	dInfo, err := _fetchDeviceInfo()
 	if err != nil {
@@ -80,7 +84,7 @@ func FetchDeviceInfo(onDonePtr *C.on_cb_result_t) {
 		return
 	}
 
-	send_to_js.SendDeviceInfo(sendToJsOnDonePtr, dInfo, usbDesc)
+	send_to_js.SendInitialize(sendToJsOnDonePtr, dInfo, usbDesc)
 }
 
 //export FetchStorages
@@ -93,6 +97,7 @@ func FetchStorages(onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	_sendFetchStorages(true, sendToJsOnDonePtr)
 }
@@ -128,11 +133,11 @@ func MakeDirectory(makeDirectoryInputJson *C.char, onDonePtr *C.on_cb_result_t) 
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := MakeDirectoryInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(makeDirectoryInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(makeDirectoryInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling MakeDirectory input data %+v: ", err))
 
@@ -145,7 +150,7 @@ func MakeDirectory(makeDirectoryInputJson *C.char, onDonePtr *C.on_cb_result_t) 
 		return
 	}
 
-	send_to_js.SendMakeDirectory(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 //export FileExists
@@ -158,11 +163,11 @@ func FileExists(fileExistsInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := FileExistsInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(fileExistsInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(fileExistsInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling FileExists input data %+v: ", err))
 
@@ -196,11 +201,11 @@ func DeleteFile(deleteFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := DeleteFileInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(deleteFileInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(deleteFileInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling DeleteFile input data %+v: ", err))
 
@@ -221,7 +226,7 @@ func DeleteFile(deleteFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 
-	send_to_js.SendDeleteFile(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 //export RenameFile
@@ -234,11 +239,11 @@ func RenameFile(renameFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := RenameFileInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(renameFileInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(renameFileInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling RenameFile input data %+v: ", err))
 
@@ -256,7 +261,7 @@ func RenameFile(renameFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 
-	send_to_js.SendRenameFile(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 //export Walk
@@ -269,11 +274,11 @@ func Walk(walkInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := WalkInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(walkInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(walkInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling Walk input data %+v: ", err))
 
@@ -302,11 +307,11 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := UploadFilesInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(uploadFilesInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(uploadFilesInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling UploadFiles input data %+v: ", err))
 
@@ -380,7 +385,7 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 		return
 	}
 
-	send_to_js.SendTransferFilesDone(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 //export DownloadFiles
@@ -395,11 +400,11 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	i := DownloadFilesInput{}
 
-	var j = jsoniter.ConfigFastest
-	err := j.UnmarshalFromString(C.GoString(downloadFilesInputJson), &i)
+	err := json.Unmarshal([]byte(C.GoString(downloadFilesInputJson)), &i)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, fmt.Errorf("error occured while Unmarshalling DownloadFiles input data %+v: ", err))
 
@@ -472,7 +477,7 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 		return
 	}
 
-	send_to_js.SendTransferFilesDone(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 //export Dispose
@@ -485,6 +490,7 @@ func Dispose(onDonePtr *C.on_cb_result_t) {
 		return
 	}
 	defer unlockMtp()
+	defer recoverMtpPanic(sendToJsOnDonePtr)
 
 	if err := _dispose(); err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, err)
@@ -495,7 +501,7 @@ func Dispose(onDonePtr *C.on_cb_result_t) {
 	container.dev = nil
 	container.deviceInfo = nil
 
-	send_to_js.SendDispose(sendToJsOnDonePtr)
+	send_to_js.SendSuccess(sendToJsOnDonePtr)
 }
 
 func main() {}

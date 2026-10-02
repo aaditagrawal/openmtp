@@ -6,7 +6,7 @@
 import { join, resolve } from 'path';
 import { homedir as homedirOs } from 'os';
 import url from 'url';
-import { rootPath as root } from 'electron-root-path';
+import { rootPath as root } from '../utils/runtimePaths';
 import { isPackaged } from '../utils/isPackaged';
 import { IS_DEV } from './env';
 import { yearMonthNow } from '../utils/date';

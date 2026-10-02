@@ -1,14 +1,13 @@
 import React, { PureComponent } from 'react';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import Drawer from '@material-ui/core/Drawer';
-import IconButton from '@material-ui/core/IconButton';
-import Tooltip from '@material-ui/core/Tooltip';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import classNames from 'classnames';
 import { Menu, HardDrive, Zap, Terminal } from 'lucide-react';
 import Icon from '../../../components/Icon';
 import SidebarAreaPaneLists from './SidebarAreaPaneLists';
-import { LazyLoaderOverlay } from '../styles/ToolbarAreaPane';
 import { DEVICES_LABEL } from '../../../constants';
 import {
   Confirm as ConfirmDialog,
@@ -113,7 +112,6 @@ export default class ToolbarAreaPane extends PureComponent {
       toolbarList,
       isLoadedDirectoryLists,
       toggleDrawer,
-      appThemeMode,
       onDeleteConfirmDialog,
       onMtpStoragesListClick,
       onMtpModeSelectionDialogClick,
@@ -135,7 +133,6 @@ export default class ToolbarAreaPane extends PureComponent {
       mtpMode,
     });
 
-    const RenderLazyLoaderOverlay = LazyLoaderOverlay({ appThemeMode });
     let _mtpStoragesList = [];
 
     if (!isEmpty(mtpStoragesList)) {
@@ -221,7 +218,9 @@ export default class ToolbarAreaPane extends PureComponent {
           />
         </Drawer>
 
-        {!isLoadedDirectoryLists && <RenderLazyLoaderOverlay />}
+        {!isLoadedDirectoryLists && (
+          <div className={styles.lazyLoaderOverLay} />
+        )}
 
         <AppBar position="static" elevation={0} className={styles.appBar}>
           <Toolbar

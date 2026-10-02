@@ -13,11 +13,12 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '26.9.0'
 
 jobs:
   release:
     name: Build & release macOS (arm64)
+    if: github.repository == 'aaditagrawal/openmtp'
     runs-on: macos-14
     env:
       # macOS (arm64) only for now: GitHub-hosted macos-14 runners are
@@ -57,9 +58,6 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      # electron-builder-config.js signs/hardens whenever `CI` is set, which
-      # GitHub Actions always sets, so the two branches below only differ in
-      # whether real Apple credentials and notarization are used.
       - name: Package (signed + notarized)
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         env:

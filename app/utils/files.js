@@ -1,10 +1,14 @@
-import { join, parse } from 'path';
+import { join, parse, resolve } from 'path';
 import { homedir as homedirOs } from 'os';
 import { APP_BUNDLE_ID } from '../constants/meta';
 
 const homeDir = homedirOs();
 
 export const getAppDataPath = () => {
+  if (process.env.OPENMTP_PROFILE_DIR) {
+    return resolve(process.env.OPENMTP_PROFILE_DIR);
+  }
+
   switch (process.platform) {
     case 'darwin':
       return join(homeDir, 'Library', 'Application Support', APP_BUNDLE_ID);

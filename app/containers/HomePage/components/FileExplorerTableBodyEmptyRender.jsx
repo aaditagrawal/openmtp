@@ -1,16 +1,17 @@
 import React, { PureComponent } from 'react';
 import { ipcRenderer } from 'electron';
-import { withStyles } from '@material-ui/core/styles';
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import Collapse from '@material-ui/core/Collapse';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import Divider from '@material-ui/core/Divider';
-import Paper from '@material-ui/core/Paper';
-import Button from '@material-ui/core/Button';
+import { withStyles } from 'tss-react/mui';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import Collapse from '@mui/material/Collapse';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
 import {
   ToggleLeft,
   Keyboard,
@@ -216,8 +217,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
               </Button>
 
               <List>
-                <ListItem
-                  button
+                <ListItemButton
                   onClick={() =>
                     this._handleExpansionPanel({
                       key: 'noMtpInstructions',
@@ -240,7 +240,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   ) : (
                     <Icon icon={ChevronDown} />
                   )}
-                </ListItem>
+                </ListItemButton>
                 <Collapse
                   in={expansionPanel.noMtpInstructions}
                   timeout="auto"
@@ -340,8 +340,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
 
                 <Divider className={styles.divider} />
 
-                <ListItem
-                  button
+                <ListItemButton
                   onClick={() =>
                     this._handleExpansionPanel({
                       key: 'keyboardNavigation',
@@ -364,7 +363,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   ) : (
                     <Icon icon={ChevronDown} />
                   )}
-                </ListItem>
+                </ListItemButton>
                 <Collapse
                   in={expansionPanel.keyboardNavigation}
                   timeout="auto"
@@ -381,8 +380,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
 
                 <Divider className={styles.divider} />
 
-                <ListItem
-                  button
+                <ListItemButton
                   onClick={() =>
                     this._handleExpansionPanel({
                       key: 'features',
@@ -405,7 +403,7 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
                   ) : (
                     <Icon icon={ChevronDown} />
                   )}
-                </ListItem>
+                </ListItemButton>
                 <Collapse
                   in={expansionPanel.features}
                   timeout="auto"
@@ -436,4 +434,4 @@ class FileExplorerTableBodyEmptyRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableBodyEmptyRender);
+export default withStyles(FileExplorerTableBodyEmptyRender, styles);

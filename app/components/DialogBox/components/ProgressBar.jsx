@@ -1,12 +1,12 @@
 import React, { PureComponent, Fragment } from 'react';
 import classnames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import Dialog from '@material-ui/core/Dialog';
-import Tooltip from '@material-ui/core/Tooltip';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
+import { withStyles } from 'tss-react/mui';
+import LinearProgress from '@mui/material/LinearProgress';
+import Dialog from '@mui/material/Dialog';
+import Tooltip from '@mui/material/Tooltip';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import { HelpCircle } from 'lucide-react';
 import Icon from '../../Icon';
 import { styles } from '../styles/ProgressBar';
@@ -45,8 +45,6 @@ class ProgressBar extends PureComponent {
     // progress while the transfer keeps running.
     return (
       <Dialog
-        disableBackdropClick
-        disableEscapeKeyDown
         className={styles.root}
         open={trigger}
         fullWidth={fullWidthDialog}
@@ -81,6 +79,7 @@ class ProgressBar extends PureComponent {
                 </DialogContentText>
 
                 <LinearProgress
+                  sx={{ '& .MuiLinearProgress-bar': { transition: 'none' } }}
                   color="secondary"
                   variant={a.variant ?? 'determinate'}
                   value={a.percentage}
@@ -101,4 +100,4 @@ class ProgressBar extends PureComponent {
   }
 }
 
-export default withStyles(styles)(ProgressBar);
+export default withStyles(ProgressBar, styles);

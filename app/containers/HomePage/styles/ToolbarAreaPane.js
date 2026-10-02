@@ -1,6 +1,5 @@
-import styled, { keyframes } from 'styled-components';
+import { keyframes } from '@emotion/react';
 import { variables, mixins } from '../../../styles/js';
-import { getCurrentThemePalette } from '../../App/styles';
 
 export const styles = (theme) => {
   return {
@@ -26,6 +25,7 @@ export const styles = (theme) => {
       bottom: 0,
       backgroundColor: theme.palette.background.paper,
       zIndex: 9999,
+      animation: `${animateLazyLoaderOverLay} 0s 3s forwards`,
     },
     appBar: {},
     navBtns: {
@@ -100,18 +100,3 @@ const animateLazyLoaderOverLay = keyframes`
     z-index: -9999;
   }
 `;
-
-export const LazyLoaderOverlay = ({ appThemeMode }) => {
-  const { background } = getCurrentThemePalette(appThemeMode);
-
-  return styled.div`
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 9999;
-    background-color: ${background.paper};
-    animation: ${animateLazyLoaderOverLay} 0s 3s forwards;
-  `;
-};

@@ -1,10 +1,8 @@
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { styles } from './styles';
-import { withReducer } from '../../store/reducers/withReducer';
-import reducers from './reducers';
 import { makeCommonSettings, makeEnablePrereleaseUpdates } from './selectors';
 import {
   setFilesPreprocessingBeforeTransfer,
@@ -313,7 +311,7 @@ const mapStateToProps = (state, _) => {
   };
 };
 
-export default withReducer(
-  'Settings',
-  reducers,
-)(connect(mapStateToProps, mapDispatchToProps)(withStyles(styles)(Settings)));
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withStyles(Settings, styles));

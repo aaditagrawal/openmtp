@@ -29,7 +29,9 @@ export const log = {
     console.info(output);
   },
   info(e, title = ``, logError = false, allowInProd = false, report = false) {
-    this.doLog(e, title, null, logError, report, false);
+    void this.doLog(e, title, null, logError, report, false).catch((error) =>
+      console.error('OpenMTP logging failed:', error),
+    );
 
     if (IS_PROD && !allowInProd) {
       return;
@@ -53,7 +55,9 @@ export const log = {
    * @param report - should report the error to crashanalytics services
    */
   error(e, title = `Log`, logError = true, allowInProd = false, report = true) {
-    this.doLog(e, title, null, logError, report, true);
+    void this.doLog(e, title, null, logError, report, true).catch((error) =>
+      console.error('OpenMTP logging failed:', error),
+    );
 
     if (IS_PROD && !allowInProd) {
       return;

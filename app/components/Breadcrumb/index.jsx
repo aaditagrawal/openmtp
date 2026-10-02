@@ -1,9 +1,9 @@
 import React, { PureComponent, Fragment } from 'react';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import classNames from 'classnames';
-import Paper from '@material-ui/core/Paper';
+import Paper from '@mui/material/Paper';
 import { ChevronRight, MoreHorizontal } from 'lucide-react';
-import Tooltip from '@material-ui/core/Tooltip';
+import Tooltip from '@mui/material/Tooltip';
 import Icon from '../Icon';
 import { quickHash } from '../../utils/funcs';
 import { styles } from './styles';
@@ -167,4 +167,4 @@ class Breadcrumb extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Breadcrumb);
+export default withStyles(Breadcrumb, styles);

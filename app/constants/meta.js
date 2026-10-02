@@ -8,7 +8,6 @@ import { pkginfo } from '../utils/pkginfo';
 const {
   productName,
   description,
-  name,
   author,
   version,
   repository,
@@ -30,13 +29,9 @@ export const APP_DESC = `${description}`;
 
 export const APP_TITLE = `${APP_DESC}`;
 
-export const APP_IDENTIFIER = `${name}`;
-
 export const APP_GITHUB_URL = repository?.url
   ? repository.url.replace(/^git\+|\.git/g, '')
   : null;
-
-export const APP_GITHUB_RELEASES_URL = `${APP_GITHUB_URL}/releases`;
 
 export const APP_GITHUB_ISSUES_URL = bugs?.url ?? null;
 

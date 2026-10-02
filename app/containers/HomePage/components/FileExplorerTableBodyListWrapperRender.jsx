@@ -1,95 +1,47 @@
-import React, { PureComponent } from 'react';
+import React, { PureComponent, Fragment } from 'react';
 import FileExplorerTableRowsRender from './FileExplorerTableBodyListRender';
-import { quickHash } from '../../../utils/funcs';
+import { withStyles } from 'tss-react/mui';
+import { directoryWindowStyles } from '../styles/DirectoryWindow';
+import DirectoryWindow from './DirectoryWindow';
 
-export default class FileExplorerTableBodyListWrapperRender extends PureComponent {
-  constructor(props) {
-    super(props);
-
-    this.recursiveFilesFetchTimeOut = null;
-    this.filesPreFetchCount = 50;
-    this.loadedCount = 0;
-    this.state = {
-      items: [],
-      directoryGeneratedTime: props.directoryGeneratedTime,
-    };
-  }
-
-  static getDerivedStateFromProps(nextProps, prevState) {
-    if (nextProps.directoryGeneratedTime !== prevState.directoryGeneratedTime) {
-      return {
-        directoryGeneratedTime: nextProps.directoryGeneratedTime,
-        items: [],
-      };
-    }
-
-    return null;
-  }
-
-  componentDidMount() {
-    const { tableSort, directoryGeneratedTime } = this.props;
-
-    this.loadedCount = 0;
-    this.recursiveFilesFetch(tableSort, directoryGeneratedTime);
-  }
-
-  componentDidUpdate(prevProps) {
-    const { tableSort, directoryGeneratedTime } = this.props;
-
-    if (prevProps.directoryGeneratedTime !== directoryGeneratedTime) {
-      this.clearRecursiveFilesFetchTimeOut();
-      this.loadedCount = 0;
-      this.recursiveFilesFetch(tableSort, directoryGeneratedTime);
-    }
-  }
-
-  componentWillUnmount() {
-    this.clearRecursiveFilesFetchTimeOut();
-  }
-
-  recursiveFilesFetch = (tableSort, directoryGeneratedTime) => {
-    this.recursiveFilesFetchTimeOut = setTimeout(() => {
-      if (directoryGeneratedTime !== this.props.directoryGeneratedTime) {
-        return;
-      }
-
-      const nextLength = Math.min(
-        this.loadedCount + this.filesPreFetchCount,
-        tableSort.length,
-      );
-      const hasMore = nextLength < tableSort.length;
-
-      this.loadedCount = nextLength;
-      this.setState({
-        items: tableSort.slice(0, nextLength),
-      });
-
-      if (hasMore) {
-        this.recursiveFilesFetch(tableSort, directoryGeneratedTime);
-      } else {
-        this.clearRecursiveFilesFetchTimeOut();
-      }
-    }, 0);
-  };
-
-  clearRecursiveFilesFetchTimeOut() {
-    if (this.recursiveFilesFetchTimeOut) {
-      clearTimeout(this.recursiveFilesFetchTimeOut);
-      this.recursiveFilesFetchTimeOut = null;
-    }
-  }
-
+class FileExplorerTableBodyListWrapperRender extends PureComponent {
   render() {
-    const { isSelected, ...parentProps } = this.props;
-    const { items } = this.state;
+    const { classes, isSelected, tableSort, ...parentProps } = this.props;
 
-    return items.map((item) => (
-      <FileExplorerTableRowsRender
-        {...parentProps}
-        key={quickHash(item.path)}
-        item={item}
-        isSelected={isSelected(item.path)}
-      />
-    ));
+    return (
+      <DirectoryWindow items={tableSort} rowHeight={54} measureRow>
+        {({ items, before, after, anchorRef }) => (
+          <Fragment>
+            <tr ref={anchorRef} aria-hidden="true">
+              <td
+                colSpan={6}
+                className={classes.windowSpacer}
+                style={{ '--directory-spacer-height': `${before}px` }}
+              />
+            </tr>
+            {items.map((item) => (
+              <FileExplorerTableRowsRender
+                {...parentProps}
+                key={item.path}
+                item={item}
+                isSelected={isSelected(item.path)}
+              />
+            ))}
+            <tr aria-hidden="true">
+              <td
+                colSpan={6}
+                className={classes.windowSpacer}
+                style={{ '--directory-spacer-height': `${after}px` }}
+              />
+            </tr>
+          </Fragment>
+        )}
+      </DirectoryWindow>
+    );
   }
 }
+
+export default withStyles(
+  FileExplorerTableBodyListWrapperRender,
+  directoryWindowStyles,
+);

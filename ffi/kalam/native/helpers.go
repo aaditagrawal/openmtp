@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/ganeshrvel/usb"
+	"kalam/send_to_js"
+	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -35,13 +39,24 @@ func verifyMtpSession(c verifyMtpSessionMode) error {
 }
 
 func _initialize(i mtpx.Init) (*mtp.Device, error) {
-	d, err := mtpx.Initialize(i)
-	if err != nil {
-		return nil, err
+	// Close a previous session before reconnecting. Store resources immediately
+	// so panic recovery and every later failure can release them.
+	_ = _dispose()
+	container.context = usb.NewContext()
+	if container.context == nil {
+		return nil, fmt.Errorf("ErrorMtpDetectFailed")
 	}
-
+	d, err := mtp.SelectDeviceWithContext(container.context, "", i.DebugMode)
+	if err != nil {
+		_ = _dispose()
+		return nil, fmt.Errorf("ErrorMtpDetectFailed: %w", err)
+	}
 	container.dev = d
-
+	d.Timeout = 15000
+	if err := d.Configure(); err != nil {
+		_ = _dispose()
+		return nil, fmt.Errorf("ErrorDeviceSetup: %w", err)
+	}
 	return d, nil
 }
 
@@ -104,7 +119,11 @@ func _fileExists(storageId uint32, fileProps []mtpx.FileProp) (exists []mtpx.Fil
 	if err != nil {
 		return exists, err
 	}
-
+	// go-mtpx returns an empty successful slice for some transport errors.
+	// Treat incomplete answers as failures, never as proof a path is absent.
+	if len(exists) != len(fileProps) {
+		return nil, fmt.Errorf("incomplete MTP file-existence response")
+	}
 	return exists, nil
 }
 
@@ -134,9 +153,9 @@ func _renameFile(storageId uint32, fileProp mtpx.FileProp, newFileName string) (
 	return nil
 }
 
-func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []*mtpx.FileInfo, err error) {
+func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []send_to_js.FileInfo, err error) {
 	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
-		return []*mtpx.FileInfo{}, err
+		return nil, err
 	}
 
 	_, _, _, err = mtpx.Walk(container.dev, storageId, fullPath, recursive, skipDisallowedFiles, skipHiddenFiles, func(objectId uint32, fi *mtpx.FileInfo, err error) error {
@@ -144,12 +163,14 @@ func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, sk
 			return err
 		}
 
-		files = append(files, fi)
+		// Project directly into the wire representation, avoiding a second
+		// O(n) slice of native pointers and a second traversal at serialization.
+		files = append(files, send_to_js.NewFileInfo(fi))
 
 		return nil
 	})
 	if err != nil {
-		return []*mtpx.FileInfo{}, err
+		return nil, err
 	}
 
 	return files, nil
@@ -182,14 +203,29 @@ func _downloadFiles(storageId uint32, sources []string, destination string, prep
 }
 
 func _dispose() error {
-	if container.dev == nil {
-		return nil
+	device, context := container.dev, container.context
+	container.dev, container.context, container.deviceInfo = nil, nil, nil
+	if context != nil {
+		defer context.Exit()
 	}
-
-	mtpx.Dispose(container.dev)
-	container.dev = nil
-
+	if device != nil {
+		defer device.Done()
+		return device.Close()
+	}
 	return nil
+}
+
+// This boundary runs while the export still owns the mutex. A recovered Go
+// panic invalidates the session; never continue using partially mutated state.
+func recoverMtpPanic(done *send_to_js.SendCbResult) {
+	if value := recover(); value != nil {
+		fmt.Fprintf(os.Stderr, "Kalam panic: %v\n%s", value, debug.Stack())
+		func() {
+			defer func() { _ = recover() }()
+			_ = _dispose()
+		}()
+		send_to_js.SendError(done, fmt.Errorf("native MTP operation failed: %v", value))
+	}
 }
 
 // lockMtp acquires an exclusive MTP session lock for the full export call.

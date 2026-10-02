@@ -1,10 +1,15 @@
+import { sortDirectory } from '../../../utils/sortDirectory';
+import {
+  lastSelectedNode,
+  lastSelectedNodeOfTableSort,
+} from '../../../utils/selection';
 /* eslint no-case-declarations: off */
 
 import React, { Component, Fragment } from 'react';
 import * as path from 'path';
 import classnames from 'classnames';
-import Typography from '@material-ui/core/Typography';
-import { withStyles } from '@material-ui/core/styles';
+import Typography from '@mui/material/Typography';
+import { withStyles } from 'tss-react/mui';
 import {
   Github,
   Twitter,
@@ -15,8 +20,8 @@ import Icon from '../../../components/Icon';
 import { ipcRenderer, shell } from 'electron';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import IconButton from '@material-ui/core/IconButton';
-import Tooltip from '@material-ui/core/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import { styles } from '../styles/FileExplorer';
 import {
   TextFieldEdit as TextFieldEditDialog,
@@ -24,16 +29,14 @@ import {
   PasteConflict as PasteConflictDialog,
   ExtrasConflict as ExtrasConflictDialog,
 } from '../../../components/DialogBox';
-import { withReducer } from '../../../store/reducers/withReducer';
-import reducers from '../reducers';
 import {
   setSortingDirLists,
   actionSetSelectedDirLists,
   listDirectory,
   churnMtpBuffer,
-  churnLocalBuffer,
+  renameDirectoryEntry,
+  createDirectory,
   initializeMtp,
-  getSelectedStorageIdFromState,
   setFileTransferClipboard,
   setFilesDrag,
   clearFilesDrag,
@@ -75,9 +78,6 @@ import {
   getPluralText,
   isArray,
   isEmpty,
-  isFloat,
-  isInt,
-  isNumber,
   niceBytes,
   removeArrayDuplicates,
   springTruncate,
@@ -94,11 +94,12 @@ import {
   redditShareUrl,
   twitterShareUrl,
 } from '../../../templates/socialMediaShareBtns';
-import { baseName, pathInfo, pathUp, sanitizePath } from '../../../utils/files';
+import { baseName, pathUp, sanitizePath } from '../../../utils/files';
 import { filterPasteQueueSkippingExisting } from '../../../utils/pasteQueue';
 import {
   computeSmartSyncDiff,
   groupFilesByParentDir,
+  smartSyncListing,
 } from '../../../utils/smartSync';
 import {
   DEVICE_TYPE,
@@ -218,7 +219,6 @@ class FileExplorer extends Component {
           data: {},
         },
       },
-      directoryGeneratedTime: Date.now(),
     };
 
     this.state = {
@@ -296,34 +296,19 @@ class FileExplorer extends Component {
     this.registerBeforeQuitDispose();
   }
 
-  componentWillReceiveProps({
-    directoryLists: nextDirectoryLists,
-    showDirectoriesFirst: nextShowDirectoriesFirst,
-    currentBrowsePath: nextCurrentBrowsePath,
-  }) {
-    const {
-      deviceType,
-      directoryLists,
-      showDirectoriesFirst,
-      currentBrowsePath,
-    } = this.props;
+  componentDidUpdate(previousProps) {
+    const { deviceType, directoryLists, currentBrowsePath } = this.props;
 
-    const { nodes: prevDirectoryNodes } = directoryLists[deviceType];
-    const { nodes: nextDirectoryNodes } = nextDirectoryLists[deviceType];
-
-    if (nextDirectoryNodes !== prevDirectoryNodes) {
-      this._handleDirectoryGeneratedTime();
-    }
-
-    if (nextShowDirectoriesFirst !== showDirectoriesFirst) {
-      this._handleDirectoryGeneratedTime();
-    }
+    const { nodes: prevDirectoryNodes } =
+      previousProps.directoryLists[deviceType];
+    const { nodes: nextDirectoryNodes } = directoryLists[deviceType];
 
     // Reset shift-click range anchor when the directory changes so a
     // subsequent shift-click doesn't span paths from a stale listing.
     if (
       nextDirectoryNodes !== prevDirectoryNodes ||
-      nextCurrentBrowsePath?.[deviceType] !== currentBrowsePath?.[deviceType]
+      previousProps.currentBrowsePath?.[deviceType] !==
+        currentBrowsePath?.[deviceType]
     ) {
       this._selectionAnchor = {
         ...this._selectionAnchor,
@@ -684,76 +669,9 @@ class FileExplorer extends Component {
     });
   };
 
-  lastSelectedNode = (nodes, selected) => {
-    let _return = {
-      index: -1,
-      item: [],
-    };
+  lastSelectedNode = lastSelectedNode;
 
-    nodes.filter((item, index) => {
-      if (
-        undefinedOrNull(selected) ||
-        !isArray(selected) ||
-        selected.length < 1
-      ) {
-        return null;
-      }
-
-      if (selected[selected.length - 1] !== item.path) {
-        return null;
-      }
-
-      _return = {
-        index,
-        item,
-      };
-
-      return _return;
-    });
-
-    return _return;
-  };
-
-  lastSelectedNodeOfTableSort = (nodes, selected, reverse = false) => {
-    let _return = {
-      index: -1,
-      item: [],
-    };
-
-    nodes.filter((item, index) => {
-      if (
-        undefinedOrNull(selected) ||
-        !isArray(selected) ||
-        selected.length < 1
-      ) {
-        return null;
-      }
-
-      for (let i = 0; i < selected.length; i += 1) {
-        if (selected[i] === item.path) {
-          if (reverse) {
-            if (_return.index < 0) {
-              _return = {
-                index,
-                item,
-              };
-
-              return _return;
-            }
-          } else {
-            _return = {
-              index,
-              item,
-            };
-          }
-        }
-      }
-
-      return _return;
-    });
-
-    return _return;
-  };
+  lastSelectedNodeOfTableSort = lastSelectedNodeOfTableSort;
 
   /* activate actions using keyboard */
   _handleAcceleratorActivation = ({ type, data }) => {
@@ -2054,8 +1972,12 @@ class FileExplorer extends Component {
           storageId,
         });
 
-        if (sourceResult.error) {
-          // Not a directory or error — transfer as individual file
+        const sourceFiles = smartSyncListing(sourceResult, {
+          side: 'source',
+          root: sourcePath,
+        });
+        if (sourceFiles === null) {
+          // A confirmed file root is transferred individually.
           allFilesToTransfer.push(sourcePath);
           continue; // oxlint-disable-line no-continue
         }
@@ -2068,15 +1990,19 @@ class FileExplorer extends Component {
           storageId,
         });
 
-        if (destResult.error || !destResult.data) {
+        const destFiles = smartSyncListing(destResult, {
+          side: 'destination',
+          root: destPath,
+        });
+        if (destFiles === null) {
           // Dest folder doesn't exist — transfer entire source normally
           allFilesToTransfer.push(sourcePath);
           continue; // oxlint-disable-line no-continue
         }
 
         const diff = computeSmartSyncDiff({
-          sourceFiles: sourceResult.data || [],
-          destFiles: destResult.data || [],
+          sourceFiles,
+          destFiles,
           sourceRoot: sourcePath,
           destRoot: destPath,
         });
@@ -2206,76 +2132,86 @@ class FileExplorer extends Component {
     );
 
     return new Promise((resolve, reject) => {
-      fileExplorerController.transferFiles({
-        deviceType: DEVICE_TYPE.mtp,
-        destination: task.destDir,
-        storageId,
-        fileList: task.files,
-        direction,
-        onPreprocess: ({ fullPath }) => {
-          progressUpdater.update({
-            titleText: `Smart Sync → ${deviceLabel}...`,
-            bottomText: `${batchLabel} · ${filesCompletedBeforeBatch}/${totalFilesPlanned} files done`,
-            toggle: true,
-            values: [
-              {
-                bodyText1: `Processing "${
-                  springTruncate(fullPath || '', 45).truncatedText
-                }"`,
-                bodyText2: null,
-                percentage: 0,
-                variant: 'indeterminate',
-              },
-            ],
-          });
-        },
-        onProgress: ({
-          activeFileProgress,
-          currentFile,
-          filesSent,
-          totalFiles,
-          speed,
-          elapsedTime,
-        }) => {
-          const shownFile = currentFile || '';
-          const shownProgress = Math.floor(activeFileProgress || 0);
-          // filesSent is completed count within this transferFiles call.
-          const completedInBatch = Math.min(
-            filesSent || 0,
-            task.files.length || totalFiles || 0,
-          );
-          const overallCompleted = Math.min(
-            filesCompletedBeforeBatch + completedInBatch,
-            totalFilesPlanned,
-          );
+      fileExplorerController
+        .transferFiles({
+          deviceType: DEVICE_TYPE.mtp,
+          destination: task.destDir,
+          storageId,
+          fileList: task.files,
+          direction,
+          onPreprocess: ({ fullPath }) => {
+            progressUpdater.update({
+              titleText: `Smart Sync → ${deviceLabel}...`,
+              bottomText: `${batchLabel} · ${filesCompletedBeforeBatch}/${totalFilesPlanned} files done`,
+              toggle: true,
+              values: [
+                {
+                  bodyText1: `Processing "${
+                    springTruncate(fullPath || '', 45).truncatedText
+                  }"`,
+                  bodyText2: null,
+                  percentage: 0,
+                  variant: 'indeterminate',
+                },
+              ],
+            });
+          },
+          onProgress: ({
+            activeFileProgress,
+            currentFile,
+            filesSent,
+            totalFiles,
+            speed,
+            elapsedTime,
+          }) => {
+            const shownFile = currentFile || '';
+            const shownProgress = Math.floor(activeFileProgress || 0);
+            // filesSent is completed count within this transferFiles call.
+            const completedInBatch = Math.min(
+              filesSent || 0,
+              task.files.length || totalFiles || 0,
+            );
+            const overallCompleted = Math.min(
+              filesCompletedBeforeBatch + completedInBatch,
+              totalFilesPlanned,
+            );
 
-          progressUpdater.update({
-            titleText: `Smart Sync → ${deviceLabel}...`,
-            bottomText: `${batchLabel} · ${overallCompleted}/${totalFilesPlanned} files done`,
-            toggle: true,
-            values: [
-              {
-                bodyText1: `${shownProgress}% of "${
-                  springTruncate(shownFile, 45).truncatedText
-                }"`,
-                bodyText2: elapsedTime
-                  ? `Elapsed: ${elapsedTime} @ ${speed || '--'} MB/sec`
-                  : null,
-                percentage: activeFileProgress || 0,
-                variant: 'determinate',
-              },
-            ],
-          });
-        },
-        onError: ({ error, stderr, data }) => {
+            progressUpdater.update({
+              titleText: `Smart Sync → ${deviceLabel}...`,
+              bottomText: `${batchLabel} · ${overallCompleted}/${totalFilesPlanned} files done`,
+              toggle: true,
+              values: [
+                {
+                  bodyText1: `${shownProgress}% of "${
+                    springTruncate(shownFile, 45).truncatedText
+                  }"`,
+                  bodyText2: elapsedTime
+                    ? `Elapsed: ${elapsedTime} @ ${speed || '--'} MB/sec`
+                    : null,
+                  percentage: activeFileProgress || 0,
+                  variant: 'determinate',
+                },
+              ],
+            });
+          },
+          onError: ({ error, stderr, data }) => {
+            progressUpdater.cancel();
+            reject(error || stderr || data || 'transfer error');
+          },
+          onCompleted: () => {
+            progressUpdater.flush();
+            resolve();
+          },
+        })
+        .then((result) => {
+          if (result?.error || result?.stderr)
+            throw result.error || result.stderr;
+          return result;
+        })
+        .catch((error) => {
           progressUpdater.cancel();
-          reject(error || stderr || data || 'transfer error');
-        },
-        onCompleted: () => {
-          progressUpdater.flush();
-          resolve();
-        },
-      });
+          reject(error);
+        });
     });
   };
 
@@ -2466,8 +2402,6 @@ class FileExplorer extends Component {
     }
 
     actionCreateRequestSort({ order, orderBy }, deviceType);
-
-    this._handleDirectoryGeneratedTime();
   };
 
   _handleSelectAllClick = (deviceType, event) => {
@@ -2620,41 +2554,12 @@ class FileExplorer extends Component {
       return cache.result;
     }
 
-    let _sortedNode = [...nodes].sort((a, b) => {
-      const aKey = this._lodashSortConstraints({ value: a, orderBy });
-      const bKey = this._lodashSortConstraints({ value: b, orderBy });
-
-      if (aKey < bKey) {
-        return -1;
-      }
-
-      if (aKey > bKey) {
-        return 1;
-      }
-
-      return 0;
+    const _sortedNode = sortDirectory({
+      nodes,
+      order,
+      orderBy,
+      showDirectoriesFirst,
     });
-
-    if (order !== 'asc') {
-      _sortedNode.reverse();
-    }
-
-    const _folders = [];
-    const _files = [];
-
-    if (showDirectoriesFirst) {
-      _sortedNode.forEach((a) => {
-        if (a.isFolder) {
-          _folders.push(a);
-
-          return a;
-        }
-
-        _files.push(a);
-      });
-
-      _sortedNode = [..._folders, ..._files];
-    }
 
     this._tableSortCache = {
       nodes,
@@ -2665,41 +2570,6 @@ class FileExplorer extends Component {
     };
 
     return _sortedNode;
-  };
-
-  _lodashSortConstraints = ({ value, orderBy }) => {
-    if (orderBy === 'size' && value.isFolder) {
-      return 0;
-    }
-
-    const item = value[orderBy];
-    let _primer = null;
-
-    if (isNumber(item)) {
-      if (isInt(item)) {
-        _primer = parseInt(item, 10);
-      } else if (isFloat(item)) {
-        _primer = parseFloat(item);
-      }
-    }
-
-    if (_primer === null) {
-      if (!value.isFolder) {
-        const _pathInfo = pathInfo(item, value.isFolder);
-
-        _primer = _pathInfo.name.toLowerCase();
-      } else {
-        _primer = item.toLowerCase();
-      }
-    }
-
-    return _primer;
-  };
-
-  _handleDirectoryGeneratedTime = () => {
-    this.setState({
-      directoryGeneratedTime: Date.now(),
-    });
   };
 
   render() {
@@ -2723,7 +2593,6 @@ class FileExplorer extends Component {
       pasteConflictExistingPaths,
       toggleExtrasDialog,
       smartSyncExtras,
-      directoryGeneratedTime,
     } = this.state;
     const { rename, newFolder } = toggleDialog;
     const togglePasteDialog =
@@ -2891,7 +2760,6 @@ class FileExplorer extends Component {
           filesDrag={filesDrag}
           tableSort={this.tableSort}
           isStatusBarEnabled={isStatusBarEnabled}
-          directoryGeneratedTime={directoryGeneratedTime}
           enableUsbHotplug={enableUsbHotplug}
           onHoverDropZoneActivate={this._handleonHoverDropZoneActivate}
           onFilesDragOver={this._handleFilesDragOver}
@@ -2912,7 +2780,6 @@ class FileExplorer extends Component {
           onAcceleratorActivation={this._handleAcceleratorActivation}
           onRefreshMtpConnection={this._handleRefreshMtpConnection}
         />
-        ;
       </Fragment>
     );
   }
@@ -3014,161 +2881,8 @@ const mapDispatchToProps = (dispatch, _) =>
           );
         },
 
-      actionCreateRenameFile:
-        ({ filePath, newFilename, deviceType }, { ...listDirectoryArgs }) =>
-        async (_, getState) => {
-          const { mtpMode } = getState().Settings;
-
-          try {
-            switch (deviceType) {
-              case DEVICE_TYPE.local:
-                const {
-                  error: localError,
-                  stderr: localStderr,
-                  data: localData,
-                } = await fileExplorerController.renameFile({
-                  deviceType,
-                  filePath,
-                  newFilename,
-                  storageId: null,
-                });
-
-                dispatch(
-                  churnLocalBuffer({
-                    deviceType,
-                    error: localError,
-                    stderr: localStderr,
-                    data: localData,
-                    onSuccess: () => {
-                      dispatch(
-                        listDirectory(
-                          { ...listDirectoryArgs },
-                          deviceType,
-                          getState,
-                        ),
-                      );
-                    },
-                  }),
-                );
-                break;
-              case DEVICE_TYPE.mtp:
-                const storageId = getSelectedStorageIdFromState(
-                  getState().Home,
-                );
-                const {
-                  error: mtpError,
-                  stderr: mtpStderr,
-                  data: mtpData,
-                } = await fileExplorerController.renameFile({
-                  deviceType,
-                  filePath,
-                  newFilename,
-                  storageId,
-                });
-
-                dispatch(
-                  churnMtpBuffer({
-                    deviceType,
-                    error: mtpError,
-                    stderr: mtpStderr,
-                    data: mtpData,
-                    mtpMode,
-                    onSuccess: () => {
-                      dispatch(
-                        listDirectory(
-                          { ...listDirectoryArgs },
-                          deviceType,
-                          getState,
-                        ),
-                      );
-                    },
-                  }),
-                );
-                break;
-              default:
-                break;
-            }
-          } catch (e) {
-            log.error(e);
-          }
-        },
-
-      actionCreateNewFolder:
-        ({ newFolderPath, deviceType }, { ...listDirectoryArgs }) =>
-        async (_, getState) => {
-          try {
-            const { mtpMode } = getState().Settings;
-
-            switch (deviceType) {
-              case DEVICE_TYPE.local:
-                const {
-                  error: localError,
-                  stderr: localStderr,
-                  data: localData,
-                } = await fileExplorerController.makeDirectory({
-                  deviceType,
-                  filePath: newFolderPath,
-                  storageId: null,
-                });
-
-                dispatch(
-                  churnLocalBuffer({
-                    deviceType,
-                    error: localError,
-                    stderr: localStderr,
-                    data: localData,
-                    onSuccess: () => {
-                      dispatch(
-                        listDirectory(
-                          { ...listDirectoryArgs },
-                          deviceType,
-                          getState,
-                        ),
-                      );
-                    },
-                  }),
-                );
-                break;
-              case DEVICE_TYPE.mtp:
-                const storageId = getSelectedStorageIdFromState(
-                  getState().Home,
-                );
-                const {
-                  error: mtpError,
-                  stderr: mtpStderr,
-                  data: mtpData,
-                } = await fileExplorerController.makeDirectory({
-                  deviceType,
-                  filePath: newFolderPath,
-                  storageId,
-                });
-
-                dispatch(
-                  churnMtpBuffer({
-                    deviceType,
-                    error: mtpError,
-                    stderr: mtpStderr,
-                    data: mtpData,
-                    mtpMode,
-                    onSuccess: () => {
-                      dispatch(
-                        listDirectory(
-                          { ...listDirectoryArgs },
-                          deviceType,
-                          getState,
-                        ),
-                      );
-                    },
-                  }),
-                );
-                break;
-              default:
-                break;
-            }
-          } catch (e) {
-            log.error(e);
-          }
-        },
+      actionCreateRenameFile: renameDirectoryEntry,
+      actionCreateNewFolder: createDirectory,
 
       actionCreateCopy:
         ({ selected, deviceType, toQueue = false }) =>
@@ -3415,37 +3129,24 @@ const mapDispatchToProps = (dispatch, _) =>
               });
             };
 
-            switch (deviceType) {
-              case DEVICE_TYPE.local:
-                fileExplorerController.transferFiles({
-                  deviceType: DEVICE_TYPE.mtp,
-                  destination: destinationFolder,
-                  storageId,
-                  fileList: fileTransferClipboard?.queue ?? [],
-                  direction: FILE_TRANSFER_DIRECTION.download,
-                  onCompleted,
-                  onError,
-                  onProgress,
-                  onPreprocess,
-                });
-
-                break;
-              case DEVICE_TYPE.mtp:
-                fileExplorerController.transferFiles({
-                  deviceType: DEVICE_TYPE.mtp,
-                  destination: destinationFolder,
-                  storageId,
-                  fileList: fileTransferClipboard?.queue ?? [],
-                  direction: FILE_TRANSFER_DIRECTION.upload,
-                  onCompleted,
-                  onError,
-                  onProgress,
-                  onPreprocess,
-                });
-
-                break;
-              default:
-                break;
+            if (
+              deviceType === DEVICE_TYPE.local ||
+              deviceType === DEVICE_TYPE.mtp
+            ) {
+              fileExplorerController.transferFiles({
+                deviceType: DEVICE_TYPE.mtp,
+                destination: destinationFolder,
+                storageId,
+                fileList: fileTransferClipboard?.queue ?? [],
+                direction:
+                  deviceType === DEVICE_TYPE.local
+                    ? FILE_TRANSFER_DIRECTION.download
+                    : FILE_TRANSFER_DIRECTION.upload,
+                onCompleted,
+                onError,
+                onProgress,
+                onPreprocess,
+              });
             }
           } catch (e) {
             log.error(e);
@@ -3526,12 +3227,7 @@ const mapStateToProps = (state, _) => {
   };
 };
 
-export default withReducer(
-  'Home',
-  reducers,
-)(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  )(withStyles(styles)(FileExplorer)),
-);
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withStyles(FileExplorer, styles));

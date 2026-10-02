@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  arrayIntersection,
   isEmpty,
   niceBytes,
   percentage,
@@ -43,12 +42,6 @@ describe('isEmpty', () => {
   test('treats populated values as non-empty', () => {
     expect(isEmpty({ a: 1 })).toBe(false);
     expect(isEmpty([1])).toBe(false);
-  });
-});
-
-describe('arrayIntersection', () => {
-  test('returns shared members', () => {
-    expect(arrayIntersection([1, 2, 3], [2, 3, 4])).toEqual([2, 3]);
   });
 });
 

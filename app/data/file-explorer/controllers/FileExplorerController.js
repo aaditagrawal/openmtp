@@ -1,4 +1,6 @@
-import { FileExplorerRepository } from '../repositories/FileExplorerRepository';
+import { FileExplorerLegacyDataSource } from '../data-sources/FileExplorerLegacyDataSource';
+import { FileExplorerLocalDataSource } from '../data-sources/FileExplorerLocalDataSource';
+import { FileExplorerKalamDataSource } from '../data-sources/FileExplorerKalamDataSource';
 import { checkIf } from '../../../utils/checkIf';
 import { analyticsService } from '../../../services/analytics';
 import { EVENT_TYPE } from '../../../enums/events';
@@ -7,159 +9,96 @@ import {
   processMtpBuffer,
 } from '../../../helpers/processBufferOutput';
 import { getMtpModeSetting } from '../../../helpers/settings';
-import { DEVICE_TYPE } from '../../../enums';
+import { DEVICE_TYPE, MTP_MODE } from '../../../enums';
 import { unixTimestampNow } from '../../../utils/date';
 
-class FileExplorerController {
-  constructor() {
-    this.repository = new FileExplorerRepository();
+export class FileExplorerController {
+  constructor({
+    local = new FileExplorerLocalDataSource(),
+    legacy = new FileExplorerLegacyDataSource(),
+    kalam = new FileExplorerKalamDataSource(),
+    getMtpMode = () => getMtpModeSetting(),
+  } = {}) {
+    this.backends = { local, legacy, kalam };
+    this.getMtpMode = getMtpMode;
+  }
+
+  _execute(operation, { deviceType, ...args }) {
+    const mtpOnly = [
+      'initialize',
+      'dispose',
+      'listStorages',
+      'transferFiles',
+      'fetchDebugReport',
+    ];
+    if (deviceType !== DEVICE_TYPE.mtp) {
+      if (mtpOnly.includes(operation)) {
+        throw `${operation} for deviceType=DEVICE_TYPE.local is unimplemented`;
+      }
+      const { storageId: _storageId, ...localArgs } = args;
+      return this.backends.local[operation](localArgs);
+    }
+
+    const legacy = this.getMtpMode() === MTP_MODE.legacy;
+    if (legacy && operation === 'initialize') {
+      throw 'initialize for MTP_MODE.legacy is unimplemented';
+    }
+    if (legacy && operation === 'dispose') return undefined;
+    if (!mtpOnly.includes(operation) || operation === 'transferFiles') {
+      checkIf(args.storageId, 'number');
+    }
+    const backend = legacy ? this.backends.legacy : this.backends.kalam;
+    const method =
+      legacy && operation === 'listFilesRecursive' ? 'listFiles' : operation;
+    if (operation === 'transferFiles' && !legacy) args.deviceType = deviceType;
+    return backend[method](args);
   }
 
   async _sentEvent({ result, deviceType, eventKey, attachData = false }) {
-    checkIf(eventKey, 'string');
-    checkIf(attachData, 'boolean');
-    checkIf(deviceType, 'inObjectValues', DEVICE_TYPE);
-
-    // events related to local disk actions
-    if (deviceType === DEVICE_TYPE.local) {
-      const { error: localError } = await processLocalBuffer({
-        error: result?.error,
-        stderr: result?.stderr,
-      });
-
-      if (localError) {
-        const _eventKey = `${EVENT_TYPE[`LOCAL_${eventKey}_ERROR`]}`;
-
-        // if the event key is not listed in the [EVENT_TYPE] object then don't proceed
-        if (!_eventKey) {
-          return;
-        }
-
-        // send out an error event
-        await analyticsService.sendEvent(_eventKey, {
-          time: unixTimestampNow(),
-          stderr: result?.stderr,
-          error: result?.error,
-        });
-
-        return;
-      }
-
-      const _eventKey = `${EVENT_TYPE[`LOCAL_${eventKey}_SUCCESS`]}`;
-
-      // if the event key is not listed in the [EVENT_TYPE] object then don't proceed
-      if (!_eventKey) {
-        return;
-      }
-
-      // send a success event
-      let data = {};
-
-      if (attachData) {
-        data = {
-          data: result?.data,
-        };
-      }
-
-      await analyticsService.sendEvent(_eventKey, {
-        time: unixTimestampNow(),
-        ...data,
-      });
-
-      return;
-    }
-
-    // events related to mtp actions
-    const mtpMode = getMtpModeSetting();
-    const { mtpStatus, error: mtpError } = await processMtpBuffer({
-      error: result?.error,
-      stderr: result?.stderr,
-      mtpMode,
-    });
-
-    if (mtpError) {
-      const _eventKey = `${EVENT_TYPE[`MTP_${eventKey}_ERROR`]}`;
-
-      // if the event key is not listed in the [EVENT_TYPE] object then don't proceed
-      if (!_eventKey) {
-        return;
-      }
-
-      // send out an error event
-      await analyticsService.sendEvent(_eventKey, {
-        time: unixTimestampNow(),
-        'MTP Status': mtpStatus,
-        'MTP Mode': mtpMode,
-        stderr: result?.stderr,
-        error: result?.error,
-      });
-
-      return;
-    }
-
-    const _eventKey = `${EVENT_TYPE[`MTP_${eventKey}_SUCCESS`]}`;
-
-    // if the event key is not listed in the [EVENT_TYPE] object then don't proceed
-    if (!_eventKey) {
-      return;
-    }
-
-    // send a success event
-    let data = {};
-
-    if (attachData) {
-      data = {
-        data: result?.data,
-      };
-    }
-
-    await analyticsService.sendEvent(_eventKey, {
+    const local = deviceType === DEVICE_TYPE.local;
+    const mtpMode = local ? undefined : this.getMtpMode();
+    const input = { error: result?.error, stderr: result?.stderr, mtpMode };
+    const { error, mtpStatus } = await (local
+      ? processLocalBuffer(input)
+      : processMtpBuffer(input));
+    const key =
+      EVENT_TYPE[
+        `${local ? 'LOCAL' : 'MTP'}_${eventKey}_${error ? 'ERROR' : 'SUCCESS'}`
+      ];
+    if (!key) return;
+    await analyticsService.sendEvent(key, {
       time: unixTimestampNow(),
-      'MTP Status': mtpStatus,
-      'MTP Mode': mtpMode,
-      ...data,
+      ...(!local && { 'MTP Status': mtpStatus, 'MTP Mode': mtpMode }),
+      ...(error
+        ? { stderr: result?.stderr, error: result?.error }
+        : attachData && { data: result?.data }),
     });
   }
 
-  /**
-   * description - Initialize
-   *
-   * @return {Promise<{data: object, error: string|null, stderr: string|null}>}
-   */
   async initialize({ deviceType }) {
     checkIf(deviceType, 'string');
 
-    const result = await this.repository.initialize({ deviceType });
+    const result = await this._execute('initialize', { deviceType });
 
     this._sentEvent({ result, deviceType, eventKey: 'INITIALIZE' });
 
     return result;
   }
 
-  /**
-   * description - Dispose
-   *
-   * @return {Promise<{data: object, error: string|null, stderr: string|null}>}
-   */
   async dispose({ deviceType }) {
     checkIf(deviceType, 'string');
 
-    const result = await this.repository.dispose({ deviceType });
+    const result = await this._execute('dispose', { deviceType });
 
     this._sentEvent({ result, deviceType, eventKey: 'DISPOSE' });
 
     return result;
   }
 
-  /**
-   * description - Fetch storages
-   *
-   * @return {Promise<{data: object|boolean, error: string|null, stderr: string|null}>}
-   */
   async listStorages({ deviceType }) {
     checkIf(deviceType, 'string');
 
-    const result = await this.repository.listStorages({ deviceType });
+    const result = await this._execute('listStorages', { deviceType });
 
     this._sentEvent({
       result,
@@ -171,21 +110,12 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Fetch files in the path
-   *
-   * @param {string} deviceType
-   * @param {string} filePath
-   * @param {string} ignoreHidden
-   * @param {string} storageId
-   * @return {Promise<{data: array|null, error: string|null, stderr: string|null}>}
-   */
   async listFiles({ deviceType, filePath, ignoreHidden, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(filePath, 'string');
     checkIf(ignoreHidden, 'boolean');
 
-    const result = await this.repository.listFiles({
+    const result = await this._execute('listFiles', {
       deviceType,
       filePath,
       ignoreHidden,
@@ -205,7 +135,7 @@ class FileExplorerController {
     checkIf(filePath, 'string');
     checkIf(ignoreHidden, 'boolean');
 
-    const result = await this.repository.listFilesRecursive({
+    const result = await this._execute('listFilesRecursive', {
       deviceType,
       filePath,
       ignoreHidden,
@@ -219,21 +149,12 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Rename a file
-   *
-   * @param {string} deviceType
-   * @param {string} filePath
-   * @param {string} newFilename
-   * @param {string} storageId
-   * @return {Promise<{data: null|boolean, error: string|null, stderr: string|null}>}
-   */
   async renameFile({ deviceType, filePath, newFilename, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(filePath, 'string');
     checkIf(newFilename, 'string');
 
-    const result = await this.repository.renameFile({
+    const result = await this._execute('renameFile', {
       deviceType,
       filePath,
       newFilename,
@@ -245,19 +166,11 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Delete files
-   *
-   * @param {string} deviceType
-   * @param {[string]} fileList
-   * @param {string} storageId
-   * @return {Promise<{data: null|boolean, error: string|null, stderr: string|null}>}
-   */
   async deleteFiles({ deviceType, fileList, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(fileList, 'array');
 
-    const result = await this.repository.deleteFiles({
+    const result = await this._execute('deleteFiles', {
       deviceType,
       fileList,
       storageId,
@@ -268,19 +181,11 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Create a directory
-   *
-   * @param {string} deviceType
-   * @param {string} filePath
-   * @param {string} storageId
-   * @return {Promise<{data: null|boolean, error: string|null, stderr: string|null}>}
-   */
   async makeDirectory({ deviceType, filePath, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(filePath, 'string');
 
-    const result = await this.repository.makeDirectory({
+    const result = await this._execute('makeDirectory', {
       deviceType,
       filePath,
       storageId,
@@ -291,19 +196,11 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Return paths from fileList that already exist
-   *
-   * @param {string} deviceType
-   * @param {[string]} fileList
-   * @param {string} storageId
-   * @return {Promise<string[]>}
-   */
   async listExistingFiles({ deviceType, fileList, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(fileList, 'array');
 
-    const result = await this.repository.listExistingFiles({
+    const result = await this._execute('listExistingFiles', {
       deviceType,
       fileList,
       storageId,
@@ -314,19 +211,11 @@ class FileExplorerController {
     return Array.isArray(result) ? result : [];
   }
 
-  /**
-   * description - Check if files exist
-   *
-   * @param {string} deviceType
-   * @param {[string]} fileList
-   * @param {string} storageId
-   * @return {Promise<boolean>}
-   */
   async filesExist({ deviceType, fileList, storageId }) {
     checkIf(deviceType, 'string');
     checkIf(fileList, 'array');
 
-    const result = await this.repository.filesExist({
+    const result = await this._execute('filesExist', {
       deviceType,
       fileList,
       storageId,
@@ -337,21 +226,6 @@ class FileExplorerController {
     return result;
   }
 
-  /**
-   * description - Upload or download files from MTP device to local or vice versa
-   *
-   * @param {string} deviceType
-   * @param {string} destination
-   * @param {'upload'|'download'} direction
-   * @param {[string]} fileList
-   * @param {string} storageId
-   * @param {errorCallback} onError
-   * @param {preprocessCallback} onPreprocess
-   * @param {progressCallback} onProgress
-   * @param {completedCallback} onCompleted
-   *
-   * @return
-   */
   transferFiles = async ({
     deviceType,
     destination,
@@ -372,7 +246,7 @@ class FileExplorerController {
     checkIf(onProgress, 'function');
     checkIf(onCompleted, 'function');
 
-    const result = await this.repository.transferFiles({
+    const result = await this._execute('transferFiles', {
       deviceType,
       destination,
       fileList,
@@ -389,16 +263,10 @@ class FileExplorerController {
     return result;
   };
 
-  /**
-   * description: fetch the data for generating bug/error reports
-   *
-   * @param {string} deviceType
-   * @return {Promise<{data: string|null, error: string|null, stderr: string|null}>}
-   */
   async fetchDebugReport({ deviceType }) {
     checkIf(deviceType, 'string');
 
-    const result = await this.repository.fetchDebugReport({ deviceType });
+    const result = await this._execute('fetchDebugReport', { deviceType });
 
     this._sentEvent({ result, deviceType, eventKey: 'FETCH_DEBUG_REPORT' });
 

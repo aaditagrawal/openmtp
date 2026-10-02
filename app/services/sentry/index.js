@@ -7,17 +7,17 @@ import { checkIf } from '../../utils/checkIf';
 import { MTP_MODE } from '../../enums';
 import { getMachineId } from '../../helpers/identifiers';
 
-/* eslint-disable camelcase, no-eval, no-undef */
-const runtimeRequire =
-  typeof __non_webpack_require__ === 'function'
-    ? __non_webpack_require__
-    : eval('require');
-/* eslint-enable camelcase, no-eval, no-undef */
-
-const getSentrySdk = () =>
-  process.type === 'renderer'
+const getSentrySdk = () => {
+  /* eslint-disable camelcase, no-eval, no-undef */
+  const runtimeRequire =
+    typeof __non_webpack_require__ === 'function'
+      ? __non_webpack_require__
+      : eval('require');
+  /* eslint-enable camelcase, no-eval, no-undef */
+  return process.type === 'renderer'
     ? runtimeRequire('@sentry/electron/renderer')
     : runtimeRequire('@sentry/electron/main');
+};
 
 class SentryService {
   constructor() {
@@ -32,8 +32,12 @@ class SentryService {
   async init() {
     this.sentry.init({
       dsn: SERVICE_KEYS.sentryDsn,
-      // disabled native crash reporting to respect user's privacy
-      enableNative: false,
+      // Electron SDK 7 removed enableNative. Explicitly exclude native upload integrations.
+      integrations: (defaults) =>
+        defaults.filter(
+          ({ name }) => !['SentryMinidump', 'ElectronMinidump'].includes(name),
+        ),
+      sendDefaultPii: false,
       release: pkginfo.version,
     });
 

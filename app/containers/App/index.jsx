@@ -1,11 +1,8 @@
 import { ipcRenderer } from 'electron';
 import React, { Component } from 'react';
-import CssBaseline from '@material-ui/core/CssBaseline';
-import {
-  MuiThemeProvider,
-  createMuiTheme,
-  withStyles,
-} from '@material-ui/core/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { materialUiTheme, styles } from './styles';
@@ -16,8 +13,6 @@ import Routes from '../../routing';
 import { bootLoader } from '../../helpers/bootHelper';
 import { settingsStorage } from '../../helpers/storageHelper';
 import SettingsDialog from '../Settings';
-import { withReducer } from '../../store/reducers/withReducer';
-import reducers from './reducers';
 import { copyJsonFileToSettings, freshInstall } from '../Settings/actions';
 import {
   makeAppThemeMode,
@@ -37,42 +32,34 @@ class App extends Component {
     this.mainWindowRendererProcess = getMainWindowRendererProcess();
 
     this.allowWritingJsonToSettings = false;
-  }
-
-  componentWillMount() {
-    try {
-      this.setFreshInstall();
-
-      if (this.allowWritingJsonToSettings) {
-        this.writeJsonToSettings();
-      }
-
-      this.runAnalytics();
-    } catch (e) {
-      log.error(e, `App -> componentWillMount`);
-    }
+    this.state = { preferencesReady: false };
   }
 
   componentDidMount() {
     try {
+      // Restore preferences before the fresh-install action persists Redux state.
+      // Otherwise the second launch replaces custom settings with defaults.
+      this.writeJsonToSettings();
+      this.setFreshInstall();
+
+      this.runAnalytics().catch((error) =>
+        log.error(error, 'App -> analytics'),
+      );
+
       ipcRenderer.on('nativeThemeUpdated', this.nativeThemeUpdatedEvent);
 
       bootLoader.cleanRotationFiles();
     } catch (e) {
       log.error(e, `App -> componentDidMount`);
     }
+    // Child panes must not initialize until persisted preferences are restored.
+    this.setState({ preferencesReady: true });
   }
 
   componentWillUnmount() {
-    this.deregisterAccelerators();
     ipcRenderer.removeListener(
       'nativeThemeUpdated',
       this.nativeThemeUpdatedEvent,
-    );
-
-    this.mainWindowRendererProcess.webContents.removeListener(
-      'nativeThemeUpdated',
-      () => {},
     );
   }
 
@@ -85,7 +72,11 @@ class App extends Component {
     const { appThemeModeSettings } = this.props;
     const appThemeMode = getAppThemeMode(appThemeModeSettings);
 
-    return createMuiTheme(materialUiTheme({ appThemeMode }));
+    if (this.muiTheme?.palette.mode !== appThemeMode) {
+      this.muiTheme = createTheme(materialUiTheme({ appThemeMode }));
+    }
+
+    return this.muiTheme;
   };
 
   setFreshInstall() {
@@ -139,12 +130,13 @@ class App extends Component {
   }
 
   render() {
+    if (!this.state.preferencesReady) return null;
     const { classes: styles, mtpDevice, mtpStoragesList, mtpMode } = this.props;
     const muiTheme = this.getMuiTheme();
 
     return (
       <div className={styles.root}>
-        <MuiThemeProvider theme={muiTheme}>
+        <ThemeProvider theme={muiTheme}>
           <CssBaseline />
           <Titlebar
             mtpDevice={mtpDevice}
@@ -156,7 +148,7 @@ class App extends Component {
             <SettingsDialog />
             <Routes />
           </ErrorBoundary>
-        </MuiThemeProvider>
+        </ThemeProvider>
       </div>
     );
   }
@@ -190,7 +182,7 @@ const mapStateToProps = (state) => {
   };
 };
 
-export default withReducer(
-  'App',
-  reducers,
-)(connect(mapStateToProps, mapDispatchToProps)(withStyles(styles)(App)));
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withStyles(App, styles));

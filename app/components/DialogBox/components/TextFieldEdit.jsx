@@ -1,14 +1,14 @@
 import React, { PureComponent } from 'react';
 import classNames from 'classnames';
-import TextField from '@material-ui/core/TextField';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import Button from '@material-ui/core/Button';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
+import TextField from '@mui/material/TextField';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import { styles } from '../styles/TextFieldEdit';
 
 class TextFieldEdit extends PureComponent {
@@ -57,10 +57,11 @@ class TextFieldEdit extends PureComponent {
         open={trigger}
         fullWidth={fullWidthDialog}
         maxWidth={maxWidthDialog}
-        disableEscapeKeyDown={false}
-        onEscapeKeyDown={(event) =>
-          this._handleBtnClick({ confirm: false }, event)
-        }
+
+        onClose={(event, reason) => {
+          if (reason === 'escapeKeyDown')
+            this._handleBtnClick({ confirm: false }, event);
+        }}
       >
         <DialogTitle>{titleText}</DialogTitle>
         <form
@@ -123,4 +124,4 @@ class TextFieldEdit extends PureComponent {
   }
 }
 
-export default withStyles(styles)(TextFieldEdit);
+export default withStyles(TextFieldEdit, styles);

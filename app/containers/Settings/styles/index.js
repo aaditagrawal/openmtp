@@ -50,7 +50,7 @@ export const styles = (theme) => ({
   },
   onboardingPaperArrow: {
     fontWeight: `bold`,
-    content: ' ',
+    content: '" "',
     borderBottom: `11px solid ${theme.palette.secondary.main}`,
     borderLeft: '8px solid transparent',
     borderRight: '8px solid transparent',

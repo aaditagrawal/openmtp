@@ -16,6 +16,7 @@ package send_to_js
 */
 import "C"
 import (
+	"fmt"
 	"os"
 	"time"
 	"unsafe"
@@ -39,7 +40,7 @@ func sendJson(onDonePtr *SendCbResult, json string) {
 func SendError(onDonePtr *SendCbResult, err error) {
 	errorType, errorMsg := processError(err)
 
-	o := ErrorResult{
+	o := Result{
 		ErrorType: errorType,
 		Error:     errorMsg,
 		Data:      nil,
@@ -49,18 +50,7 @@ func SendError(onDonePtr *SendCbResult, err error) {
 }
 
 func SendInitialize(onDonePtr *SendCbResult, deviceInfo *mtp.DeviceInfo, usbDesc *mtp.UsbDeviceInfo) {
-	o := InitializeResult{
-		Data: DeviceInfo{
-			MtpDeviceInfo: deviceInfo,
-			UsbDeviceInfo: usbDesc,
-		},
-	}
-
-	sendJson(onDonePtr, toJson(o))
-}
-
-func SendDeviceInfo(onDonePtr *SendCbResult, deviceInfo *mtp.DeviceInfo, usbDesc *mtp.UsbDeviceInfo) {
-	o := DeviceInfoResult{
+	o := Result{
 		Data: DeviceInfo{
 			MtpDeviceInfo: deviceInfo,
 			UsbDeviceInfo: usbDesc,
@@ -71,16 +61,8 @@ func SendDeviceInfo(onDonePtr *SendCbResult, deviceInfo *mtp.DeviceInfo, usbDesc
 }
 
 func SendStorages(onDonePtr *SendCbResult, storages []mtpx.StorageData) {
-	o := StoragesResult{
+	o := Result{
 		Data: storages,
-	}
-
-	sendJson(onDonePtr, toJson(o))
-}
-
-func SendMakeDirectory(onDonePtr *SendCbResult) {
-	o := MakeDirectoryResult{
-		Data: true,
 	}
 
 	sendJson(onDonePtr, toJson(o))
@@ -97,56 +79,23 @@ func SendFileExists(onDonePtr *SendCbResult, fc []mtpx.FileExistsContainer, inpu
 		fdSlice = append(fdSlice, fd)
 	}
 
-	o := FileExistsResult{
+	o := Result{
 		Data: fdSlice,
 	}
 
 	sendJson(onDonePtr, toJson(o))
 }
 
-func SendDeleteFile(onDonePtr *SendCbResult) {
-	o := DeleteFileResult{
-		Data: true,
-	}
-
-	sendJson(onDonePtr, toJson(o))
-}
-
-func SendRenameFile(onDonePtr *SendCbResult) {
-	o := RenameFileResult{
-		Data: true,
-	}
-
-	sendJson(onDonePtr, toJson(o))
-}
-
-func SendWalk(onDonePtr *SendCbResult, files []*mtpx.FileInfo) {
-	var outputFiles []FileInfo
-
-	for _, f := range files {
-		outputFile := FileInfo{
-			Size:      f.Size,
-			IsDir:     f.IsDir,
-			ModTime:   f.ModTime.Format(DateTimeFormat),
-			Name:      f.Name,
-			FullPath:  f.FullPath,
-			Extension: f.Extension,
-			// Omit ParentPath/ParentId/ObjectId — unused by the JS layer and
-			// inflate Walk JSON on every folder open.
-		}
-
-		outputFiles = append(outputFiles, outputFile)
-	}
-
-	o := WalkResult{
-		Data: outputFiles,
-	}
-
-	sendJson(onDonePtr, toJson(o))
+func SendWalk(onDonePtr *SendCbResult, files []FileInfo) {
+	sendJson(onDonePtr, toJson(Result{Data: files}))
 }
 
 func SendUploadFilesPreprocess(onDonePtr *SendCbResult, fi *os.FileInfo, fullPath string) {
-	o := UploadFilesPreprocessResult{
+	if fi == nil || *fi == nil {
+		SendError(onDonePtr, fmt.Errorf("missing upload file information"))
+		return
+	}
+	o := Result{
 		Data: TransferPreprocessData{
 			FullPath: fullPath,
 			Name:     (*fi).Name(),
@@ -158,7 +107,11 @@ func SendUploadFilesPreprocess(onDonePtr *SendCbResult, fi *os.FileInfo, fullPat
 }
 
 func SendDownloadFilesPreprocess(onDonePtr *SendCbResult, fi *mtpx.FileInfo) {
-	o := DownloadFilesPreprocessResult{
+	if fi == nil {
+		SendError(onDonePtr, fmt.Errorf("missing download file information"))
+		return
+	}
+	o := Result{
 		Data: TransferPreprocessData{
 			FullPath: fi.FullPath,
 			Name:     fi.Name,
@@ -170,7 +123,11 @@ func SendDownloadFilesPreprocess(onDonePtr *SendCbResult, fi *mtpx.FileInfo) {
 }
 
 func SendTransferFilesProgress(onDonePtr *SendCbResult, p *mtpx.ProgressInfo) {
-	o := UploadFilesProgressResult{
+	if p == nil || p.FileInfo == nil || p.ActiveFileSize == nil || p.BulkFileSize == nil {
+		SendError(onDonePtr, fmt.Errorf("incomplete native transfer progress"))
+		return
+	}
+	o := Result{
 		Data: TransferProgressInfo{
 			FullPath:          p.FileInfo.FullPath,
 			Name:              p.FileInfo.Name,
@@ -197,18 +154,6 @@ func SendTransferFilesProgress(onDonePtr *SendCbResult, p *mtpx.ProgressInfo) {
 	sendJson(onDonePtr, toJson(o))
 }
 
-func SendTransferFilesDone(onDonePtr *SendCbResult) {
-	o := UploadFilesDoneResult{
-		Data: true,
-	}
-
-	sendJson(onDonePtr, toJson(o))
-}
-
-func SendDispose(onDonePtr *SendCbResult) {
-	o := DisposeResult{
-		Data: true,
-	}
-
-	sendJson(onDonePtr, toJson(o))
+func SendSuccess(onDonePtr *SendCbResult) {
+	sendJson(onDonePtr, toJson(Result{Data: true}))
 }

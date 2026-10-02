@@ -1,131 +1,78 @@
-### Initial setup
+# Kalam native backend
 
-```shell
-#install node 16 or above
-npm -g i nvm
+The Apple Silicon host build uses the installed Go toolchain and libusb. It
+builds both native entry points, bundles libusb beside them, changes dynamic
+library references to `@loader_path`, and verifies local ad-hoc signatures.
+The generated binaries are local builds, without Apple notarization.
 
-#use node 16 or above
-nvm use 16
+From the repository root:
 
-#install zx globally
-npm -g i zx
+```sh
+brew install go pkg-config autoconf automake libtool
+bun run build-libusb
+bun run build-native
 ```
 
-```shell script
-xcode-select --install
-brew install llvm gcc pkg-config libusb
-nano ~/.zshrc
+The libusb helper downloads the official 1.0.30 release, verifies its pinned
+SHA-256, builds for macOS 13, and caches it at
+`tmp/libusb-1.0.30-macos13/prefix`. The host builder prefers that cache.
+`OPENMTP_LIBUSB_PREFIX=/another/prefix bun run build-native` selects an explicit
+compatible build. It rejects libraries targeting a newer macOS than 13 rather
+than silently packaging incompatible Homebrew binaries. Go 1.27 supports
+macOS 13 and newer, as documented in the [Go release notes](https://go.dev/doc/go1.27#linker).
+
+The build replaces `build/mac/bin/arm64/{kalam.dylib,kalam.h,kalam_debug_report,libusb.dylib}`
+only after all compilation/signature checks succeed. The builder also checks
+chained-fixups segment counts, covering upstream [PR #481](https://github.com/ganeshrvel/openmtp/pull/481)
+without a second binary variant; this fork already builds with Go 1.27. Existing loaded binaries
+remain valid because replacement uses rename. The older multi-architecture
+`build.mjs` remains available for historical binary maintenance; it downloads
+pinned historical libusb bottles and is not the current host build.
+
+Native tests are opt-in and are not run by CI. Run the unit and race tests:
+
+```sh
+go -C ffi/kalam/native test -race -tags openmtp_manual ./...
 ```
 
-- Add these line to the ~/.zshrc file
+With no MTP phone attached, enable the read-only hardware stress test:
 
-```shell
-export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+```sh
+OPENMTP_NATIVE_HARDWARE_TEST=1 go -C ffi/kalam/native test -race -tags openmtp_manual ./...
+node --expose-gc ffi/kalam/native/scripts/stress-native.mjs /tmp/openmtp-native-stress.json
 ```
 
-```shell
-source ~/.zshrc
+The Go hardware test repeats 100 real libusb discovery/dispose cycles and checks
+that every failed initialization releases the session/context. The JavaScript
+probe exercises the built dylib through Koffi and samples native thread count,
+file descriptors, and process RSS. It stops after releasing the session if a
+phone is connected; it never transfers files. `OPENMTP_STRESS_ITERATIONS` adjusts
+the count and `OPENMTP_STRESS_LIBRARY` selects a baseline dylib for comparison.
+
+`OPENMTP_NATIVE_DEBUG=1` enables USB/MTP protocol logging during initialization.
+Protocol logs can include device identifiers and file metadata, so enable this
+only when diagnosing a device. Normal lifecycle timings use `OPENMTP_TRACE_FILE`.
+
+Kalam owns libusb context/device lifetime. Native exports release their mutex
+only after all callbacks return, and the JS bridge waits for that native return
+before advancing its operation queue. Go panics invalidate and release the
+session before returning an operation error. A native C fault still requires
+process-level crash diagnosis.
+
+The module uses a local, source-attributed `go-mtpfs` replacement with corrected
+selection/error cleanup. See [the patch record](third_party/go-mtpfs/OPENMTP_PATCHES.md)
+and its original LICENSE. Direct Go USB/MTP dependencies are pinned to their
+latest available versions; JSON encoding uses the Go standard library.
+
+Run a scoped physical-device transfer test only after closing OpenMTP and any
+other MTP client:
+
+```sh
+env -u ELECTRON_RUN_AS_NODE OPENMTP_TRANSFER_OUTPUT=/tmp/openmtp-transfer-run \
+  node_modules/electron/dist/Electron.app/Contents/MacOS/Electron scripts/native-transfer.cjs
 ```
 
-### Build
-
-- Add the required changes to the kalam kernel (./openmtp/ffi/kalam/native)
-
-```shell script
-cd ffi/kalam/native
-go get -u
-```
-
-- Upgrade a go package
-
-```shell
-cd ffi/kalam/native
-
-# go get github.com/<org-name>/<package-name>@<git-commit-hash>
-
-#example: go get github.com/ganeshrvel/go-mtpfs@<git-commit-hash>
-#example: go get github.com/ganeshrvel/go-mtpx@<git-commit-hash>
-```
-
-```shell
-# cd  to the project root (ie ./openmtp)
-cd </path/to/openmtp/>
-zx ./ffi/kalam/native/scripts/build.mjs
-```
-
-**Troubleshooting**
-
-- If you keep getting `fatal error: 'stdlib.h' file not found xcode`, then:
-- Add these line to the ~/.zshrc file (`nano ~/.zshrc`)
-
-```shell
-export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-```
-
-```shell
-source ~/.zshrc
-```
-
-- In case of permission error with sentry follow this url: https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally#manually-change-npms-default-directory
-
-# Do not follow the instructions below. These are old commands are they are maintained just for the sake of documentation
-
-- Remove libusb `brew remove libusb`
-- Download the required versions of the `libusb`.
-  - Refer `Brew download for another OS version` for more
-- Copy the `/path/to/libusb/arm64_big_sur/1.0.25/lib/libusb-1.0.0.dylib` to the `build/mac/bin/libusb.dylib`
-- Make a backup copy of `/path/to/libusb/arm64_big_sur/1.0.25/lib/libusb-1.0.0.dylib`
-- change the `rpath` using: `install_name_tool -id @loader_path/libusb.dylib /path/to/libusb/arm64_big_sur/1.0.25/lib/libusb-1.0.0.dylib`
-- Open `/path/to/libusb/arm64_big_sur/1.0.25/lib/pkgconfig/libusb-1.0.pc`
-  - Edit `prefix=@@HOMEBREW_CELLAR@@/libusb/1.0.25` as `prefix=/path/to/libusb/amd64_mojave/1.0.25`
-  - Save it
-- Example commands to build the kalam go binaries:
-
-##### Examples:
-
-```shell
-(
-        cd ./ffi/kalam/native && CGO_ENABLED=1 \
-        PKG_CONFIG_PATH='/path/to/libusb/arm64_big_sur/1.0.25/lib/pkgconfig' \
-        CGO_CFLAGS='-Wno-deprecated-declarations' \
-        GOARCH=arm64 GOOS=darwin \
-        go build \
-        -v -a -trimpath \
-        -o ../../../build/mac/bin/arm64/kalam.dylib -buildmode=c-shared ./*.go
-    )
-```
-
-```shell
-(
-        cd ./ffi/kalam/native && CGO_ENABLED=1 \
-        PKG_CONFIG_PATH='/path/to/libusb/arm64_big_sur/1.0.25/lib/pkgconfig' \
-        CGO_CFLAGS='-Wno-deprecated-declarations' \
-        GOARCH=arm64 GOOS=darwin \
-        go build \
-        -v -a -trimpath \
-        -o ../../../build/mac/bin/arm64/kalam_debug_report kalam_debug_report/*.go
-    )
-```
-
-## Do not follow the sections below anymore. These commands are deprecated
-
-### libusb otool commands:
-
-Build:
-
-```shell
-brew install libusb
-brew info libusb
-```
-
-- Copy the path in the terminal; eg: `/opt/homebrew/Cellar/libusb/1.0.25`
-
-```shell script
-sudo install_name_tool -id "@loader_path/libusb.dylib" <libusb-path>/lib/libusb-1.0.0.dylib
-
-# eg: sudo install_name_tool -id "@loader_path/libusb.dylib" /opt/homebrew/Cellar/libusb/1.0.25/lib/libusb-1.0.0.dylib
-
-cp /opt/homebrew/Cellar/libusb/1.0.25/lib/libusb-1.0.dylib  ./build/mac/bin/libusb.dylib
-```
+This creates a unique directory under the existing Android Download directory,
+round-trips 1 MiB and 64 MiB generated files, validates SHA-256, checks rename/listing
+and Smart Sync, and removes only its own test directory after inspecting it.
+The result and lifecycle trace remain in the chosen output directory.

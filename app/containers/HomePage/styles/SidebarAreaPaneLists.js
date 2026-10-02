@@ -11,7 +11,7 @@ export const styles = (_) => {
     listsBottom: {
       paddingTop: 5,
       // Dense list items still need a usable hit target.
-      [`& .MuiListItem-root`]: {
+      [`& .MuiListItemButton-root`]: {
         minHeight: 32,
         transition: `background-color ${fastDuration}ms ${fastEasing}, color ${fastDuration}ms ${fastEasing}`,
       },

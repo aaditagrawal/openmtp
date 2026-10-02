@@ -980,3 +980,55 @@ export function clearFilesDrag() {
     type: actionTypes.CLEAR_FILES_DRAG,
   };
 }
+
+// Both panes share mutation, error classification and refresh semantics.
+function changeDirectoryEntry(
+  method,
+  { deviceType, ...args },
+  listDirectoryArgs,
+) {
+  return async (dispatch, getState) => {
+    if (deviceType !== DEVICE_TYPE.local && deviceType !== DEVICE_TYPE.mtp)
+      return;
+    try {
+      const { Settings, Home } = getState();
+      const isMtp = deviceType === DEVICE_TYPE.mtp;
+      const { error, stderr, data } = await fileExplorerController[method]({
+        ...args,
+        deviceType,
+        storageId: isMtp ? getSelectedStorageIdFromState(Home) : null,
+      });
+      const churn = isMtp ? churnMtpBuffer : churnLocalBuffer;
+      dispatch(
+        churn({
+          error,
+          stderr,
+          data,
+          deviceType,
+          mtpMode: Settings.mtpMode,
+          onSuccess: () =>
+            dispatch(
+              listDirectory({ ...listDirectoryArgs }, deviceType, getState),
+            ),
+        }),
+      );
+    } catch (error) {
+      log.error(error);
+    }
+  };
+}
+
+export function renameDirectoryEntry(args, listDirectoryArgs) {
+  return changeDirectoryEntry('renameFile', args, listDirectoryArgs);
+}
+
+export function createDirectory(
+  { newFolderPath, deviceType },
+  listDirectoryArgs,
+) {
+  return changeDirectoryEntry(
+    'makeDirectory',
+    { filePath: newFolderPath, deviceType },
+    listDirectoryArgs,
+  );
+}

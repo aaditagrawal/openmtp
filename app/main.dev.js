@@ -2,7 +2,7 @@
 
 import './services/sentry/index';
 
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from 'electron';
 import electronIs from 'electron-is';
 import { usb as usbMonitor } from 'usb';
 import process from 'process';
@@ -26,8 +26,31 @@ import { IpcEvents } from './services/ipc-events/IpcEventType';
 import IpcEventService from './services/ipc-events/IpcEventHandler';
 import { isKalamModeSupported } from './helpers/binaries';
 import { fileExistsSync } from './helpers/fileOps';
+import { trace, traceError } from './utils/diagnostics';
+import { updateProfileStorage } from './helpers/storageIpc';
 
 const remote = getRemoteWindow();
+trace('startup', {
+  electron: process.versions.electron,
+  node: process.versions.node,
+  arch: process.arch,
+});
+process.on('unhandledRejection', (error) => {
+  traceError('unhandled-rejection', error);
+  log.error(error, 'main -> unhandledRejection');
+});
+process.on('uncaughtExceptionMonitor', (error) =>
+  traceError('uncaught-exception', error),
+);
+app.on('child-process-gone', (_event, details) =>
+  trace('child-process-gone', details),
+);
+app.on('will-quit', () => trace('will-quit'));
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error) => {
+    if (error.code !== 'EPIPE') traceError('stdio-error', error);
+  });
+}
 
 if (IS_DEV && process.env.OPENMTP_REMOTE_DEBUG_PORT) {
   app.commandLine.appendSwitch(
@@ -37,7 +60,6 @@ if (IS_DEV && process.env.OPENMTP_REMOTE_DEBUG_PORT) {
 }
 
 const isSingleInstance = app.requestSingleInstanceLock();
-const isDeviceBootable = bootTheDevice();
 const isMas = electronIs.mas();
 let mainWindow = null;
 let usbAttachListener = null;
@@ -50,7 +72,7 @@ if (IS_PROD) {
 }
 
 if (IS_DEV || DEBUG_PROD) {
-  require('electron-debug')();
+  require('electron-debug').default();
 }
 
 async function bootTheDevice() {
@@ -65,7 +87,8 @@ async function bootTheDevice() {
 
     return await bootLoader.verify();
   } catch (e) {
-    throw new Error(e, { cause: e });
+    traceError('boot-failed', e);
+    return false;
   }
 }
 
@@ -131,18 +154,55 @@ function normalizeUsbHotplugDevice(device) {
   return {
     manufacturer: null,
     deviceName: null,
-    productId: descriptor.idProduct || null,
-    vendorId: descriptor.idVendor || null,
+    productId: device?.productId ?? descriptor.idProduct ?? null,
+    vendorId: device?.vendorId ?? descriptor.idVendor ?? null,
     serialNumber: null,
     busNumber: device?.busNumber || null,
     deviceAddress: device?.deviceAddress || null,
   };
 }
 
+const pendingDisposals = new WeakMap();
+function disposeRendererSession(window) {
+  if (pendingDisposals.has(window)) return pendingDisposals.get(window);
+  const pending = new Promise((resolve) => {
+    let timer;
+    const finish = (event) => {
+      if (event && event.sender !== window.webContents) return;
+      clearTimeout(timer);
+      ipcMain.removeListener(
+        IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE,
+        finish,
+      );
+      trace('renderer-session-disposed', { acknowledged: !!event });
+      resolve();
+    };
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
+      resolve();
+      return;
+    }
+    ipcMain.on(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE, finish);
+    timer = setTimeout(finish, 1500);
+    try {
+      window.webContents.send(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP);
+    } catch (error) {
+      traceError('renderer-dispose-failed', error);
+      finish();
+    }
+  });
+  pendingDisposals.set(window, pending);
+  return pending;
+}
+
 async function createWindow() {
   try {
-    if (ENV_FLAVOR.allowDevelopmentEnvironment) {
-      await installExtensions();
+    if (
+      ENV_FLAVOR.allowDevelopmentEnvironment &&
+      process.env.OPENMTP_INSTALL_DEVTOOLS === '1'
+    ) {
+      void installExtensions().catch((error) =>
+        traceError('devtools-install-failed', error),
+      );
     }
 
     mainWindow = new BrowserWindow({
@@ -156,13 +216,16 @@ async function createWindow() {
         enableRemoteModule: true,
         nodeIntegration: true,
         contextIsolation: false,
-        webSecurity: !IS_DEV,
+        webSecurity: true,
       },
       backgroundColor: getWindowBackgroundColor(),
     });
 
-    remote.enable(mainWindow.webContents);
+    const window = mainWindow;
+    trace('window-created', { windowId: window.id });
+    remote.enable(window.webContents);
 
+    const consoleMessages = new Map();
     mainWindow.webContents.on('console-message', (details) => {
       const shouldLogConsoleMessage =
         process.env.OPENMTP_RENDERER_DIAGNOSTICS === '1' ||
@@ -173,9 +236,25 @@ async function createWindow() {
         return;
       }
 
+      const key = details.level + ':' + details.message;
+      const count = (consoleMessages.get(key) || 0) + 1;
+      if (consoleMessages.size >= 200 && !consoleMessages.has(key))
+        consoleMessages.clear();
+      consoleMessages.set(key, count);
+      if (count > 1 && count % 100 !== 0) return;
+      trace('renderer-console', {
+        count,
+        level: details.level,
+        message: details.message,
+        source: details.sourceId,
+        line: details.lineNumber,
+      });
       log.error(
         `[renderer-console:${details.level}] ${details.message} (${details.sourceId}:${details.lineNumber})`,
         'main.dev -> webContents -> console-message',
+        true,
+        false,
+        false,
       );
     });
 
@@ -200,6 +279,14 @@ async function createWindow() {
     );
 
     mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      trace('render-process-gone', details);
+      if (!app.quitting && details.reason !== 'clean-exit') {
+        dialog.showErrorBox(
+          'OpenMTP renderer stopped',
+          'The app renderer stopped unexpectedly. Restart OpenMTP. Details have been saved to the local logs.',
+        );
+        app.exit(1);
+      }
       log.error(
         `render-process-gone reason=${details?.reason} exitCode=${details?.exitCode}`,
         'main.dev -> webContents -> render-process-gone',
@@ -213,12 +300,9 @@ async function createWindow() {
       );
     });
 
-    mainWindow?.loadURL(`${PATHS.loadUrlPath}`);
-
-    mainWindow?.webContents?.on('did-finish-load', () => {
-      if (!mainWindow) {
-        throw new Error(`"mainWindow" is not defined`);
-      }
+    window.webContents.on('did-finish-load', () => {
+      if (window.isDestroyed()) return;
+      trace('did-finish-load', { windowId: window.id });
 
       if (process.env.OPENMTP_RENDERER_DIAGNOSTICS === '1') {
         setTimeout(() => {
@@ -265,11 +349,26 @@ async function createWindow() {
       log.error(error, `main.dev -> mainWindow -> onerror`);
     };
 
-    mainWindow.on('closed', () => {
-      mainWindow = null;
+    let disposedForClose = false;
+    window.on('close', (event) => {
+      if (app.quitting || disposedForClose) return;
+      event.preventDefault();
+      void disposeRendererSession(window).then(() => {
+        disposedForClose = true;
+        if (!window.isDestroyed()) window.close();
+        return null;
+      });
     });
+
+    window.on('closed', () => {
+      trace('window-closed', { windowId: window.id });
+      if (mainWindow === window) mainWindow = null;
+    });
+
+    await window.loadURL(`${PATHS.loadUrlPath}`);
   } catch (e) {
-    log.error(e, `main.dev -> createWindow`);
+    traceError('window-create-failed', e);
+    throw e;
   }
 }
 
@@ -277,28 +376,18 @@ async function createWindow() {
  * Checks whether device is ready to boot or not.
  * Here profile files are created if not found.
  */
-if (!isDeviceBootable) {
-  app.on('ready', async () => {
-    try {
-      nonBootableDeviceWindow();
-    } catch (e) {
-      throw new Error(e, { cause: e });
-    }
-  });
-
-  app.on('window-all-closed', () => {
-    try {
-      app.quit();
-    } catch (e) {
-      throw new Error(e, { cause: e });
-    }
-  });
+if (!isSingleInstance) {
+  trace('second-instance-exit');
+  app.quit();
 } else {
-  fixSettings();
-
   if (IS_PROD) {
     process.on('uncaughtException', (error) => {
       log.error(error, `main.dev -> process -> uncaughtException`);
+      dialog.showErrorBox(
+        'OpenMTP stopped unexpectedly',
+        error.message || String(error),
+      );
+      app.exit(1);
     });
 
     appEvents.on('error', (error) => {
@@ -307,7 +396,7 @@ if (!isDeviceBootable) {
 
     ipcMain.removeAllListeners('ELECTRON_BROWSER_WINDOW_ALERT');
     ipcMain.on('ELECTRON_BROWSER_WINDOW_ALERT', (event, message, title) => {
-      ipcMain.error(
+      log.error(
         message,
         `main.dev -> ipcMain -> on ELECTRON_BROWSER_WINDOW_ALERT -> ${title}`,
       );
@@ -316,25 +405,13 @@ if (!isDeviceBootable) {
     });
   }
 
-  if (!isSingleInstance) {
-    app.quit();
-  } else {
-    try {
-      app.on('second-instance', () => {
-        if (mainWindow) {
-          if (mainWindow.isMinimized()) {
-            mainWindow.restore();
-          }
-
-          mainWindow.focus();
-        }
-      });
-
-      app.on('ready', () => {});
-    } catch (e) {
-      log.error(e, `main.dev -> second-instance`);
+  app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
     }
-  }
+  });
 
   app.on('window-all-closed', () => {
     try {
@@ -349,15 +426,37 @@ if (!isDeviceBootable) {
   });
 
   IpcEventService.shared.start();
+  ipcMain.on('openmtp.storage-update', (event, request) => {
+    try {
+      event.returnValue = updateProfileStorage(request, [
+        PATHS.settingsFile,
+        PATHS.identifierFile,
+      ]);
+    } catch (error) {
+      traceError('storage-update-failed', error);
+      event.returnValue = { ok: false, error: error.message };
+    }
+  });
+  ipcMain.on('openmtp.renderer-ready', (_event, details) =>
+    trace('renderer-ready', details),
+  );
 
   app
     .whenReady()
     // oxlint-disable-next-line promise/always-return
     .then(async () => {
       try {
+        const isDeviceBootable = await bootTheDevice();
+        trace(isDeviceBootable ? 'boot-ready' : 'boot-failed');
+        if (!isDeviceBootable) {
+          const failureWindow = nonBootableDeviceWindow();
+          failureWindow.once('closed', () => app.quit());
+          return;
+        }
+        fixSettings();
         await createWindow();
 
-        let appUpdaterEnable = true;
+        let appUpdaterEnable = isPackaged;
 
         if (isPackaged && process.platform === 'darwin') {
           appUpdaterEnable = !isMas && app.isInApplicationsFolder();
@@ -396,7 +495,7 @@ if (!isDeviceBootable) {
         }
 
         // send attach and detach events to the renderer
-        usbAttachListener = (device) => {
+        usbAttachListener = ({ device }) => {
           if (!mainWindow) {
             return;
           }
@@ -407,7 +506,7 @@ if (!isDeviceBootable) {
           });
         };
 
-        usbDetachListener = (device) => {
+        usbDetachListener = ({ device }) => {
           if (!mainWindow) {
             return;
           }
@@ -418,17 +517,14 @@ if (!isDeviceBootable) {
           });
         };
 
-        usbMonitor.on('attach', usbAttachListener);
-        usbMonitor.on('detach', usbDetachListener);
-        usbMonitor.unrefHotplugEvents?.();
-
-        process.stdout.on('error', (err) => {
-          if (err.code === 'EPIPE') {
-            process.exit(0);
-          }
-        });
+        usbMonitor.addEventListener('connect', usbAttachListener);
+        usbMonitor.addEventListener('disconnect', usbDetachListener);
       } catch (e) {
+        traceError('startup-failed', e);
         log.error(e, `main.dev -> whenReady`);
+        dialog.showErrorBox('OpenMTP could not start', e?.message || String(e));
+        app.exit(1);
+        return;
       }
 
       app.on('activate', async () => {
@@ -449,12 +545,12 @@ if (!isDeviceBootable) {
 
   app.on('before-quit', (event) => {
     if (usbAttachListener) {
-      usbMonitor.off('attach', usbAttachListener);
+      usbMonitor.removeEventListener('connect', usbAttachListener);
       usbAttachListener = null;
     }
 
     if (usbDetachListener) {
-      usbMonitor.off('detach', usbDetachListener);
+      usbMonitor.removeEventListener('disconnect', usbDetachListener);
       usbDetachListener = null;
     }
 
@@ -468,25 +564,10 @@ if (!isDeviceBootable) {
       event.preventDefault();
       app.isMtpDisposeForQuitDone = true;
 
-      const finishQuit = () => {
-        ipcMain.removeListener(
-          IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE,
-          finishQuit,
-        );
-
-        if (app.mtpDisposeQuitFallbackTimer) {
-          clearTimeout(app.mtpDisposeQuitFallbackTimer);
-          app.mtpDisposeQuitFallbackTimer = null;
-        }
-
+      void disposeRendererSession(mainWindow).then(() => {
         app.quitting = true;
-        app.quit();
-      };
-
-      ipcMain.once(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP_DONE, finishQuit);
-      mainWindow.webContents.send(IpcEvents.APP_BEFORE_QUIT_DISPOSE_MTP);
-
-      app.mtpDisposeQuitFallbackTimer = setTimeout(finishQuit, 1500);
+        return app.quit();
+      });
 
       return;
     }

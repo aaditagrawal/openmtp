@@ -1,5 +1,5 @@
 {
-  "extends": ["stylelint-config-standard"],
+  "extends": ["stylelint-config-recommended-scss"],
   "rules": {
     "color-function-notation": null,
     "value-no-vendor-prefix": null,
@@ -18,5 +18,16 @@
     "at-rule-no-unknown": null,
     "import-notation": null,
     "no-descending-specificity": null
-  }
+  },
+  "overrides": [
+    {
+      "files": ["app/styles/scss/base/mixins/**/*.scss"],
+      "rules": {
+        "scss/no-global-function-names": null,
+        "scss/comment-no-empty": null,
+        "scss/operator-no-unspaced": null,
+        "property-no-deprecated": null
+      }
+    }
+  ]
 }

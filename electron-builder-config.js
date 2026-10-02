@@ -12,12 +12,8 @@ const getBinariesSupportedSystemArchitecture = () => {
 };
 
 const shouldSignMacBuild = () =>
-  Boolean(
-    process.env.CI ||
-    process.env.CSC_LINK ||
-    process.env.CSC_NAME ||
-    process.env.APPLEID,
-  );
+  process.env.OPENMTP_UNSIGNED !== '1' &&
+  Boolean(process.env.CSC_LINK || process.env.CSC_NAME || process.env.APPLEID);
 
 module.exports = () => {
   const signMacBuild = shouldSignMacBuild();
@@ -62,10 +58,16 @@ module.exports = () => {
     afterPack: './internals/scripts/AfterPack.js',
     afterSign: signMacBuild ? './internals/scripts/Notarize.js' : undefined,
     npmRebuild: false,
+    asarUnpack: [
+      'node_modules/@koromix/**/*',
+      'node_modules/@node-usb/**/*',
+      'node_modules/usb/**/*.node',
+      'node_modules/node-mac-permissions/**/*.node',
+    ],
     publish: [
       {
         provider: 'github',
-        owner: 'ganeshrvel',
+        owner: 'aaditagrawal',
         repo: 'openmtp',
         private: false,
       },
@@ -78,6 +80,11 @@ module.exports = () => {
       'package.json',
     ],
     extraFiles: getExtraFiles(),
+    // Directory-only local builds also need an updater config; never fall back
+    // to the upstream app's releases and replace this fork's custom UI.
+    extraResources: [
+      { from: 'config/dev-app-update.yml', to: 'app-update.yml' },
+    ],
     mac: {
       type: 'distribution',
       icon: 'build/icon.icns',
@@ -88,7 +95,7 @@ module.exports = () => {
       entitlementsInherit: './build/entitlements.mac.plist',
       identity: signMacBuild ? undefined : null,
       extendInfo: {
-        LSMinimumSystemVersion: '10.11.0',
+        LSMinimumSystemVersion: '13.0.0',
         NSDesktopFolderUsageDescription: 'Desktop folder access',
         NSDocumentsFolderUsageDescription: 'Documents folder access',
         NSDownloadsFolderUsageDescription: 'Downloads folder access',

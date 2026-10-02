@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import Button from '@material-ui/core/Button';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
 import { styles } from './styles';
 import { imgsrc } from '../../utils/imgsrc';
 import GenerateErrorReport from './components/GenerateErrorReport';
@@ -74,4 +74,4 @@ class ErrorBoundary extends Component {
   }
 }
 
-export default withStyles(styles)(ErrorBoundary);
+export default withStyles(ErrorBoundary, styles);

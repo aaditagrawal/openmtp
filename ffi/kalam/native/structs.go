@@ -6,6 +6,7 @@ import (
 
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
+	"github.com/ganeshrvel/usb"
 )
 
 type verifyMtpSessionMode struct {
@@ -13,6 +14,7 @@ type verifyMtpSessionMode struct {
 }
 
 type deviceContainer struct {
+	context    *usb.Context
 	dev        *mtp.Device
 	deviceInfo *mtp.DeviceInfo
 	mu         sync.Mutex
