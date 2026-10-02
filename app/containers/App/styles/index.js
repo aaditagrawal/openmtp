@@ -133,10 +133,10 @@ export const materialUiTheme = ({ ...args }) => {
 
   return {
     palette: {
+      mode: appThemeMode,
       ...palette,
     },
     typography: {
-      useNextVariants: true,
       fontSize: variables().sizes.regularFontSize,
       fontFamily: fontFamily.default,
     },
@@ -158,15 +158,19 @@ export const materialUiTheme = ({ ...args }) => {
         sharp: fastEasing,
       },
     },
-    props: {
-      MuiDialog: {
-        transitionDuration: dialogDuration,
+    components: {
+      // Retain the fork's flat dark surfaces. Modern MUI otherwise applies a
+      // white elevation overlay to dialogs and other elevated Paper elements.
+      MuiPaper: {
+        styleOverrides: { root: { backgroundImage: 'none' } },
       },
-    },
-
-    overrides: {
+      MuiDialog: { defaultProps: { transitionDuration: dialogDuration } },
+      MuiTextField: { defaultProps: { variant: 'standard' } },
+      MuiCheckbox: { defaultProps: { color: 'secondary' } },
+      MuiRadio: { defaultProps: { color: 'secondary' } },
+      MuiSwitch: { defaultProps: { color: 'secondary' } },
       MuiCssBaseline: {
-        '@global': {
+        styleOverrides: {
           html: {
             '--app-bg-color': palette.background.paper,
             '--app-secondary-main-color': palette.secondary.main,
@@ -205,28 +209,39 @@ export const materialUiTheme = ({ ...args }) => {
       // and table rows — background-color/color/box-shadow/border-color
       // only, so nothing here ever triggers layout.
       MuiButtonBase: {
-        root: {
-          transition: interactionTransition,
+        styleOverrides: {
+          root: {
+            transition: interactionTransition,
+          },
         },
       },
       MuiIconButton: {
-        root: {
-          transition: interactionTransition,
+        defaultProps: { size: 'large' },
+        styleOverrides: {
+          root: {
+            transition: interactionTransition,
+          },
         },
       },
       MuiButton: {
-        root: {
-          transition: interactionTransition,
+        styleOverrides: {
+          root: {
+            transition: interactionTransition,
+          },
         },
       },
-      MuiListItem: {
-        root: {
-          transition: interactionTransition,
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            transition: interactionTransition,
+          },
         },
       },
       MuiTableRow: {
-        root: {
-          transition: `background-color ${fastDuration}ms ${fastEasing}`,
+        styleOverrides: {
+          root: {
+            transition: `background-color ${fastDuration}ms ${fastEasing}`,
+          },
         },
       },
     },

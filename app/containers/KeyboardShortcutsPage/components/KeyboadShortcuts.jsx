@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { styles } from '../styles/KeyboadShortcuts';
 import KbdRender from './KbdRender';
 
@@ -15,4 +15,4 @@ class KeyboadShortcuts extends PureComponent {
   }
 }
 
-export default withStyles(styles)(KeyboadShortcuts);
+export default withStyles(KeyboadShortcuts, styles);

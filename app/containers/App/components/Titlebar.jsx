@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { styles } from '../styles/Titlebar';
 import { toggleWindowSizeOnDoubleClick } from '../../../helpers/titlebarDoubleClick';
 import { APP_TITLEBAR_DOM_ID } from '../../../constants/dom';
@@ -46,4 +46,4 @@ class Titlebar extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Titlebar);
+export default withStyles(Titlebar, styles);

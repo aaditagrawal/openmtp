@@ -1,4 +1,7 @@
 const path = require('path');
+const { createElement } = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+const PrivacyPolicyContent = require('../../shared/privacyPolicy');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { merge } = require('webpack-merge');
 const devConfig = require('./webpack.config.dev');
@@ -13,7 +16,7 @@ const baseConfig = {
     index: './docs-sources/index.js',
   },
   output: {
-    filename: 'bundle/[name].[hash:20].js',
+    filename: 'bundle/[name].[contenthash:20].js',
     path: buildPath,
     assetModuleFilename: 'bundle/[name].[hash:20][ext]',
   },
@@ -34,6 +37,19 @@ const baseConfig = {
 
     new HtmlWebpackPlugin({
       template: './docs-sources/templates/privacy.html',
+      templateParameters: {
+        privacyPolicy: renderToStaticMarkup(
+          createElement(PrivacyPolicyContent, {
+            appName: 'OpenMTP',
+            authorName: 'Ganesh Rathinavel',
+            authorEmail: 'ganeshrvel@outlook.com',
+            contactUrl: 'https://github.com/ganeshrvel',
+            profileDir:
+              '$HOME/Library/Application Support/io.ganeshrvel.openmtp',
+            website: true,
+          }),
+        ),
+      },
       inject: true,
       chunks: ['privacy'],
       filename: 'privacy.html',
@@ -49,9 +65,12 @@ const baseConfig = {
     rules: [
       {
         test: /\.js$/,
+        type: 'javascript/auto',
         exclude: /node_modules/,
         loader: 'babel-loader',
         options: {
+          configFile: false,
+          babelrc: false,
           presets: [
             [
               '@babel/preset-env',

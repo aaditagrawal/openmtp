@@ -1,82 +1,58 @@
-import { spawn } from 'child_process';
+import { execFile } from 'child_process';
 import { checkIf } from './checkIf';
 import { log } from './log';
 
-const PGREP_TIMEOUT_MS = 1500;
+let pendingSnapshot = null;
+let cachedSnapshot = null;
+let cachedAt = 0;
 
-/**
- * Fast process lookup via macOS `pgrep`.
- * Prefer exact-ish path fragments (e.g. `Preview.app`) over short names.
- */
-export const isProcessRunning = (query) => {
-  checkIf(query, 'string');
+// Inspect executable names, never command arguments. Parallel pgrep -f calls
+// used to match each other's search strings and invent USB conflicts.
+export const matchesProcessName = (executable, query) =>
+  executable.toLowerCase().includes(query.toLowerCase());
 
-  return new Promise((resolve) => {
-    let settled = false;
-    let timer = null;
-
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-
-      if (timer !== null) {
-        clearTimeout(timer);
-        timer = null;
-      }
-
-      resolve(value);
-    };
-
-    try {
-      const child = spawn('pgrep', ['-if', query], {
-        stdio: ['ignore', 'ignore', 'ignore'],
-      });
-
-      child.on('error', (e) => {
-        log.error(e, 'isProcessRunning -> spawn');
-        finish(false);
-      });
-
-      child.on('close', (code) => {
-        finish(code === 0);
-      });
-
-      // Avoid hanging forever if pgrep is stuck.
-      timer = setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch (_) {
-          // ignore
+const getProcessNames = () => {
+  if (cachedSnapshot && Date.now() - cachedAt < 1000) {
+    return Promise.resolve(cachedSnapshot);
+  }
+  if (pendingSnapshot) return pendingSnapshot;
+  pendingSnapshot = new Promise((resolve) => {
+    execFile(
+      '/bin/ps',
+      ['-axo', 'comm='],
+      { timeout: 1500, maxBuffer: 4 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          log.error(error, 'getProcessNames');
+          resolve([]);
+          return;
         }
-
-        finish(false);
-      }, PGREP_TIMEOUT_MS);
-
-      // Don't keep the event loop alive solely for this watchdog.
-      if (typeof timer.unref === 'function') {
-        timer.unref();
-      }
-    } catch (e) {
-      log.error(e, 'isProcessRunning -> err');
-      finish(false);
-    }
+        cachedSnapshot = stdout
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        cachedAt = Date.now();
+        resolve(cachedSnapshot);
+      },
+    );
+  }).finally(() => {
+    pendingSnapshot = null;
   });
+  return pendingSnapshot;
+};
+
+export const isProcessRunning = async (query) => {
+  checkIf(query, 'string');
+  return (await getProcessNames()).some((name) =>
+    matchesProcessName(name, query),
+  );
 };
 
 export const isAnyProcessRunning = async (queries = []) => {
   checkIf(queries, 'array');
-
-  if (queries.length === 0) {
-    return false;
-  }
-
-  // Parallel lookups: common case is "none running"; wall time ≈ one pgrep.
-  const results = await Promise.all(
-    queries.map((query) => isProcessRunning(query)),
+  if (queries.length === 0) return false;
+  const names = await getProcessNames();
+  return queries.some((query) =>
+    names.some((name) => matchesProcessName(name, query)),
   );
-
-  return results.some(Boolean);
 };

@@ -45,7 +45,7 @@ export function checkIf(value, condition, comparator) {
   }
 
   if (condition === 'undefinedOrNull') {
-    return assert.null(value) || assert.undefined(value);
+    return assert.nullOrUndefined(value);
   }
 
   if (condition === 'null') {

@@ -1,8 +1,8 @@
 import { ipcRenderer } from 'electron';
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import Typography from '@material-ui/core/Typography';
+import { withStyles } from 'tss-react/mui';
+import LinearProgress from '@mui/material/LinearProgress';
+import Typography from '@mui/material/Typography';
 import { styles } from './styles';
 
 class ProgressbarPage extends Component {
@@ -21,17 +21,19 @@ class ProgressbarPage extends Component {
     };
   }
 
-  componentWillMount() {
-    ipcRenderer.on(
-      'appUpdatesProgressBarCommunication',
-      (event, { ...args }) => {
-        this.setState({ ...args });
-      },
-    );
+  handleProgress = (_event, args) => {
+    this.setState({ ...args });
+  };
+
+  componentDidMount() {
+    ipcRenderer.on('appUpdatesProgressBarCommunication', this.handleProgress);
   }
 
   componentWillUnmount() {
-    ipcRenderer.removeListener('appUpdatesProgressBarCommunication', () => {});
+    ipcRenderer.removeListener(
+      'appUpdatesProgressBarCommunication',
+      this.handleProgress,
+    );
   }
 
   render() {
@@ -52,4 +54,4 @@ class ProgressbarPage extends Component {
   }
 }
 
-export default withStyles(styles)(ProgressbarPage);
+export default withStyles(ProgressbarPage, styles);

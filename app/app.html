@@ -58,12 +58,6 @@
       if (typeof process === 'object') {
         const scripts = [];
 
-        if (process.env.NODE_ENV === 'development') {
-          // Dynamically insert the DLL script in development env in the
-          // renderer process (file:// relative to app/app.html → ../dll/).
-          scripts.push('../dll/renderer.dev.dll.js');
-        }
-
         // Packaged / production: always ./dist/renderer.prod.js (no START_HOT).
         // Dev + START_HOT: load webpack writeToDisk output next to app.html
         // (./renderer.dev.js). Do not use http://localhost here — Electron
@@ -90,7 +84,7 @@
                 (script) =>
                   `<script defer src="${script}"${
                     diagnosticsEnabled
-                      ? ` onload="console.error('[renderer-script-load] ${script}')"` +
+                      ? ` onload="console.info('[renderer-script-load] ${script}')"` +
                         ` onerror="console.error('[renderer-script-error] ${script}')"`
                       : ''
                   }><\/script>`,

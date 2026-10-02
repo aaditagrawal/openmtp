@@ -5,11 +5,10 @@
  * Note: Don't import log helper file from utils here
  */
 
-import { readdirSync } from 'fs';
+import { readdirSync, promises as fs } from 'fs';
 import { PATHS } from '../constants/paths';
 import {
   fileExistsSync,
-  writeFileAsync,
   createDirSync,
   deleteFilesSync,
 } from '../helpers/fileOps';
@@ -17,13 +16,13 @@ import { dateNow, daysDiff } from '../utils/date';
 import { LOG_FILE_ROTATION_CLEANUP_THRESHOLD } from '../constants';
 import { baseName } from '../utils/files';
 
-const { logFile, settingsFile, logDir, prevProfileDir } = PATHS;
+const { logFile, settingsFile, logDir } = PATHS;
 const logFileRotationCleanUpThreshold = LOG_FILE_ROTATION_CLEANUP_THRESHOLD;
 
 export default class Boot {
   constructor() {
     this.verifyDirList = [logDir];
-    this.verifyFileList = [logFile];
+    this.verifyFileList = [logFile, settingsFile];
     this.settingsFile = settingsFile;
   }
 
@@ -49,12 +48,6 @@ export default class Boot {
         }
       }
 
-      // if the previous version of the profile directory exists then remove it
-      // issue: https://github.com/ganeshrvel/openmtp/issues/143
-      if (await this.verifyDir(prevProfileDir)) {
-        await deleteFilesSync(prevProfileDir);
-      }
-
       return true;
     } catch (e) {
       console.error(e);
@@ -63,7 +56,7 @@ export default class Boot {
 
   async verify() {
     try {
-      for (let i = 0; i < this.verifyFileList.length; i += 1) {
+      for (let i = 0; i < this.verifyDirList.length; i += 1) {
         const item = this.verifyDirList[i];
 
         if (!(await this.verifyDir(item))) {
@@ -94,6 +87,7 @@ export default class Boot {
           return false;
         }
       }
+      return true;
     } catch (e) {
       console.error(e);
     }
@@ -123,11 +117,15 @@ export default class Boot {
     }
   }
 
-  createFile(filePath) {
+  async createFile(filePath) {
+    // Exclusive creation cannot truncate settings created by another process.
     try {
-      writeFileAsync(filePath, ``);
-    } catch (e) {
-      console.error(e);
+      await fs.writeFile(filePath, filePath === this.settingsFile ? '{}' : '', {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
     }
   }
 

@@ -1,5 +1,4 @@
-import { platform, release } from 'os';
-import macosVersion from 'macos-version';
+import { platform } from 'os';
 import { OS_ARCH_TYPE } from '../constants';
 
 export const getPlatform = () => {
@@ -27,12 +26,4 @@ export const getBinariesSupportedSystemArchitecture = () => {
   }
 
   return OS_ARCH_TYPE.amd64;
-};
-
-export const getOsVersion = () => {
-  if (macosVersion.isMacOS) {
-    return macosVersion();
-  }
-
-  return release();
 };

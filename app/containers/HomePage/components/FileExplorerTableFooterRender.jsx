@@ -1,6 +1,6 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import TableFooter from '@material-ui/core/TableFooter';
+import { withStyles } from 'tss-react/mui';
+import TableFooter from '@mui/material/TableFooter';
 import { styles } from '../styles/FileExplorerTableFooterRender';
 import Breadcrumb from '../../../components/Breadcrumb';
 import FileExplorerTableFooterStatusBarRender from './FileExplorerTableFooterStatusBarRender';
@@ -38,4 +38,4 @@ class FileExplorerTableFooterRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableFooterRender);
+export default withStyles(FileExplorerTableFooterRender, styles);

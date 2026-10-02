@@ -1,9 +1,9 @@
 import { ipcRenderer } from 'electron';
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import Button from '@material-ui/core/Button';
-import { Helmet } from 'react-helmet';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import { Helmet } from 'react-helmet-async';
 import sanitizeHtml from 'sanitize-html';
 import { styles } from './styles';
 import * as releaseNotesStyles from './styles/release-notes.scss';
@@ -50,13 +50,15 @@ class AppUpdatePage extends Component {
     };
   }
 
-  componentWillMount() {
-    ipcRenderer.on('appUpdatesUpdateAvailableCommunication', (event, args) => {
-      this.setState({ releaseInfo: { ...args } });
-    });
-  }
+  handleUpdateAvailable = (_event, args) => {
+    this.setState({ releaseInfo: { ...args } });
+  };
 
   componentDidMount() {
+    ipcRenderer.on(
+      'appUpdatesUpdateAvailableCommunication',
+      this.handleUpdateAvailable,
+    );
     const appThemeMode = getAppThemeMode();
     const { nativeSystemColor } = getCurrentThemePalette(appThemeMode);
 
@@ -68,9 +70,8 @@ class AppUpdatePage extends Component {
   componentWillUnmount() {
     ipcRenderer.removeListener(
       'appUpdatesUpdateAvailableCommunication',
-      () => {},
+      this.handleUpdateAvailable,
     );
-    ipcRenderer.removeListener('appUpdatesUpdateAvailableReply', () => {});
   }
 
   _handleBtnClick = ({ confirm }) => {
@@ -150,4 +151,4 @@ class AppUpdatePage extends Component {
   }
 }
 
-export default withStyles(styles)(AppUpdatePage);
+export default withStyles(AppUpdatePage, styles);

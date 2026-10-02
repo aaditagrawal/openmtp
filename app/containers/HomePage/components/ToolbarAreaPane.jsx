@@ -3,12 +3,10 @@
 import React, { PureComponent, Fragment } from 'react';
 import { ipcRenderer } from 'electron';
 import classNames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { styles } from '../styles/ToolbarAreaPane';
-import { withReducer } from '../../../store/reducers/withReducer';
-import reducers from '../reducers';
 import {
   listDirectory,
   churnMtpBuffer,
@@ -66,7 +64,7 @@ class ToolbarAreaPane extends PureComponent {
     };
   }
 
-  componentWillMount() {
+  componentDidMount() {
     ipcRenderer.on(
       'fileExplorerToolbarActionCommunication',
       this.fileExplorerToolbarActionCommunicationEvent,
@@ -591,12 +589,7 @@ const mapStateToProps = (state, __) => {
   };
 };
 
-export default withReducer(
-  'Home',
-  reducers,
-)(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  )(withStyles(styles)(ToolbarAreaPane)),
-);
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withStyles(ToolbarAreaPane, styles));

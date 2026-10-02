@@ -1,9 +1,9 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import Checkbox from '@material-ui/core/Checkbox';
-import Tooltip from '@material-ui/core/Tooltip';
+import { withStyles } from 'tss-react/mui';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import Checkbox from '@mui/material/Checkbox';
+import Tooltip from '@mui/material/Tooltip';
 import classNames from 'classnames';
 import { niceBytes, springTruncate } from '../../../utils/funcs';
 import { FILE_EXPLORER_TABLE_TRUNCATE_MAX_CHARS } from '../../../constants';
@@ -101,7 +101,7 @@ class FileExplorerTableBodyListRender extends PureComponent {
         </TableCell>
         {hideColList.indexOf('name') < 0 && (
           <TableCell
-            padding="default"
+            padding="normal"
             onClick={(event) => onTableClick(item.path, deviceType, event)}
             className={`${styles.tableCell} nameCell`}
             onContextMenu={(event) =>
@@ -172,4 +172,4 @@ class FileExplorerTableBodyListRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableBodyListRender);
+export default withStyles(FileExplorerTableBodyListRender, styles);

@@ -4,10 +4,9 @@
 
 import 'zx/globals';
 import fs from 'fs-extra';
-import { packageDirectory } from 'pkg-dir';
-import replace from 'replace';
+import { packageDirectory } from 'package-directory';
 import { styleText } from 'util';
-import macosVersion from 'macos-version';
+import { isMacOSVersion } from 'macos-version';
 
 await $`export LANG=en_US.UTF-8`;
 await $`export LC_ALL=en_US.UTF-8`;
@@ -84,14 +83,14 @@ const historicalLibusbBrewBottles = {
 };
 
 function buildCompatibilityChecks() {
-  if (macosVersion.is('<10.14')) {
+  if (isMacOSVersion('<10.14')) {
     throw new Error(
       'To build the Kalam dylib files at least macOS >=10.14 is required',
     );
   }
 
   for (const [, value] of Object.entries(KALAM_HISTORIC_MACOS_VERSION_RANGE)) {
-    if (macosVersion.is(value)) {
+    if (isMacOSVersion(value)) {
       isBuildingOnAHistoricMacOs = true;
 
       console.info(
@@ -235,13 +234,14 @@ async function runPrerequisites({ bottles }) {
       console.info(
         `[${bottlePath.identifier}] replacing the string '@@HOMEBREW_CELLAR@@' in the pkg-config file...\n`,
       );
-      await replace({
-        regex: '@@HOMEBREW_CELLAR@@',
-        replacement: bottlePath.pkgConfigPrefix,
-        paths: [bottlePath.pkgconfig],
-        recursive: false,
-        silent: false,
-      });
+      const configText = await fs.readFile(bottlePath.pkgconfig, 'utf8');
+      await fs.writeFile(
+        bottlePath.pkgconfig,
+        configText.replaceAll(
+          '@@HOMEBREW_CELLAR@@',
+          bottlePath.pkgConfigPrefix,
+        ),
+      );
     } else {
       console.info(
         `skipping the processing of the pkg config which was downloaded from the custom file path`,
@@ -255,11 +255,6 @@ async function runPrerequisites({ bottles }) {
       );
 
       await fs.ensureDirSync(bottlePath.buildDir, DIR_MODE);
-      await fs.copyFileSync(
-        bottlePath.libusbDylib,
-        bottlePath.libusbDylibInBuildDir,
-      );
-
       // fixing the rpath in the libusb-1.0.0.dylib
       console.info(
         `[${bottlePath.identifier}] fixing the rpath in the libusb-1.0.0.dylib...\n`,
@@ -268,6 +263,10 @@ async function runPrerequisites({ bottles }) {
       // todo: FIXME
       //  strangely the `install_name_tool` command doesnt work on a macos monterey dylib file
       await $`install_name_tool -id ${bottlePath.rpath} ${bottlePath.libusbDylib}`;
+      await fs.copyFileSync(
+        bottlePath.libusbDylib,
+        bottlePath.libusbDylibInBuildDir,
+      );
     } else {
       console.info(
         `skipping the processing of the libusb dylib which was downloaded from the custom file path`,
@@ -304,7 +303,7 @@ for await (const [, bottle] of Object.entries(chosenBottlesForBuilding)) {
         GOARCH=${bottle.arch} GOOS=${bottle.os} \
         go build \
         -v -a -trimpath \
-        -o ${bottlePath.kalamDylibInBuildDir} -buildmode=c-shared ./*.go
+        -o ${bottlePath.kalamDylibInBuildDir} -buildmode=c-shared .
         )`;
 
   // building kalam_debug_report
@@ -316,6 +315,6 @@ for await (const [, bottle] of Object.entries(chosenBottlesForBuilding)) {
         GOARCH=${bottle.arch} GOOS=${bottle.os} \
         go build \
         -v -a -trimpath \
-        -o ${bottlePath.kalamDebugReportInBuildDir} kalam_debug_report/*.go
+        -o ${bottlePath.kalamDebugReportInBuildDir} ./kalam_debug_report
         )`;
 }

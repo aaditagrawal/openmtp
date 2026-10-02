@@ -1,5 +1,4 @@
-import green from '@material-ui/core/colors/green';
-import amber from '@material-ui/core/colors/amber';
+import { green, amber } from '@mui/material/colors';
 
 export const styles = (theme) => ({
   success: {

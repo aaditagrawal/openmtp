@@ -6,26 +6,27 @@
 const isDev = process.env.NODE_ENV !== 'production';
 const isProd = process.env.NODE_ENV === 'production';
 const isDebug = process.env.DEBUG_PROD === 'true';
+const telemetryEnabled =
+  process.env.OPENMTP_TELEMETRY === '1' && process.env.NODE_ENV !== 'test';
 
 const config = {
   dev: {
     reportToSenty: false,
-    enableGoogleAnalytics: false,
     enableMixpanelAnalytics: false,
-    disableReactWarnings: true,
+    disableReactWarnings: false,
     allowDevelopmentEnvironment: true,
   },
   prod: {
-    reportToSenty: true,
-    enableGoogleAnalytics: true,
-    enableMixpanelAnalytics: true,
+    reportToSenty: telemetryEnabled && Boolean(process.env.OPENMTP_SENTRY_DSN),
+    enableMixpanelAnalytics:
+      telemetryEnabled && Boolean(process.env.OPENMTP_MIXPANEL_TOKEN),
     disableReactWarnings: false,
     allowDevelopmentEnvironment: false,
   },
   debug: {
-    reportToSenty: true,
-    enableGoogleAnalytics: true,
-    enableMixPanelAnalytics: true,
+    reportToSenty: telemetryEnabled && Boolean(process.env.OPENMTP_SENTRY_DSN),
+    enableMixpanelAnalytics:
+      telemetryEnabled && Boolean(process.env.OPENMTP_MIXPANEL_TOKEN),
     disableReactWarnings: false,
     allowDevelopmentEnvironment: true,
   },

@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Provider } from 'react-redux';
+import { HelmetProvider } from 'react-helmet-async';
 import '../../helpers/console';
 
 import App from '.';
@@ -10,7 +11,9 @@ export default class Root extends Component {
 
     return (
       <Provider store={store}>
-        <App />
+        <HelmetProvider>
+          <App />
+        </HelmetProvider>
       </Provider>
     );
   }

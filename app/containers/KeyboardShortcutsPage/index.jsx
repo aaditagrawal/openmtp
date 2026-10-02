@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import { Helmet } from 'react-helmet';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import { Helmet } from 'react-helmet-async';
 import { APP_TITLE } from '../../constants/meta';
 import { resetOverFlowY } from '../../utils/styleResets';
 import { styles } from './styles';
@@ -9,7 +9,7 @@ import KeyboadShortcuts from './components/KeyboadShortcuts';
 import { KEYBOARD_SHORTCUTS_PAGE_TITLE } from '../../templates/keyboardShortcutsPage';
 
 class KeyboardShortcutsPage extends Component {
-  componentWillMount() {
+  componentDidMount() {
     resetOverFlowY();
   }
 
@@ -32,4 +32,4 @@ class KeyboardShortcutsPage extends Component {
   }
 }
 
-export default withStyles(styles)(KeyboardShortcutsPage);
+export default withStyles(KeyboardShortcutsPage, styles);

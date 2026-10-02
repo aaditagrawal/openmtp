@@ -1,10 +1,10 @@
 package send_to_js
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
-	jsoniter "github.com/json-iterator/go"
 	"strings"
 )
 
@@ -73,8 +73,11 @@ func processError(e error) (errorType ErrorType, errorMsg string) {
 
 	// this is a fallthrough case while processing errors
 	if errorType == "" {
-		if e.Error() == "ErrorMtpDetectFailed" {
+		if strings.HasPrefix(e.Error(), "ErrorMtpDetectFailed") {
 			errorType = ErrorMtpDetectFailed
+			errorMsg = e.Error()
+		} else if strings.HasPrefix(e.Error(), "ErrorDeviceSetup") {
+			errorType = ErrorDeviceSetup
 			errorMsg = e.Error()
 		} else if e.Error() == "ErrorMtpLockExists" {
 			errorType = ErrorMtpLockExists
@@ -115,12 +118,11 @@ func processError(e error) (errorType ErrorType, errorMsg string) {
 
 // convert struct to json which will be sent to JS function
 func toJson(o interface{}) string {
-	var json = jsoniter.ConfigFastest
 	w, err := json.Marshal(&o)
 	if err != nil {
 		fmt.Printf("error occured in SendError.json.Marshal %+v: ", err)
 
-		return ""
+		return `{"error":"Failed to encode native result","errorType":"ErrorGeneral","data":null}`
 	}
 
 	return string(w)

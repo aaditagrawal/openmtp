@@ -1,6 +1,6 @@
 import React from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import CircularProgress from '@material-ui/core/CircularProgress';
+import { withStyles } from 'tss-react/mui';
+import CircularProgress from '@mui/material/CircularProgress';
 import { styles } from './styles';
 
 function LoadingIndicator(props) {
@@ -17,4 +17,4 @@ function LoadingIndicator(props) {
   );
 }
 
-export default withStyles(styles)(LoadingIndicator);
+export default withStyles(LoadingIndicator, styles);

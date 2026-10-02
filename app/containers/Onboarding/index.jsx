@@ -1,17 +1,15 @@
 import React, { PureComponent } from 'react';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { withStyles } from '@material-ui/core/styles';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import Button from '@material-ui/core/Button';
-import Divider from '@material-ui/core/Divider';
+import { withStyles } from 'tss-react/mui';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import { styles } from './styles';
 import { setOnboarding } from '../Settings/actions';
-import { withReducer } from '../../store/reducers/withReducer';
-import reducers from '../Alerts/reducers';
 import { makeFreshInstall, makeOnboarding } from '../Settings/selectors';
 import WhatsNew from './components/WhatsNew';
 import Features from './components/Features';
@@ -51,14 +49,11 @@ class Onboarding extends PureComponent {
 
     return (
       <Dialog
-        disableBackdropClick
-        disableEscapeKeyDown
         className={styles.root}
         fullWidth
         maxWidth="md"
         scroll="paper"
         aria-labelledby="onboaring-dialogbox"
-        onClose={() => this._handleClose()}
         open={fireOnboarding}
       >
         <DialogTitle>Release at a Glance!</DialogTitle>
@@ -102,7 +97,7 @@ const mapStateToProps = (state, __) => {
   };
 };
 
-export default withReducer(
-  'App',
-  reducers,
-)(connect(mapStateToProps, mapDispatchToProps)(withStyles(styles)(Onboarding)));
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withStyles(Onboarding, styles));

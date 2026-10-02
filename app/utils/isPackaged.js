@@ -1,3 +1,1 @@
-import { isPackaged as _isPackaged } from 'electron-is-packaged';
-
-export const isPackaged = _isPackaged;
+export { isPackaged } from './runtimePaths';

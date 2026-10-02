@@ -3,7 +3,6 @@
  */
 
 import path from 'path';
-import { rm } from 'fs/promises';
 import webpack from 'webpack';
 import { merge } from 'webpack-merge';
 import TerserPlugin from 'terser-webpack-plugin';
@@ -21,15 +20,6 @@ const sentryWebpackPlugin = createSentryWebpackPlugin({
   rewrite: false,
   release: pkginfo.version,
 });
-
-/** Clean renderer dist before main prod build (output.path is repo root). */
-class CleanDistPlugin {
-  apply(compiler) {
-    compiler.hooks.beforeRun.tapPromise('CleanDistPlugin', async () => {
-      await rm(PATHS.dist, { recursive: true, force: true });
-    });
-  }
-}
 
 export default merge(baseConfig, {
   devtool: 'source-map',
@@ -60,23 +50,12 @@ export default merge(baseConfig, {
   },
 
   plugins: [
-    new CleanDistPlugin(),
-
     new BundleAnalyzerPlugin({
       analyzerMode:
         process.env.OPEN_ANALYZER === 'true' ? 'server' : 'disabled',
       openAnalyzer: process.env.OPEN_ANALYZER === 'true',
     }),
 
-    /**
-     * Create global constants which can be configured at compile time.
-     *
-     * Useful for allowing different behaviour between development builds and
-     * release builds
-     *
-     * NODE_ENV should be production so that modules do not perform certain
-     * development checks
-     */
     new webpack.EnvironmentPlugin({
       NODE_ENV: 'production',
       DEBUG_PROD: false,
@@ -86,11 +65,6 @@ export default merge(baseConfig, {
     ...(sentryWebpackPlugin ? [sentryWebpackPlugin] : []),
   ],
 
-  /**
-   * Disables webpack processing of __dirname and __filename.
-   * If you run the bundle in node.js it falls back to these values of node.js.
-   * https://github.com/webpack/webpack/issues/2010
-   */
   node: {
     __dirname: false,
     __filename: false,

@@ -1,37 +1,21 @@
-const { semverSatisfies } = require('./semver');
-
-// Allow current Node releases used for local Electron 41 development.
-// Prefer an LTS (22/24) for packaging, but do not hard-fail on newer runtimes.
-const requiredNodeRange = '>=22';
-const supportedPackageManagers = ['bun', 'yarn', 'npm', 'pnpm'];
-
-try {
-  const nodeVersion = process.versions.node;
-
-  if (!semverSatisfies(nodeVersion, requiredNodeRange)) {
-    console.error(
-      `Error: This project requires Node.js ${requiredNodeRange}. You have version ${nodeVersion}.\nPlease switch to Node.js 22+ before installing dependencies.`,
-    );
-    process.exit(1);
-  }
-
-  console.info(`Using compatible Node.js version: ${nodeVersion}`);
-} catch (error) {
-  console.error('Error checking Node.js version:', error);
-
+const { engines } = require('../../package.json');
+const version = process.versions.node;
+const [major, minor, patch] = version.split('.').map(Number);
+const supported =
+  (major === 22 && (minor > 22 || (minor === 22 && patch >= 1))) ||
+  (major === 24 && minor >= 11) ||
+  major > 24;
+if (!supported) {
+  console.error(
+    `Node.js ${engines.node} is required; detected ${version}. Use the version in .node-version.`,
+  );
   process.exit(1);
 }
-
-const npmExecPath = (process.env.npm_execpath || '').toLowerCase();
-const userAgent = (process.env.npm_config_user_agent || '').toLowerCase();
-const packageManager =
-  supportedPackageManagers.find(
-    (candidate) =>
-      npmExecPath.includes(candidate) || userAgent.startsWith(`${candidate}/`),
-  ) || 'unknown';
-
-if (!supportedPackageManagers.includes(packageManager)) {
-  console.warn(
-    '\u001b[33mThis repository expects Bun, Yarn, npm, or pnpm to run package scripts. Bun or Yarn are recommended for local development.\u001b[39m',
+const userAgent = process.env.npm_config_user_agent || '';
+if (userAgent && !userAgent.startsWith('bun/')) {
+  console.error(
+    'This project uses bun.lock. Install dependencies with bun install.',
   );
+  process.exit(1);
 }
+console.info(`Using compatible Node.js version: ${version}`);

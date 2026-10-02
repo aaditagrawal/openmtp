@@ -1,11 +1,12 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import Collapse from '@material-ui/core/Collapse';
+import { withStyles } from 'tss-react/mui';
+import Typography from '@mui/material/Typography';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Collapse from '@mui/material/Collapse';
 import {
   Usb,
   Copy,
@@ -187,8 +188,7 @@ class Features extends PureComponent {
             />
           </ListItem>
 
-          <ListItem
-            button
+          <ListItemButton
             onClick={() =>
               this._handleExpansionPanel({
                 key: 'keyboardNavigation',
@@ -211,7 +211,7 @@ class Features extends PureComponent {
             ) : (
               <Icon icon={ChevronDown} />
             )}
-          </ListItem>
+          </ListItemButton>
 
           <Collapse
             in={expansionPanel.keyboardNavigation}
@@ -232,4 +232,4 @@ class Features extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Features);
+export default withStyles(Features, styles);

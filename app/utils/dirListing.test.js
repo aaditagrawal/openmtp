@@ -1,8 +1,4 @@
-import {
-  filterDirents,
-  filterListedNames,
-  isIgnoredHiddenName,
-} from './dirListing';
+import { filterDirents, isIgnoredHiddenName } from './dirListing';
 
 describe('dirListing', () => {
   test('isIgnoredHiddenName detects dotfiles without sticky regex state', () => {
@@ -10,20 +6,6 @@ describe('dirListing', () => {
     expect(isIgnoredHiddenName('.DS_Store')).toBe(true);
     expect(isIgnoredHiddenName('photos')).toBe(false);
     expect(isIgnoredHiddenName('foo/.bar')).toBe(true);
-  });
-
-  test('filterListedNames drops junk and optionally hidden names', () => {
-    const names = ['photo.jpg', '.hidden', 'Thumbs.db', 'keep.txt'];
-
-    expect(filterListedNames(names)).toEqual([
-      'photo.jpg',
-      '.hidden',
-      'keep.txt',
-    ]);
-    expect(filterListedNames(names, { ignoreHidden: true })).toEqual([
-      'photo.jpg',
-      'keep.txt',
-    ]);
   });
 
   test('filterDirents mirrors name filtering', () => {

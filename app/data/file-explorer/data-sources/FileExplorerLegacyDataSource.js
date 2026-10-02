@@ -94,60 +94,35 @@ export class FileExplorerLegacyDataSource {
     };
   }
 
-  async _exec(command) {
+  async _exec(command, rawErrors = false) {
+    let error = null;
+    let stdout;
+    let stderr;
     try {
-      return new Promise((resolve) => {
-        this.execPromise(command, (error, stdout, stderr) => {
-          const { filteredStderr, filteredError, filteredStdout } =
-            this._cleanJunkMtpError({ error, stdout, stderr });
-
-          if (
-            (undefinedOrNull(filteredStderr) || filteredStderr.length < 1) &&
-            (undefinedOrNull(filteredError) || filteredError.length < 1)
-          ) {
-            return resolve({
-              data: filteredStdout,
-              stderr: null,
-              error: null,
-            });
-          }
-
-          return resolve({
-            data: filteredStdout,
-            stderr: filteredStderr.join('\n'),
-            error: filteredError.join('\n'),
-          });
-        });
-      });
-    } catch (e) {
-      log.error(e);
+      ({ stdout, stderr } = await this.execPromise(command));
+    } catch (failure) {
+      error = failure;
+      ({ stdout, stderr } = failure);
     }
+    const { filteredStderr, filteredError } = this._cleanJunkMtpError({
+      error,
+      stdout,
+      stderr,
+    });
+    if (!filteredStderr.length && !filteredError.length) {
+      return { data: stdout, stderr: null, error: null };
+    }
+    return rawErrors
+      ? { data: stdout, stderr, error }
+      : {
+          data: stdout,
+          stderr: filteredStderr.join('\n'),
+          error: filteredError.join('\n'),
+        };
   }
 
-  async _execNoCatch(command) {
-    return new Promise((resolve) => {
-      this.execPromise(command, (error, stdout, stderr) => {
-        const { filteredStderr, filteredError, filteredStdout } =
-          this._cleanJunkMtpError({ error, stdout, stderr });
-
-        if (
-          (undefinedOrNull(filteredStderr) || filteredStderr.length < 1) &&
-          (undefinedOrNull(filteredError) || filteredError.length < 1)
-        ) {
-          return resolve({
-            data: filteredStdout,
-            stderr: null,
-            error: null,
-          });
-        }
-
-        return resolve({
-          data: stdout,
-          stderr,
-          error,
-        });
-      });
-    });
+  _execNoCatch(command) {
+    return this._exec(command, true);
   }
 
   async _checkMtpFileExists(filePath, storageId) {
@@ -376,11 +351,11 @@ export class FileExplorerLegacyDataSource {
       const descMatchPattern = /description:(.*)/i;
       const storageIdMatchPattern = /([^\D]+)/;
 
-      let storageList = {};
+      const storageList = {};
 
       _storageList
         .filter((a, index) => !this._filterOutMtpLines(a, index))
-        .map((a, index) => {
+        .forEach((a, index) => {
           if (!a) {
             return null;
           }
@@ -400,12 +375,9 @@ export class FileExplorerLegacyDataSource {
           const matchDesc = _matchDesc[1].trim();
           const matchedStorageId = parseInt(_matchedStorageIds[1].trim(), 10);
 
-          storageList = {
-            ...storageList,
-            [matchedStorageId]: {
-              name: matchDesc,
-              selected: index === 0,
-            },
+          storageList[matchedStorageId] = {
+            name: matchDesc,
+            selected: index === 0,
           };
 
           return storageList;
@@ -447,6 +419,7 @@ export class FileExplorerLegacyDataSource {
         timeAdded: 5,
       };
       const response = [];
+      const seenPaths = new Set();
       const storageSelectCmd = `"storage ${storageId}"`;
 
       const {
@@ -507,10 +480,11 @@ export class FileExplorerLegacyDataSource {
         const extension = getExtension(fullPath, isFolder);
 
         // avoid duplicate values
-        if (response.find((item) => item.path === fullPath)) {
+        if (seenPaths.has(fullPath)) {
           continue; // oxlint-disable-line no-continue
         }
 
+        seenPaths.add(fullPath);
         response.push({
           name: matchedFileName,
           path: fullPath,

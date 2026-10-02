@@ -1,8 +1,16 @@
-import { log } from '../utils/log';
-import { readFileSync, writeFileSync } from '../helpers/fileOps';
-import { checkIf } from '../utils/checkIf';
-import { isEmpty } from '../utils/funcs';
+import {
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  unlinkSync,
+  copyFileSync,
+  mkdirSync,
+  constants,
+} from 'fs';
+import { dirname } from 'path';
+import { randomUUID } from 'crypto';
 
+// Storage is used by the logger itself. Never route storage failures through log.
 export default class Storage {
   constructor(filePath, doNotLog = false) {
     this.filePath = filePath;
@@ -11,88 +19,85 @@ export default class Storage {
 
   getAll() {
     try {
-      const _stream = readFileSync(this.filePath);
-
-      if (
-        typeof _stream === 'undefined' ||
-        _stream === '' ||
-        _stream === null ||
-        Object.keys(_stream).length < 1
-      ) {
-        return {};
+      const contents = readFileSync(this.filePath, 'utf8');
+      if (!contents.trim()) return {};
+      const parsed = JSON.parse(contents);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new SyntaxError('Settings must contain a JSON object');
       }
-
-      return JSON.parse(_stream);
-    } catch (e) {
-      if (this.doNotLog) {
-        console.error(e, `Storage -> getAll`);
-      } else {
-        log.error(e, `Storage -> getAll`);
+      return parsed;
+    } catch (error) {
+      if (error.code === 'ENOENT') return {};
+      if (error instanceof SyntaxError) {
+        // Preserve the damaged file before a later settings update replaces it.
+        try {
+          copyFileSync(
+            this.filePath,
+            this.filePath + '.corrupt-backup',
+            constants.COPYFILE_EXCL,
+          );
+        } catch (backupError) {
+          if (backupError.code !== 'EEXIST')
+            console.error(backupError, 'Storage backup');
+        }
       }
+      console.error(error, 'Storage -> getAll');
+      return {};
     }
   }
 
   getItems(keys) {
-    checkIf(keys, 'array');
+    if (!Array.isArray(keys))
+      throw new TypeError('Storage keys must be an array');
+    const all = this.getAll();
+    return Object.fromEntries(
+      keys
+        .filter((key) => all[key] !== undefined && all[key] !== null)
+        .map((key) => [key, all[key]]),
+    );
+  }
 
+  writeFromRenderer(method, data) {
+    // Main owns read-modify-write operations across all renderer windows.
+    const { ipcRenderer } = require('electron');
+    const result = ipcRenderer.sendSync('openmtp.storage-update', {
+      filePath: this.filePath,
+      method,
+      data,
+    });
+    if (!result?.ok)
+      console.error(result?.error || 'Profile update failed', 'Storage IPC');
+    return result?.ok === true;
+  }
+
+  setAll(data) {
+    if (process.type === 'renderer')
+      return this.writeFromRenderer('setAll', data);
+    const temporaryPath =
+      this.filePath + '.' + process.pid + '.' + randomUUID() + '.tmp';
     try {
-      if (isEmpty(keys)) {
-        return {};
-      }
-
-      const allItem = this.getAll();
-      const _return = {};
-
-      if (!allItem) {
-        return _return;
-      }
-
-      keys.map((a) => {
-        if (typeof allItem[a] === 'undefined' || allItem[a] === null) {
-          return null;
-        }
-
-        _return[a] = allItem[a];
-
-        return a;
+      mkdirSync(dirname(this.filePath), { recursive: true });
+      writeFileSync(temporaryPath, JSON.stringify({ ...data }), {
+        mode: 0o600,
+        flag: 'wx',
       });
-
-      return _return;
-    } catch (e) {
-      if (this.doNotLog) {
-        console.error(e, `Storage -> getItems`);
-      } else {
-        log.error(e, `Storage -> getItems`);
+      renameSync(temporaryPath, this.filePath);
+      return true;
+    } catch (error) {
+      console.error(error, 'Storage -> setAll');
+      return false;
+    } finally {
+      try {
+        unlinkSync(temporaryPath);
+      } catch (error) {
+        if (error.code !== 'ENOENT') console.error(error, 'Storage cleanup');
       }
     }
   }
 
-  setAll({ ...data }) {
-    try {
-      writeFileSync(this.filePath, JSON.stringify({ ...data }));
-    } catch (e) {
-      if (this.doNotLog) {
-        console.error(e, `Storage -> setAll`);
-      } else {
-        log.error(e, `Storage -> setAll`);
-      }
-    }
-  }
-
-  setItems({ ...data }) {
-    try {
-      const currentSettings = this.getAll();
-
-      writeFileSync(
-        this.filePath,
-        JSON.stringify({ ...currentSettings, ...data }),
-      );
-    } catch (e) {
-      if (this.doNotLog) {
-        console.error(e, `Storage -> setItems`);
-      } else {
-        log.error(e, `Storage -> setItems`);
-      }
-    }
+  setItems(data) {
+    if (process.type === 'renderer')
+      return this.writeFromRenderer('setItems', data);
+    return this.setAll({ ...this.getAll(), ...data });
   }
 }

@@ -1,22 +1,14 @@
 import React, { PureComponent } from 'react';
-import Snackbar from '@material-ui/core/Snackbar';
-import { withStyles } from '@material-ui/core/styles';
+import Snackbar from '@mui/material/Snackbar';
+import { withStyles } from 'tss-react/mui';
 import SnackbarThemeWrapper from './components/SnackbarThemeWrapper';
 import { styles } from './styles';
 
 class Snackbars extends PureComponent {
   constructor(props) {
     super(props);
-    this.snackbarOpen = false;
-  }
-
-  componentWillMount() {
-    this.fireSnackbar();
-  }
-
-  fireSnackbar = () => {
     this.snackbarOpen = true;
-  };
+  }
 
   _handleClose = (event, reason) => {
     const { OnSnackBarsCloseAlerts } = this.props;
@@ -50,4 +42,4 @@ class Snackbars extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Snackbars);
+export default withStyles(Snackbars, styles);

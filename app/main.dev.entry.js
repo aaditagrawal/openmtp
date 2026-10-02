@@ -5,7 +5,7 @@
  * before @babel/register rewrites them. Bootstrapping from a require()-only
  * entry keeps the main process on the Babel-transformed CommonJS path.
  */
-require('@babel/register')({
+require('@babel/register').default({
   extensions: ['.js', '.jsx'],
   rootMode: 'upward',
   ignore: [/node_modules/],

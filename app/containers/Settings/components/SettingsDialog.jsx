@@ -2,22 +2,21 @@ import React, { PureComponent } from 'react';
 import { ipcRenderer } from 'electron';
 import electronIs from 'electron-is';
 import classNames from 'classnames';
-import Tabs from '@material-ui/core/Tabs';
-import Tab from '@material-ui/core/Tab';
-import Typography from '@material-ui/core/Typography';
-import Button from '@material-ui/core/Button';
-import RadioGroup from '@material-ui/core/RadioGroup';
-import Radio from '@material-ui/core/Radio';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import Paper from '@material-ui/core/Paper';
-import Switch from '@material-ui/core/Switch';
-import FormControl from '@material-ui/core/FormControl';
-import FormGroup from '@material-ui/core/FormGroup';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import RadioGroup from '@mui/material/RadioGroup';
+import Radio from '@mui/material/Radio';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
+import FormControl from '@mui/material/FormControl';
+import FormGroup from '@mui/material/FormGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import { DEVICES_LABEL } from '../../../constants';
-import SettingsDialogTabContainer from './SettingsDialogTabContainer';
 import {
   DEVICE_TYPE,
   FILE_EXPLORER_VIEW_TYPE,
@@ -119,12 +118,11 @@ export default class SettingsDialog extends PureComponent {
         fullWidth
         maxWidth="sm"
         aria-labelledby="settings-dialogbox"
-        disableEscapeKeyDown={false}
-        onEscapeKeyDown={() =>
-          onDialogBoxCloseBtnClick({
-            confirm: false,
-          })
-        }
+
+        onClose={(_, reason) => {
+          if (reason === 'escapeKeyDown')
+            onDialogBoxCloseBtnClick({ confirm: false });
+        }}
       >
         <Typography variant="h5" className={styles.title}>
           Settings
@@ -156,463 +154,443 @@ export default class SettingsDialog extends PureComponent {
           {/* ----- General Tab ----- */}
           <FormControl component="fieldset" className={styles.fieldset}>
             {tabIndex === this.tabBodyRenderTabIndex(0) && (
-              <SettingsDialogTabContainer>
-                <div className={styles.tabContainer}>
-                  <FormGroup>
-                    <Typography variant="subtitle2" className={styles.subtitle}>
-                      Theme
-                    </Typography>
-                    <RadioGroup
-                      aria-label="app-theme-mode"
-                      name="app-theme-mode"
-                      value={appThemeMode}
-                      onChange={onAppThemeModeChange}
-                    >
-                      <FormControlLabel
-                        value={APP_THEME_MODE_TYPE.light}
-                        control={<Radio />}
-                        label="Light"
-                      />
-                      <FormControlLabel
-                        value={APP_THEME_MODE_TYPE.dark}
-                        control={<Radio />}
-                        label="Dark"
-                      />
-                      <FormControlLabel
-                        value={APP_THEME_MODE_TYPE.auto}
-                        control={<Radio />}
-                        label="Auto"
-                      />
-                    </RadioGroup>
-
-                    {showMtpModeSelection && (
-                      <>
-                        <Typography
-                          variant="subtitle2"
-                          className={`${styles.subtitle}  ${styles.fmSettingsStylesFix}`}
-                        >
-                          MTP Mode
-                        </Typography>
-                        <RadioGroup
-                          aria-label="app-theme-mode"
-                          name="app-theme-mode"
-                          value={mtpMode}
-                          onChange={(e, value) =>
-                            onMtpModeChange(e, value, DEVICE_TYPE.mtp)
-                          }
-                        >
-                          <FormControlLabel
-                            value={MTP_MODE.kalam}
-                            control={<Radio />}
-                            label={capitalize(MTP_MODE.kalam)}
-                          />
-                          <FormControlLabel
-                            value={MTP_MODE.legacy}
-                            control={<Radio />}
-                            label={capitalize(MTP_MODE.legacy)}
-                          />
-                        </RadioGroup>
-                      </>
-                    )}
-
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Enable auto device detection (USB Hotplug)
-                    </Typography>
+              <div className={styles.tabContainer}>
+                <FormGroup>
+                  <Typography variant="subtitle2" className={styles.subtitle}>
+                    Theme
+                  </Typography>
+                  <RadioGroup
+                    aria-label="app-theme-mode"
+                    name="app-theme-mode"
+                    value={appThemeMode}
+                    onChange={onAppThemeModeChange}
+                  >
                     <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enableUsbHotplug}
-                          onChange={(e) =>
-                            onEnableUsbHotplug(e, !enableUsbHotplug)
-                          }
-                        />
-                      }
-                      label={enableUsbHotplug ? `Enabled` : `Disabled`}
+                      value={APP_THEME_MODE_TYPE.light}
+                      control={<Radio />}
+                      label="Light"
                     />
-                  </FormGroup>
-                </div>
-              </SettingsDialogTabContainer>
+                    <FormControlLabel
+                      value={APP_THEME_MODE_TYPE.dark}
+                      control={<Radio />}
+                      label="Dark"
+                    />
+                    <FormControlLabel
+                      value={APP_THEME_MODE_TYPE.auto}
+                      control={<Radio />}
+                      label="Auto"
+                    />
+                  </RadioGroup>
+
+                  {showMtpModeSelection && (
+                    <>
+                      <Typography
+                        variant="subtitle2"
+                        className={`${styles.subtitle}  ${styles.fmSettingsStylesFix}`}
+                      >
+                        MTP Mode
+                      </Typography>
+                      <RadioGroup
+                        aria-label="app-theme-mode"
+                        name="app-theme-mode"
+                        value={mtpMode}
+                        onChange={(e, value) =>
+                          onMtpModeChange(e, value, DEVICE_TYPE.mtp)
+                        }
+                      >
+                        <FormControlLabel
+                          value={MTP_MODE.kalam}
+                          control={<Radio />}
+                          label={capitalize(MTP_MODE.kalam)}
+                        />
+                        <FormControlLabel
+                          value={MTP_MODE.legacy}
+                          control={<Radio />}
+                          label={capitalize(MTP_MODE.legacy)}
+                        />
+                      </RadioGroup>
+                    </>
+                  )}
+
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Enable auto device detection (USB Hotplug)
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enableUsbHotplug}
+                        onChange={(e) =>
+                          onEnableUsbHotplug(e, !enableUsbHotplug)
+                        }
+                      />
+                    }
+                    label={enableUsbHotplug ? `Enabled` : `Disabled`}
+                  />
+                </FormGroup>
+              </div>
             )}
 
             {/* ----- File Manager Tab ----- */}
             {tabIndex === this.tabBodyRenderTabIndex(1) && (
-              <SettingsDialogTabContainer>
-                <div className={styles.tabContainer}>
-                  <FormGroup>
-                    <Typography variant="subtitle2" className={styles.subtitle}>
-                      Show hidden files
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={!hideHiddenFilesLocal}
-                          onChange={(e) =>
-                            onHiddenFilesChange(
-                              e,
-                              !hideHiddenFilesLocal,
-                              DEVICE_TYPE.local,
-                            )
-                          }
-                        />
-                      }
-                      label={DEVICES_LABEL[DEVICE_TYPE.local]}
-                    />
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={!hideHiddenFilesMtp}
-                          onChange={(e) =>
-                            onHiddenFilesChange(
-                              e,
-                              !hideHiddenFilesMtp,
-                              DEVICE_TYPE.mtp,
-                            )
-                          }
-                        />
-                      }
-                      label={DEVICES_LABEL[DEVICE_TYPE.mtp]}
-                    />
+              <div className={styles.tabContainer}>
+                <FormGroup>
+                  <Typography variant="subtitle2" className={styles.subtitle}>
+                    Show hidden files
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={!hideHiddenFilesLocal}
+                        onChange={(e) =>
+                          onHiddenFilesChange(
+                            e,
+                            !hideHiddenFilesLocal,
+                            DEVICE_TYPE.local,
+                          )
+                        }
+                      />
+                    }
+                    label={DEVICES_LABEL[DEVICE_TYPE.local]}
+                  />
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={!hideHiddenFilesMtp}
+                        onChange={(e) =>
+                          onHiddenFilesChange(
+                            e,
+                            !hideHiddenFilesMtp,
+                            DEVICE_TYPE.mtp,
+                          )
+                        }
+                      />
+                    }
+                    label={DEVICES_LABEL[DEVICE_TYPE.mtp]}
+                  />
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      View as grid
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={fileExplorerListingTypeLocalGrid}
-                          onChange={(e) =>
-                            onFileExplorerListingType(
-                              e,
-                              fileExplorerListingTypeLocalGrid
-                                ? FILE_EXPLORER_VIEW_TYPE.list
-                                : FILE_EXPLORER_VIEW_TYPE.grid,
-                              DEVICE_TYPE.local,
-                            )
-                          }
-                        />
-                      }
-                      label={DEVICES_LABEL[DEVICE_TYPE.local]}
-                    />
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={fileExplorerListingTypeMtpGrid}
-                          onChange={(e) =>
-                            onFileExplorerListingType(
-                              e,
-                              fileExplorerListingTypeMtpGrid
-                                ? FILE_EXPLORER_VIEW_TYPE.list
-                                : FILE_EXPLORER_VIEW_TYPE.grid,
-                              DEVICE_TYPE.mtp,
-                            )
-                          }
-                        />
-                      }
-                      label={DEVICES_LABEL[DEVICE_TYPE.mtp]}
-                    />
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    View as grid
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={fileExplorerListingTypeLocalGrid}
+                        onChange={(e) =>
+                          onFileExplorerListingType(
+                            e,
+                            fileExplorerListingTypeLocalGrid
+                              ? FILE_EXPLORER_VIEW_TYPE.list
+                              : FILE_EXPLORER_VIEW_TYPE.grid,
+                            DEVICE_TYPE.local,
+                          )
+                        }
+                      />
+                    }
+                    label={DEVICES_LABEL[DEVICE_TYPE.local]}
+                  />
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={fileExplorerListingTypeMtpGrid}
+                        onChange={(e) =>
+                          onFileExplorerListingType(
+                            e,
+                            fileExplorerListingTypeMtpGrid
+                              ? FILE_EXPLORER_VIEW_TYPE.list
+                              : FILE_EXPLORER_VIEW_TYPE.grid,
+                            DEVICE_TYPE.mtp,
+                          )
+                        }
+                      />
+                    }
+                    label={DEVICES_LABEL[DEVICE_TYPE.mtp]}
+                  />
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Display overall progress on the file transfer screen
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={
-                            filesPreprocessingBeforeTransfer[
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Display overall progress on the file transfer screen
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={
+                          filesPreprocessingBeforeTransfer[
+                            FILE_TRANSFER_DIRECTION.download
+                          ]
+                        }
+                        onChange={(e) =>
+                          onFilesPreprocessingBeforeTransferChange(
+                            e,
+                            !filesPreprocessingBeforeTransfer[
                               FILE_TRANSFER_DIRECTION.download
-                            ]
-                          }
-                          onChange={(e) =>
-                            onFilesPreprocessingBeforeTransferChange(
-                              e,
-                              !filesPreprocessingBeforeTransfer[
-                                FILE_TRANSFER_DIRECTION.download
-                              ],
-                              FILE_TRANSFER_DIRECTION.download,
-                            )
-                          }
-                        />
-                      }
-                      label={`To ${DEVICES_LABEL[DEVICE_TYPE.local]}`}
-                    />
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={
-                            filesPreprocessingBeforeTransfer[
+                            ],
+                            FILE_TRANSFER_DIRECTION.download,
+                          )
+                        }
+                      />
+                    }
+                    label={`To ${DEVICES_LABEL[DEVICE_TYPE.local]}`}
+                  />
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={
+                          filesPreprocessingBeforeTransfer[
+                            FILE_TRANSFER_DIRECTION.upload
+                          ]
+                        }
+                        onChange={(e) =>
+                          onFilesPreprocessingBeforeTransferChange(
+                            e,
+                            !filesPreprocessingBeforeTransfer[
                               FILE_TRANSFER_DIRECTION.upload
-                            ]
-                          }
-                          onChange={(e) =>
-                            onFilesPreprocessingBeforeTransferChange(
-                              e,
-                              !filesPreprocessingBeforeTransfer[
-                                FILE_TRANSFER_DIRECTION.upload
-                              ],
-                              FILE_TRANSFER_DIRECTION.upload,
-                            )
-                          }
-                        />
-                      }
-                      label={`To ${DEVICES_LABEL[DEVICE_TYPE.mtp]}`}
-                    />
+                            ],
+                            FILE_TRANSFER_DIRECTION.upload,
+                          )
+                        }
+                      />
+                    }
+                    label={`To ${DEVICES_LABEL[DEVICE_TYPE.mtp]}`}
+                  />
 
-                    {freshInstall ? (
-                      <Paper
-                        className={`${styles.onboardingPaper}`}
-                        elevation={0}
+                  {freshInstall ? (
+                    <Paper
+                      className={`${styles.onboardingPaper}`}
+                      elevation={0}
+                    >
+                      <Typography
+                        component="p"
+                        className={`${styles.onboardingPaperBody}`}
                       >
-                        <Typography
-                          component="p"
-                          className={`${styles.onboardingPaperBody}`}
-                        >
-                          <span className={`${styles.onboardingPaperBodyItem}`}>
-                            &#9679;&nbsp;Use the toggles to enable or disable an
-                            item.
-                          </span>
-                          <span className={`${styles.onboardingPaperBodyItem}`}>
-                            &#9679;&nbsp;Scroll down for more Settings.
-                          </span>
-                        </Typography>
-                      </Paper>
-                    ) : null}
+                        <span className={`${styles.onboardingPaperBodyItem}`}>
+                          &#9679;&nbsp;Use the toggles to enable or disable an
+                          item.
+                        </span>
+                        <span className={`${styles.onboardingPaperBodyItem}`}>
+                          &#9679;&nbsp;Scroll down for more Settings.
+                        </span>
+                      </Typography>
+                    </Paper>
+                  ) : null}
 
-                    <Typography variant="caption">
-                      Note: To fetch the total transfer information, the files
-                      need to be processed first. It may take a few seconds to a
-                      few minutes depending on the total number of files to be
-                      copied.
-                    </Typography>
+                  <Typography variant="caption">
+                    Note: To fetch the total transfer information, the files
+                    need to be processed first. It may take a few seconds to a
+                    few minutes depending on the total number of files to be
+                    copied.
+                  </Typography>
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Show directories first
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={showDirectoriesFirst}
-                          onChange={(e) =>
-                            onShowDirectoriesFirstChange(
-                              e,
-                              !showDirectoriesFirst,
-                            )
-                          }
-                        />
-                      }
-                      label={showDirectoriesFirst ? `Enabled` : `Disabled`}
-                    />
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Show directories first
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={showDirectoriesFirst}
+                        onChange={(e) =>
+                          onShowDirectoriesFirstChange(e, !showDirectoriesFirst)
+                        }
+                      />
+                    }
+                    label={showDirectoriesFirst ? `Enabled` : `Disabled`}
+                  />
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Show status bar
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enableStatusBar}
-                          onChange={(e) =>
-                            onStatusBarChange(e, !enableStatusBar)
-                          }
-                        />
-                      }
-                      label={enableStatusBar ? `Enabled` : `Disabled`}
-                    />
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Show status bar
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enableStatusBar}
+                        onChange={(e) => onStatusBarChange(e, !enableStatusBar)}
+                      />
+                    }
+                    label={enableStatusBar ? `Enabled` : `Disabled`}
+                  />
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Show Local Disk pane
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={showLocalPane}
-                          onChange={(e) =>
-                            onShowLocalPaneChange(e, !showLocalPane)
-                          }
-                        />
-                      }
-                      label={showLocalPane ? `Enabled` : `Disabled`}
-                    />
-                    <Typography variant="caption">
-                      Note: You can drag files from the Finder into the Mobile
-                      pane but not the other way around.
-                    </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Show Local Disk pane
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={showLocalPane}
+                        onChange={(e) =>
+                          onShowLocalPaneChange(e, !showLocalPane)
+                        }
+                      />
+                    }
+                    label={showLocalPane ? `Enabled` : `Disabled`}
+                  />
+                  <Typography variant="caption">
+                    Note: You can drag files from the Finder into the Mobile
+                    pane but not the other way around.
+                  </Typography>
 
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
-                    >
-                      Show Local Disk pane on the left side
-                    </Typography>
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={showLocalPaneOnLeftSide}
-                          onChange={(e) =>
-                            onShowLocalPaneOnLeftSideChange(
-                              e,
-                              !showLocalPaneOnLeftSide,
-                            )
-                          }
-                        />
-                      }
-                      label={showLocalPaneOnLeftSide ? `Enabled` : `Disabled`}
-                    />
-                  </FormGroup>
-                </div>
-              </SettingsDialogTabContainer>
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.fmSettingsStylesFix}`}
+                  >
+                    Show Local Disk pane on the left side
+                  </Typography>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={showLocalPaneOnLeftSide}
+                        onChange={(e) =>
+                          onShowLocalPaneOnLeftSideChange(
+                            e,
+                            !showLocalPaneOnLeftSide,
+                          )
+                        }
+                      />
+                    }
+                    label={showLocalPaneOnLeftSide ? `Enabled` : `Disabled`}
+                  />
+                </FormGroup>
+              </div>
             )}
 
             {/* ----- Updates Tab ----- */}
 
             {tabIndex === this.tabBodyRenderTabIndex(2) && (
-              <SettingsDialogTabContainer>
-                <div className={styles.tabContainer}>
-                  <FormGroup>
-                    <Typography variant="subtitle2" className={styles.subtitle}>
-                      Automatically check for updates
-                    </Typography>
-
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enableAutoUpdateCheck}
-                          onChange={(e) =>
-                            onAutoUpdateCheckChange(e, !enableAutoUpdateCheck)
-                          }
-                        />
-                      }
-                      label={enableAutoUpdateCheck ? `Enabled` : `Disabled`}
-                    />
-                  </FormGroup>
-
-                  <FormGroup>
-                    <Typography variant="subtitle2" className={styles.subtitle}>
-                      Automatically download the new updates when available
-                      (recommended)
-                    </Typography>
-
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enableBackgroundAutoUpdate}
-                          disabled={!enableAutoUpdateCheck}
-                          onChange={(e) =>
-                            onEnableBackgroundAutoUpdateChange(
-                              e,
-                              !enableBackgroundAutoUpdate,
-                            )
-                          }
-                        />
-                      }
-                      label={
-                        enableBackgroundAutoUpdate ? `Enabled` : `Disabled`
-                      }
-                    />
-                  </FormGroup>
-
-                  <FormGroup>
-                    <Typography
-                      variant="subtitle2"
-                      className={`${styles.subtitle} ${styles.subtitleMarginFix}`}
-                    >
-                      Enable beta update channel
-                    </Typography>
-
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enablePrereleaseUpdates}
-                          disabled={isPrereleaseVersion()}
-                          onChange={(e) =>
-                            onPrereleaseUpdatesChange(
-                              e,
-                              !enablePrereleaseUpdates,
-                            )
-                          }
-                        />
-                      }
-                      label={enablePrereleaseUpdates ? `Enabled` : `Disabled`}
-                    />
-                  </FormGroup>
-                  <Typography variant="caption">
-                    Early access preview of the upcoming features but might
-                    result in crashes.
+              <div className={styles.tabContainer}>
+                <FormGroup>
+                  <Typography variant="subtitle2" className={styles.subtitle}>
+                    Automatically check for updates
                   </Typography>
-                </div>
-              </SettingsDialogTabContainer>
+
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enableAutoUpdateCheck}
+                        onChange={(e) =>
+                          onAutoUpdateCheckChange(e, !enableAutoUpdateCheck)
+                        }
+                      />
+                    }
+                    label={enableAutoUpdateCheck ? `Enabled` : `Disabled`}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <Typography variant="subtitle2" className={styles.subtitle}>
+                    Automatically download the new updates when available
+                    (recommended)
+                  </Typography>
+
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enableBackgroundAutoUpdate}
+                        disabled={!enableAutoUpdateCheck}
+                        onChange={(e) =>
+                          onEnableBackgroundAutoUpdateChange(
+                            e,
+                            !enableBackgroundAutoUpdate,
+                          )
+                        }
+                      />
+                    }
+                    label={enableBackgroundAutoUpdate ? `Enabled` : `Disabled`}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <Typography
+                    variant="subtitle2"
+                    className={`${styles.subtitle} ${styles.subtitleMarginFix}`}
+                  >
+                    Enable beta update channel
+                  </Typography>
+
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enablePrereleaseUpdates}
+                        disabled={isPrereleaseVersion()}
+                        onChange={(e) =>
+                          onPrereleaseUpdatesChange(e, !enablePrereleaseUpdates)
+                        }
+                      />
+                    }
+                    label={enablePrereleaseUpdates ? `Enabled` : `Disabled`}
+                  />
+                </FormGroup>
+                <Typography variant="caption">
+                  Early access preview of the upcoming features but might result
+                  in crashes.
+                </Typography>
+              </div>
             )}
 
             {/* ----- Privacy Tab ----- */}
 
             {tabIndex === this.tabBodyRenderTabIndex(3) && (
-              <SettingsDialogTabContainer>
-                <div className={styles.tabContainer}>
-                  <FormGroup>
-                    <Typography variant="subtitle2" className={styles.subtitle}>
-                      Enable anonymous usage statistics gathering
-                    </Typography>
+              <div className={styles.tabContainer}>
+                <FormGroup>
+                  <Typography variant="subtitle2" className={styles.subtitle}>
+                    Enable anonymous usage statistics gathering
+                  </Typography>
 
-                    <FormControlLabel
-                      className={styles.switch}
-                      control={
-                        <Switch
-                          checked={enableAnalytics}
-                          onChange={(e) =>
-                            onAnalyticsChange(e, !enableAnalytics)
-                          }
-                        />
-                      }
-                      label={enableAnalytics ? `Enabled` : `Disabled`}
-                    />
-                    <Typography variant="caption">
-                      We do not gather any kind of personal information and
-                      neither do we sell your data. We use this information only
-                      to improve the User Experience and squash some bugs.&nbsp;
-                      <a
-                        className={styles.a}
-                        onClick={() => {
-                          ipcRenderer.send(
-                            IpcEvents.OPEN_HELP_PRIVACY_POLICY_WINDOW,
-                          );
-                        }}
-                      >
-                        Learn more...
-                      </a>
-                    </Typography>
-                  </FormGroup>
-                </div>
-              </SettingsDialogTabContainer>
+                  <FormControlLabel
+                    className={styles.switch}
+                    control={
+                      <Switch
+                        checked={enableAnalytics}
+                        onChange={(e) => onAnalyticsChange(e, !enableAnalytics)}
+                      />
+                    }
+                    label={enableAnalytics ? `Enabled` : `Disabled`}
+                  />
+                  <Typography variant="caption">
+                    We do not gather any kind of personal information and
+                    neither do we sell your data. We use this information only
+                    to improve the User Experience and squash some bugs.&nbsp;
+                    <a
+                      className={styles.a}
+                      onClick={() => {
+                        ipcRenderer.send(
+                          IpcEvents.OPEN_HELP_PRIVACY_POLICY_WINDOW,
+                        );
+                      }}
+                    >
+                      Learn more...
+                    </a>
+                  </Typography>
+                </FormGroup>
+              </div>
             )}
           </FormControl>
 

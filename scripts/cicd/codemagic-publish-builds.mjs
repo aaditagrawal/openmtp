@@ -1,21 +1,20 @@
 #!/usr/bin/env zx
 
 import 'zx/globals';
-import { packageDirectory } from 'pkg-dir';
+import { packageDirectory } from 'package-directory';
 import process from 'process';
 import { spawn } from 'child_process';
 import fsExtra, { ensureDirSync } from 'fs-extra';
 import { readFileSync, readdirSync } from 'fs';
-import niceUtils from 'nice-utils';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import path from 'path';
-import junk from 'junk';
+import { isNotJunk } from 'junk';
 import dayjs from 'dayjs';
 import { IS_PROD_WORKFLOW } from './constants.mjs';
 import { axios } from './axios.mjs';
 
 const { removeSync, outputFileSync, readJsonSync } = fsExtra;
-const { undefinedOrNull } = niceUtils;
+const undefinedOrNull = (value) => value === undefined || value === null;
 
 const PACKAGE_JSON_FILENAME = 'package.json';
 const DIR_MODE = 0o2775;
@@ -29,6 +28,10 @@ if (IS_PROD_WORKFLOW) {
   publishRepository = process.env.PUBLISH_PROD_REPOSITORY;
 } else {
   publishRepository = process.env.PUBLISH_DEV_REPOSITORY;
+}
+
+if (publishRepository !== 'aaditagrawal/openmtp') {
+  throw new Error('Releases from this fork must target aaditagrawal/openmtp.');
 }
 
 // M1 arm64 artifacts
@@ -99,6 +102,7 @@ try {
 } catch (e) {
   throw new Error(
     `the env variable 'CM_ARTIFACT_LINKS_M1_ARM64' isn't a valid JSON: ${e}`,
+    { cause: e },
   );
 }
 
@@ -113,6 +117,7 @@ try {
 } catch (e) {
   throw new Error(
     `Ann error occured while reading the '${PACKAGE_JSON_PATH}' file: ${e}`,
+    { cause: e },
   );
 }
 
@@ -142,7 +147,9 @@ for (const artifact of cmArtifactLinksM1Arm64Json) {
 
       macM1Arm64ArtifactsZipUrl = response.data.url;
     } catch (e) {
-      throw new Error(`Fetching of public url of the Artifact failed: ${e}`);
+      throw new Error(`Fetching of public url of the Artifact failed: ${e}`, {
+        cause: e,
+      });
     }
 
     break;
@@ -175,6 +182,7 @@ try {
 } catch (e) {
   throw new Error(
     `invalid 'latest-mac.yaml' artifact file found for M1 arm64: ${e}`,
+    { cause: e },
   );
 }
 
@@ -192,6 +200,7 @@ try {
 } catch (e) {
   throw new Error(
     `invalid 'latest-mac.yaml' artifact file found for intel x64: ${e}`,
+    { cause: e },
   );
 }
 
@@ -218,7 +227,7 @@ outputFileSync(TEMP_MERGED_MAC_ARTIFACTS_YAML_PATH, yamlIntelX64Dump);
 // listing merged artifacts directory for files
 console.info(`listing merged artifacts directory for files...\n`);
 const tempMergedArtifacts = readdirSync(TEMP_MERGED_ARTIFACTS_PATH)
-  .filter(junk.not)
+  .filter(isNotJunk)
   .map((file) => {
     return path.resolve(TEMP_MERGED_ARTIFACTS_PATH, file);
   })
@@ -241,7 +250,7 @@ try {
     ...tempMergedArtifacts,
   ]);
 } catch (e) {
-  throw new Error(`Github release failed: ${e}`);
+  throw new Error(`Github release failed: ${e}`, { cause: e });
 }
 
 async function runSpawn(command, args) {

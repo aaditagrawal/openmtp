@@ -1,24 +1,22 @@
 import { log } from '../../utils/log';
-import { GoogleAnalytics } from './googleAnalytics';
 import { settingsStorage } from '../../helpers/storageHelper';
 import { MixpanelAnalytics } from './mixpanelAnalytics';
 import { getDeviceInfo } from '../../helpers/deviceInfo';
 import { checkIf } from '../../utils/checkIf';
 import { getMtpModeSetting } from '../../helpers/settings';
 import { EVENT_TYPE } from '../../enums/events';
-import { IS_RENDERER } from '../../constants/env';
+import { ENV_FLAVOR, IS_RENDERER } from '../../constants/env';
 import { inArray } from '../../utils/funcs';
 import { redactHomeDirectory } from '../../helpers/logs';
 
 class AnalyticsService {
   constructor() {
-    this.googleAnalytics = new GoogleAnalytics();
     this.mixpanelAnalytics = new MixpanelAnalytics();
   }
 
   _isAnalyticsEnabled = () => {
     // dont proceed if the instance is not a renderer.
-    if (!IS_RENDERER) {
+    if (!IS_RENDERER || !ENV_FLAVOR.enableMixpanelAnalytics) {
       return;
     }
 
@@ -59,8 +57,6 @@ class AnalyticsService {
     }
 
     try {
-      // init google analytics
-      await this.googleAnalytics.init();
       await this.mixpanelAnalytics.init();
     } catch (e) {
       log.error(e, `AnalyticsService -> init`);
@@ -77,8 +73,6 @@ class AnalyticsService {
       const deviceInfo = getDeviceInfo();
       const mtpMode = getMtpModeSetting();
 
-      // send device info google analytics
-      await this.googleAnalytics.sendDeviceInfo({ deviceInfo, mtpMode });
       await this.mixpanelAnalytics.sendDeviceInfo({ deviceInfo, mtpMode });
     } catch (e) {
       log.error(e, `AnalyticsService -> sendDeviceInfo`);

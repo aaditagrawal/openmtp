@@ -1,5 +1,4 @@
 import { BrowserWindow } from 'electron';
-import { urls } from 'nice-utils';
 import { getAppThemeMode } from './theme';
 import { getCurrentThemePalette } from '../containers/App/styles';
 import { undefinedOrNull } from '../utils/funcs';
@@ -40,7 +39,7 @@ export const getCurrentWindowHash = () => {
     return null;
   }
 
-  const hash = urls().getHash();
+  const hash = window.location.hash.replace(/^#/, '');
 
   if (undefinedOrNull(hash) || hash === '') {
     return '/';

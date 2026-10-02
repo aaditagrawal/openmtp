@@ -1,9 +1,9 @@
 import React, { PureComponent } from 'react';
 import classNames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
-import Checkbox from '@material-ui/core/Checkbox';
-import Typography from '@material-ui/core/Typography';
-import Tooltip from '@material-ui/core/Tooltip';
+import { withStyles } from 'tss-react/mui';
+import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
 // eslint-disable-next-line import/no-relative-packages
 import prettyFileIcons from '../../../vendors/pretty-file-icons';
 import { springTruncate } from '../../../utils/funcs';
@@ -144,4 +144,4 @@ class FileExplorerTableBodyGridRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableBodyGridRender);
+export default withStyles(FileExplorerTableBodyGridRender, styles);

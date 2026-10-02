@@ -1,7 +1,7 @@
 import React, { PureComponent } from 'react';
-import { withStyles } from '@material-ui/core/styles';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
+import { withStyles } from 'tss-react/mui';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
 import FileExplorerTableHeadRender from './FileExplorerTableHeadRender';
 import FileExplorerTableEmptyRowRender from './FileExplorerTableBodyEmptyRender';
 import FileExplorerTableBodyGridWrapperRender from './FileExplorerTableBodyGridWrapperRender';
@@ -124,4 +124,4 @@ class FileExplorerTableBodyRender extends PureComponent {
   }
 }
 
-export default withStyles(styles)(FileExplorerTableBodyRender);
+export default withStyles(FileExplorerTableBodyRender, styles);

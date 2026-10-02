@@ -1,12 +1,12 @@
 import React, { PureComponent } from 'react';
 import classNames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
-import Button from '@material-ui/core/Button';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
+import { withStyles } from 'tss-react/mui';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import { styles } from '../styles/Notification';
 import { isString } from '../../../utils/funcs';
 
@@ -40,8 +40,11 @@ class Notification extends PureComponent {
         fullWidth={fullWidthDialog}
         maxWidth={maxWidthDialog}
         aria-labelledby="notification-dialogbox"
-        disableEscapeKeyDown={false}
-        onEscapeKeyDown={() => this._handleBtnClick({ confirm: false })}
+
+        onClose={(_, reason) => {
+          if (reason === 'escapeKeyDown')
+            this._handleBtnClick({ confirm: false });
+        }}
       >
         <DialogTitle>{titleText}</DialogTitle>
         <DialogContent>
@@ -65,4 +68,4 @@ class Notification extends PureComponent {
   }
 }
 
-export default withStyles(styles)(Notification);
+export default withStyles(Notification, styles);

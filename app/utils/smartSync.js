@@ -1,4 +1,44 @@
 import path from 'path';
+import { MTP_ERROR } from '../enums/mtpError';
+
+// null requests an ordinary transfer only for a file source or a missing
+// destination. A failed directory scan must never become an overwrite fallback.
+export function smartSyncListing(result, { side, root }) {
+  const error = result?.error;
+  const code = typeof error === 'string' ? error : error?.code;
+  const message = error?.message || (typeof error === 'string' ? error : '');
+  const mtpMissing =
+    result?.stderr === MTP_ERROR.ErrorFileNotFound ||
+    (result?.stderr === MTP_ERROR.ErrorInvalidPath &&
+      /^(?:path does not Exists\. path:|path not found:|file not found:)/i.test(
+        message,
+      ));
+
+  if (error || result?.stderr) {
+    if (side === 'source' && code === 'ENOTDIR') return null;
+    if (side === 'destination' && (code === 'ENOENT' || mtpMissing))
+      return null;
+    if (error instanceof Error) throw error;
+    throw new Error(`Cannot scan ${side} ${root}: ${message || result.stderr}`);
+  }
+
+  // Kalam serializes an empty Go slice as null.
+  const entries = result?.data === null ? [] : result?.data;
+  if (!Array.isArray(entries)) {
+    throw new Error(`Invalid directory listing for ${side} ${root}`);
+  }
+  // mtpx.Walk returns the file itself when its root is a file, unlike local
+  // readdir, which returns ENOTDIR. Normalize both contracts here.
+  const rootIsFile =
+    entries.length === 1 &&
+    !entries[0].isFolder &&
+    path.normalize(entries[0].path) === path.normalize(root);
+  if (rootIsFile) {
+    if (side === 'source') return null;
+    throw new Error(`Destination is a file, not a directory: ${root}`);
+  }
+  return entries;
+}
 
 export const computeSmartSyncDiff = ({
   sourceFiles,
@@ -44,7 +84,14 @@ export const computeSmartSyncDiff = ({
             ? destFile.mtimeMs
             : new Date(destFile.dateAdded).getTime();
         const sizeDiffers = file.size !== destFile.size;
-        const sourceNewer = sourceDate > destDate;
+        // MTP timestamps have second precision. Compare at that resolution
+        // when either listing lacks mtimeMs, so a round trip is idempotent.
+        const precise =
+          typeof file.mtimeMs === 'number' &&
+          typeof destFile.mtimeMs === 'number';
+        const sourceNewer = precise
+          ? sourceDate > destDate
+          : Math.floor(sourceDate / 1000) > Math.floor(destDate / 1000);
 
         if (sizeDiffers || sourceNewer) {
           // Modified file
