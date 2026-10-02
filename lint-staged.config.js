@@ -14,5 +14,7 @@ module.exports = {
     'stylelint --ignore-path .eslintignore --custom-syntax postcss-scss --fix',
     'oxfmt --ignore-path .eslintignore --write',
   ],
-  '*.{html,md,yml}': ['oxfmt --ignore-path .eslintignore --write'],
+  '*.{html,md}': ['oxfmt --ignore-path .eslintignore --write'],
+  // Explicitly staged workflows must be formatted even though lint ignores .github.
+  '*.{yml,yaml}': ['oxfmt --write'],
 };

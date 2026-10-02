@@ -95,6 +95,7 @@ jobs:
             echo '::error::No .dmg or .zip artifacts were produced under dist/'
             exit 1
           fi
+          test -s dist/latest-mac.yml
           shasum -a 256 "${artifacts[@]}" | tee dist/CHECKSUMS_SHA256.txt
 
       - name: Upload OpenMTP.app (workflow artifact)
@@ -115,3 +116,5 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/CHECKSUMS_SHA256.txt
+            dist/latest-mac.yml
+            dist/*.blockmap
