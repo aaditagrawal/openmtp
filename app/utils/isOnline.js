@@ -5,7 +5,7 @@ export const isConnected = () => {
   try {
     return new Promise((resolve) => {
       dns.lookup('github.com', (err) => {
-        if (err && err.code === 'ENOTFOUND') {
+        if (err) {
           resolve(false);
 
           return null;
