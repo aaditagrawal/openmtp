@@ -29,20 +29,20 @@ jobs:
       HAS_SIGNING_SECRETS: ${{ secrets.CSC_LINK != '' && secrets.CSC_KEY_PASSWORD != '' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version-file: '.bun-version'
 
       - name: Cache Bun install cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -99,14 +99,14 @@ jobs:
           shasum -a 256 "${artifacts[@]}" | tee dist/CHECKSUMS_SHA256.txt
 
       - name: Upload OpenMTP.app (workflow artifact)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: OpenMTP-macos-arm64-app
           path: ${{ steps.locate.outputs.app_path }}
           if-no-files-found: error
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           name: OpenMTP ${{ github.ref_name }}
           # Anything after a hyphen (v3.2.26-beta.1) is marked as pre-release.
