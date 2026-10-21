@@ -41,6 +41,14 @@ version advisory, with no suppression. Source:
 https://github.com/advisories/GHSA-hp3w-g68c-fv3c
 and https://github.com/alexei/sprintf.js/blob/master/src/sprintf.js
 
+The regression follows the actual Electron builder dependency path through
+`app-builder-lib`, `@electron/get`, `global-agent` and `roarr`, checks that
+consumer's resolved Node and browser distributions, and executes real logging
+in a bounded subprocess. A stale nested unpatched copy fails even when the
+root package is patched. If an existing installation fails this check, preserve
+any local dependency edits and recreate `node_modules` with a frozen Bun install.
+A fresh frozen install applies the committed patches without stale nested copies.
+
 To regenerate the browser artifact, run the locked Terser executable with
 `src/sprintf.js --compress --mangle --source-map filename=sprintf.min.js,url=sprintf.min.js.map -o dist/sprintf.min.js`
 from the extracted sprintf-js package root. Use a text diff for minified files;
