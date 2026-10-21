@@ -47,7 +47,8 @@
     "benchmark": "bun run benchmark:window && bun run benchmark:directory",
     "build-native": "node ./ffi/kalam/native/scripts/build-host.mjs",
     "build-libusb": "node ./ffi/kalam/native/scripts/build-libusb.mjs",
-    "test:manual": "bun tests/manual/run.mjs"
+    "test:manual": "bun tests/manual/run.mjs",
+    "test:security": "node scripts/security-braces.mjs && node scripts/security-sprintf.cjs"
   },
   "main": "./app/main.prod.js",
   "repository": {
@@ -171,5 +172,9 @@
     "usb",
     "node-mac-permissions"
   ],
-  "type": "commonjs"
+  "type": "commonjs",
+  "patchedDependencies": {
+    "sprintf-js@1.1.3": "patches/sprintf-js@1.1.3.patch",
+    "braces@3.0.3": "patches/braces@3.0.3.patch"
+  }
 }
