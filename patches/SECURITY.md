@@ -100,14 +100,69 @@ Brotli rather than Node's bundled copy. Chromium 152.0.7977.167 and
 the Node security patch reverse-applies cleanly to both copies. This evidence
 does not establish that every October issue is fixed in Electron.
 
-Until an Electron release includes the missing Node fixes, avoid untrusted
-network responses in the app. Users who need to reduce background network
-activity can disable automatic update checks and background downloads in
-Settings and leave `OPENMTP_TELEMETRY` unset. Those controls reduce exposure;
-they do not patch Node, prevent manual update requests or establish that the
-application is safe. No settings defaults were changed. Revisit the supported
-Electron release lines, inspect their Node patches, then validate a candidate
-with startup, native-transfer and macOS packaging checks before distribution.
+### Application DNS and TLS guards
+
+`app/security/node-network.cjs` adapts the Node 24.22.1 fixes at the public
+DNS and TLS entry points. The main entry loads it before Sentry and other
+application dependencies. Every Node-enabled BrowserWindow has a preload
+that installs it in the renderer's existing shared Node context before page
+scripts run. Packaging includes both CommonJS files and the Node license.
+
+DNS callback and promise APIs reject NUL bytes before calling c-ares, including
+default bound functions, Resolver instances, generic resolve record types,
+reverse lookup and setLocalAddress. The guards survive setServers rebinding.
+Builtin ESM named exports are synchronized at installation and after rebinding.
+References captured by application dependencies after bootstrap are protected.
+
+TLS identity checks reject hostnames that become IP literals only after
+domainToASCII normalization. Valid canonical addresses and ordinary DNS names
+continue through Electron's original verifier. The guards retain chain and
+hostname verification, CA configuration and Electron's existing blocked-key
+backport. They do not change update settings or disable application features.
+
+The current application has no JavaScript worker, Node fork or utility-process
+entry. Its subprocesses execute native MTP tools and system commands. Sentry's
+default Electron integrations also use no independent Node networking worker;
+its transport and electron-updater use Chromium's net API. Chromium networking
+and renderer browser fetch do not use these Node guards. A future worker or
+Node child entry must load the guard before its own dependencies. The guards
+cannot repair function references captured before installation, native bindings,
+explicit custom identity verifiers or arbitrary code executing in a Node-enabled
+renderer. They are application hardening, not a patched Electron runtime or a
+claim that every October Node issue is resolved.
+
+Run the regression under Electron's actual embedded Node, not Bun:
+
+```sh
+ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron scripts/security-node-network.cjs
+```
+
+The test checks callback/promise/default/instance APIs, cached CommonJS and ESM
+functions, DNS rebinding, canonical IPv4/IPv6/DNS identities, a loopback DNS
+server and real TLS/HTTPS connections. It generates and deletes a private test
+certificate. Correct identities succeed; mismatched names, untrusted certificates
+and ambiguous numeric hosts fail. `--unprotected-negative-control` skips the
+guard and confirms the installed Electron accepts the affected DNS/TLS inputs.
+Run that control only under the affected Electron pin.
+
+For Linux validation, block external traffic with a private network namespace:
+
+```sh
+unshare --user --map-root-user --net bash -c 'ip link set lo up; exec env ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron scripts/security-node-network.cjs'
+```
+
+After `bun run build`, `scripts/smoke-network-security.cjs` starts the actual
+production bundle with a disposable profile and validates guards inside its
+main process and real auxiliary windows. Run it under Electron in the same
+isolated namespace. Headless Linux tests may pass `--ozone-platform=headless
+--disable-gpu --no-sandbox`; the last flag applies only to this isolated test
+process. The application does not add it. No test should send telemetry or
+contact a real update endpoint.
+
+Keep the Electron runtime follow-up open. Replace these guards with an upstream
+fixed runtime after inspecting its source/backports and rerunning the tests.
+Native USB transfers, signed macOS packaging and installation still require
+validation on the target Mac before distribution.
 
 Sources:
 
@@ -117,3 +172,6 @@ Sources:
 - [Electron 45.0.0 Node source and patch set](https://github.com/electron/electron/tree/v45.0.0/patches/node)
 - [Chromium 152 Brotli revision](https://github.com/chromium/chromium/blob/152.0.7977.167/third_party/brotli/README.chromium)
 - [Brotli fix ancestry](https://github.com/google/brotli/compare/0ed4268a4401abcb44720963...cfa184a997ac19454d5a3ae97f6d600aac2445a6)
+- [Node 24.22.1 TLS verifier](https://github.com/nodejs/node/blob/v24.22.1/lib/tls.js)
+- [Node 24.22.1 DNS callback validation](https://github.com/nodejs/node/blob/v24.22.1/lib/internal/dns/callback_resolver.js)
+- [Node 24.22.1 DNS promise validation](https://github.com/nodejs/node/blob/v24.22.1/lib/internal/dns/promises.js)

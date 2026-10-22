@@ -34,6 +34,9 @@ const devAppUpdateFile = join(configDir, `./dev-app-update.yml`);
 export const PATHS = {
   root: resolve(root),
   app: resolve(appPath),
+  securityPreload: isPackaged
+    ? join(__dirname, './security/renderer-preload.cjs')
+    : join(appPath, './security/renderer-preload.cjs'),
   dist: resolve(join(appPath, `./dist`)),
   nodeModules: resolve(join(root, `./node_modules`)),
   homeDir: resolve(homeDir),

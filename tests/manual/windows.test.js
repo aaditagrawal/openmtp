@@ -55,7 +55,10 @@ mock.module('../../app/utils/log', () => ({
   },
 }));
 mock.module('../../app/constants/paths', () => ({
-  PATHS: { loadUrlPath: 'file:///app/app.html' },
+  PATHS: {
+    loadUrlPath: 'file:///app/app.html',
+    securityPreload: '/app/security/renderer-preload.cjs',
+  },
 }));
 const pages = await import('../../app/helpers/createWindows');
 const { PRIVACY_POLICY_PAGE_TITLE } =
@@ -94,6 +97,7 @@ test('each auxiliary page retains its route, geometry, preferences and singleton
       backgroundColor: '#123456',
     });
     expect(window.options.webPreferences).toEqual({
+      preload: '/app/security/renderer-preload.cjs',
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,

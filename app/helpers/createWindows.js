@@ -28,6 +28,7 @@ const createWindow = (options) => {
     minimizable: true,
     fullscreenable: false,
     webPreferences: {
+      preload: PATHS.securityPreload,
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,

@@ -49,18 +49,24 @@ test('preinstall accepts exactly the supported Node release boundaries before de
   for (const [node, expected] of [
     ['20.20.0', false],
     ['22.22.0', false],
-    ['22.22.1', true],
-    ['22.23.0', true],
+    ['22.22.1', false],
+    ['22.23.3', false],
+    ['22.23.4', true],
     ['23.9.0', false],
     ['24.10.9', false],
-    ['24.11.0', true],
-    ['25.0.0', true],
-    ['26.9.0', true],
+    ['24.22.0', false],
+    ['24.22.1', true],
+    ['25.0.0', false],
+    ['26.12.0', false],
+    ['26.12.1', true],
+    ['27.0.0', true],
   ]) {
     let accepted = true;
     try {
       vm.runInNewContext(source, {
-        require: () => ({ engines: { node: '^22.22.1 || >=24.11.0' } }),
+        require: () => ({
+          engines: { node: '^22.23.4 || ^24.22.1 || ^26.12.1 || >=27.0.0' },
+        }),
         process: {
           versions: { node },
           env: { npm_config_user_agent: 'bun/1.4.2' },

@@ -75,6 +75,7 @@ module.exports = () => {
     files: [
       'app/dist/',
       'app/app.html',
+      'app/security/**',
       'app/main.prod.js',
       'app/main.prod.js.map',
       'package.json',

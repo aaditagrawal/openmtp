@@ -1,5 +1,6 @@
 /* eslint global-require: off */
 
+import './security/node-network.cjs';
 import './services/sentry/index';
 
 import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from 'electron';
@@ -213,6 +214,7 @@ async function createWindow() {
       minHeight: 640,
       titleBarStyle: 'hidden',
       webPreferences: {
+        preload: PATHS.securityPreload,
         enableRemoteModule: true,
         nodeIntegration: true,
         contextIsolation: false,

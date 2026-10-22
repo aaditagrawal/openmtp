@@ -37,6 +37,7 @@ const createChildWindow = () => {
       fullscreenable: false,
       movable: false,
       webPreferences: {
+        preload: PATHS.securityPreload,
         nodeIntegration: true,
         contextIsolation: false,
         enableRemoteModule: true,
