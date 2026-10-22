@@ -2,9 +2,10 @@ const { engines } = require('../../package.json');
 const version = process.versions.node;
 const [major, minor, patch] = version.split('.').map(Number);
 const supported =
-  (major === 22 && (minor > 22 || (minor === 22 && patch >= 1))) ||
-  (major === 24 && minor >= 11) ||
-  major > 24;
+  (major === 22 && (minor > 23 || (minor === 23 && patch >= 4))) ||
+  (major === 24 && (minor > 22 || (minor === 22 && patch >= 1))) ||
+  (major === 26 && (minor > 12 || (minor === 12 && patch >= 1))) ||
+  major >= 27;
 if (!supported) {
   console.error(
     `Node.js ${engines.node} is required; detected ${version}. Use the version in .node-version.`,

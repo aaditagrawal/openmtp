@@ -7,11 +7,11 @@ definitions:
     instance_type: mac_pro
 
   mac_m1_env_versions: &mac_m1_env_versions
-    node: 26.9.0
+    node: 26.12.1
     xcode: 15.3
 
   mac_intel_x64_env_versions: &mac_intel_x64_env_versions
-    node: 26.9.0
+    node: 26.12.1
     xcode: 14.2
 
   mac_m1_arm64_artifacts: &mac_m1_arm64_artifacts

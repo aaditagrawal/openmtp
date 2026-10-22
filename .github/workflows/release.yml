@@ -12,9 +12,6 @@ concurrency:
 permissions:
   contents: write
 
-env:
-  NODE_VERSION: '26.9.0'
-
 jobs:
   release:
     name: Build & release macOS (arm64)
@@ -34,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7.1.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0

@@ -75,3 +75,45 @@ entrypoints, the existing maximum input length and post-GC retention. The local
 security command includes bounded-heap recovery regressions. Arbitrary expansion
 can still require combinatorial output; this patch adds no expansion/depth limit
 and does not claim to bound every possible resource-exhaustion pattern.
+
+## Node runtime and Electron, October 2026
+
+The build host is pinned to Node 26.12.1 in `.node-version`, `.nvmrc`,
+GitHub Actions and Codemagic. The existing installation check rejects older
+patches on the supported Node 22, 24 and 26 lines. The October 21 Node security
+release fixes those lines at 22.23.4, 24.22.1 and 26.12.1. Engine metadata alone
+does not select a runtime.
+
+The packaged application uses Electron's embedded Node, independently of the
+build host. Electron remains pinned to 44.9.2, whose installed Linux binary
+reports Node 24.22.0. On October 22, the latest stable Electron releases were
+45.0.0, 44.9.3 and 43.8.3, all based on Node 24.22.0. Their published Node patch
+sets do not contain the October DNS input and TLS hostname fixes. Offline
+`tls.checkServerIdentity` probes confirm that the installed 44.9.2 accepts the
+non-canonical numeric hostname cases that Node 26.12.1 rejects. Updating only
+the host Node or choosing one of those Electron versions does not close this gap.
+
+Version strings alone are insufficient for other fixes. Electron has a
+certificate public-key blocklist backport. Its build also links Chromium's
+Brotli rather than Node's bundled copy. Chromium 152.0.7977.167 and
+156.0.8078.48 contain the upstream Brotli fix 0ed4268a4401abcb44720963;
+the Node security patch reverse-applies cleanly to both copies. This evidence
+does not establish that every October issue is fixed in Electron.
+
+Until an Electron release includes the missing Node fixes, avoid untrusted
+network responses in the app. Users who need to reduce background network
+activity can disable automatic update checks and background downloads in
+Settings and leave `OPENMTP_TELEMETRY` unset. Those controls reduce exposure;
+they do not patch Node, prevent manual update requests or establish that the
+application is safe. No settings defaults were changed. Revisit the supported
+Electron release lines, inspect their Node patches, then validate a candidate
+with startup, native-transfer and macOS packaging checks before distribution.
+
+Sources:
+
+- [Node October 21 security release](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
+- [Electron stable releases](https://releases.electronjs.org/release?channel=stable)
+- [Electron 44.9.3 Node source and patch set](https://github.com/electron/electron/tree/v44.9.3/patches/node)
+- [Electron 45.0.0 Node source and patch set](https://github.com/electron/electron/tree/v45.0.0/patches/node)
+- [Chromium 152 Brotli revision](https://github.com/chromium/chromium/blob/152.0.7977.167/third_party/brotli/README.chromium)
+- [Brotli fix ancestry](https://github.com/google/brotli/compare/0ed4268a4401abcb44720963...cfa184a997ac19454d5a3ae97f6d600aac2445a6)

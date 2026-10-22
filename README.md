@@ -25,7 +25,7 @@ The [progress-bar update fix](https://github.com/ganeshrvel/openmtp/pull/434) is
 
 Use artifacts from [this fork's releases](https://github.com/aaditagrawal/openmtp/releases), when available. The upstream website and Homebrew cask distribute the upstream app.
 
-For development, install Git, Node.js 26.9.0 and Bun 1.4.2. Runtime pins are checked in as `.nvmrc` and `.bun-version`.
+For development, install Git, Node.js 26.12.1 and Bun 1.4.2. Runtime pins are checked in as `.node-version`, `.nvmrc` and `.bun-version`. See the [embedded Node security limits](patches/SECURITY.md#node-runtime-and-electron-october-2026) before distributing a build.
 
 ```sh
 git clone https://github.com/aaditagrawal/openmtp.git
