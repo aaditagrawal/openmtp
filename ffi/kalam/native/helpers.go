@@ -157,6 +157,11 @@ func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, sk
 	if err := verifyMtpSession(skipDeviceChangeCheckMode); err != nil {
 		return nil, err
 	}
+	if useBatchedListing(recursive, container.deviceInfo) {
+		if result, handled, err := tryBatchedWalk(storageId, fullPath, skipDisallowedFiles, skipHiddenFiles); handled {
+			return result, err
+		}
+	}
 
 	_, _, _, err = mtpx.Walk(container.dev, storageId, fullPath, recursive, skipDisallowedFiles, skipHiddenFiles, func(objectId uint32, fi *mtpx.FileInfo, err error) error {
 		if err != nil {

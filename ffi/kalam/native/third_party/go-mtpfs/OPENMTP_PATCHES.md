@@ -27,3 +27,11 @@ Zone-less timestamps cannot identify a device timezone different from the host.
 
 Kalam converts decoded timestamps to UTC before serializing its `dateAdded`
 field with a `Z` suffix, so listings and downloaded mtimes describe the same instant.
+
+`object_prop_list.go` adds a bounded, typed depth-one GetObjectPropList operation.
+`directory_metadata.go` checks its result against scoped handles before exposing
+browsing metadata, with explicit unsupported/incomplete fallback decisions.
+These additions leave `mtp.go`, dependency versions and transfer buffers unchanged.
+See [Kalam's experimental listing notes](../../BATCHED_LISTING.md) for protocol
+references, limits and device-free checks. The new tests run without
+`openmtp_manual` and do not access USB devices.

@@ -7,6 +7,13 @@ import (
 
 type ErrorType string
 
+// DirectoryListingError preserves the legacy ListDirectory error category for
+// the opt-in metadata path without constructing mtpx's private error wrapper.
+type DirectoryListingError struct{ Cause error }
+
+func (e DirectoryListingError) Error() string { return e.Cause.Error() }
+func (e DirectoryListingError) Unwrap() error { return e.Cause }
+
 type FileInfo struct {
 	Size      int64  `json:"size"`
 	IsDir     bool   `json:"isFolder"`
