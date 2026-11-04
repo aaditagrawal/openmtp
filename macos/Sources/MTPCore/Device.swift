@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 
 /// File-manager operations on an open MTP session: listing, path resolution and transfers.
 ///
@@ -98,7 +103,7 @@ public final class MTPDevice: @unchecked Sendable {
                 parent: parent,
                 name: name,
                 format: UInt16(truncatingIfNeeded: format),
-                size: isDirectory ? 0 : props[.objectSize]?.uint64 ?? 0,
+                size: isDirectory ? 0 : props[.objectSize]?.uint64,
                 modified: props[.dateModified]?.stringValue.flatMap { MTPDate.parse($0) }
             ))
         }
@@ -114,12 +119,18 @@ public final class MTPDevice: @unchecked Sendable {
     /// GetObjectInfo for one handle, with a 64-bit size lookup for objects >= 4 GiB.
     public func object(_ handle: UInt32, fallbackParent: UInt32? = nil) throws -> MTPObject {
         let oi = try session.getObjectInfo(handle)
-        var size = UInt64(oi.compressedSize)
+        var size: UInt64? = UInt64(oi.compressedSize)
         let isDirectory = oi.objectFormat == ObjectFormat.association
         if isDirectory {
             size = 0
         } else if oi.compressedSize == 0xFFFF_FFFF {
-            size = try session.getObjectPropValue(handle, .objectSize, type: .uint64).uint64 ?? size
+            do {
+                size = try session.getObjectPropValue(handle, .objectSize, type: .uint64).uint64
+            } catch MTPError.response {
+                // Older devices may not expose ObjectSize. Never treat the sentinel as
+                // a known length. Transport/protocol errors still propagate.
+                size = nil
+            }
         }
         let parent = oi.parentObject == 0 ? (fallbackParent ?? MTPHandle.root) : oi.parentObject
         return MTPObject(
@@ -154,41 +165,54 @@ public final class MTPDevice: @unchecked Sendable {
     /// renamed into place only after the byte count matches and the file is synced.
     public func download(_ object: MTPObject, to destination: URL, progress: MTPProgress? = nil) throws {
         let fm = FileManager.default
-        let partial = destination.deletingLastPathComponent()
-            .appendingPathComponent(".\(destination.lastPathComponent).openmtp-partial")
-        try? fm.removeItem(at: partial)
-        guard fm.createFile(atPath: partial.path, contents: nil) else {
-            throw MTPError.transport("cannot create \(partial.path)")
+        guard destination.isFileURL, !object.isDirectory else {
+            throw MTPError.transport("Downloads require a file and a local destination.")
+        }
+        // mkstemp atomically creates an exclusive, mode-0600 sibling on the same
+        // filesystem. Never remove a deterministic path that another copy may own.
+        var template = Array(destination.deletingLastPathComponent()
+            .appendingPathComponent(".openmtp-XXXXXX").path.utf8CString)
+        let fd = template.withUnsafeMutableBufferPointer { mkstemp($0.baseAddress!) }
+        guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        let partialPath = template.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
+        let partial = URL(fileURLWithPath: partialPath)
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer {
+            try? handle.close()
+            // Only this transfer's file, including after a failed commit.
+            try? fm.removeItem(at: partial)
         }
         var written: UInt64 = 0
-        do {
-            let handle = try FileHandle(forWritingTo: partial)
-            defer { try? handle.close() }
-            try session.getObject(object.handle, sink: { chunk in
-                try handle.write(contentsOf: chunk)
-                written += UInt64(chunk.count)
-            }, progress: progress)
-            if object.size != 0, object.size < 0xFFFF_FFFF, written != object.size {
-                throw MTPError.transport("received \(written) of \(object.size) bytes for \(object.name)")
-            }
-            try handle.synchronize()
-        } catch {
-            try? fm.removeItem(at: partial)
-            throw error
+        try session.getObject(object.handle, sink: { chunk in
+            try handle.write(contentsOf: chunk)
+            written += UInt64(chunk.count)
+        }, progress: progress)
+        if let expected = object.size, written != expected {
+            throw MTPError.transport("received \(written) of \(expected) bytes for \(object.name)")
         }
+        try handle.synchronize()
+        try handle.close()
         if let modified = object.modified {
             try? fm.setAttributes([.modificationDate: modified], ofItemAtPath: partial.path)
         }
-        if fm.fileExists(atPath: destination.path) {
-            _ = try fm.replaceItemAt(destination, withItemAt: partial)
-        } else {
-            try fm.moveItem(at: partial, to: destination)
+        // POSIX rename commits atomically, replacing an existing file or symlink
+        // without a delete-first gap. Failure leaves the destination in place.
+        let result = partial.path.withCString { source in
+            destination.path.withCString { target in
+                #if canImport(Darwin)
+                Darwin.rename(source, target)
+                #else
+                Glibc.rename(source, target)
+                #endif
+            }
         }
+        guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
     }
 
     /// Uploads a regular file. Returns the new object's handle.
     @discardableResult
     public func upload(_ source: URL, storage: UInt32, parent: UInt32 = MTPHandle.root, name: String? = nil, progress: MTPProgress? = nil) throws -> UInt32 {
+        try UploadPreflight.validate([source])
         let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
         let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
         var oi = ObjectInfo()

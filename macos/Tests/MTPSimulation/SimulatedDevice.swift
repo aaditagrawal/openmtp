@@ -1,5 +1,5 @@
 import Foundation
-@testable import MTPCore
+import MTPCore
 
 /// An in-memory Android-like MTP responder behind a packet-accurate USB bulk model.
 ///
@@ -25,6 +25,9 @@ final class SimulatedDevice: MTPTransport {
     var unknownLengthThreshold = Int.max
     /// Behave like the Linux xHCI quirk: no ZLP after a packet-aligned data container.
     var omitZLP = false
+    /// Fake metadata independent of payload allocation, for 64-bit/truncation tests.
+    var reportedSizes: [UInt32: UInt64] = [:]
+    var omitObjectSizes = false
 
     let storageID: UInt32 = 0x0001_0001
     private(set) var nodes: [UInt32: Node] = [:]
@@ -51,10 +54,10 @@ final class SimulatedDevice: MTPTransport {
     init() {}
 
     @discardableResult
-    func add(_ name: String, parent: UInt32 = 0, directory: Bool = false, contents: Data = Data()) -> UInt32 {
+    func add(_ name: String, parent: UInt32 = 0, directory: Bool = false, contents: Data = Data(), modified: String = "20260102T030405") -> UInt32 {
         let h = nextHandle
         nextHandle += 1
-        nodes[h] = Node(handle: h, parent: parent, name: name, isDirectory: directory, contents: contents)
+        nodes[h] = Node(handle: h, parent: parent, name: name, isDirectory: directory, contents: contents, modified: modified)
         return h
     }
 
@@ -192,7 +195,9 @@ final class SimulatedDevice: MTPTransport {
             guard let n = nodes[params[0]] else { return reply(.invalidObjectHandle) }
             var w = ByteWriter()
             switch ObjectProperty(rawValue: UInt16(params[1])) {
-            case .objectSize: w.u64(UInt64(n.contents.count))
+            case .objectSize:
+                guard !omitObjectSizes else { return reply(.invalidObjectPropCode) }
+                w.u64(reportedSizes[n.handle] ?? UInt64(n.contents.count))
             case .objectFileName: try! w.string(n.name)
             default: return reply(.invalidObjectPropCode)
             }
@@ -288,7 +293,8 @@ final class SimulatedDevice: MTPTransport {
         var oi = ObjectInfo()
         oi.storageID = storageID
         oi.objectFormat = n.isDirectory ? ObjectFormat.association : ObjectFormat.undefined
-        oi.compressedSize = n.contents.count >= 0xFFFF_FFFF ? 0xFFFF_FFFF : UInt32(n.contents.count)
+        let size = reportedSizes[n.handle] ?? UInt64(n.contents.count)
+        oi.compressedSize = omitObjectSizes || size >= 0xFFFF_FFFF ? 0xFFFF_FFFF : UInt32(size)
         oi.parentObject = n.parent
         oi.associationType = n.isDirectory ? AssociationType.genericFolder : 0
         oi.filename = n.name
@@ -298,12 +304,14 @@ final class SimulatedDevice: MTPTransport {
 
     private func propertyList(_ list: [Node]) -> Data {
         var w = ByteWriter()
-        w.u32(UInt32(list.count * 7))
+        w.u32(UInt32(list.count * (omitObjectSizes ? 6 : 7)))
         for n in list {
             func head(_ p: ObjectProperty, _ t: DataType) { w.u32(n.handle); w.u16(p.rawValue); w.u16(t.rawValue) }
             head(.storageID, .uint32); w.u32(storageID)
             head(.objectFormat, .uint16); w.u16(n.isDirectory ? ObjectFormat.association : ObjectFormat.undefined)
-            head(.objectSize, .uint64); w.u64(UInt64(n.contents.count))
+            if !omitObjectSizes {
+                head(.objectSize, .uint64); w.u64(reportedSizes[n.handle] ?? UInt64(n.contents.count))
+            }
             head(.objectFileName, .string); try! w.string(n.name)
             head(.dateModified, .string); try! w.string(n.modified)
             head(.parentObject, .uint32); w.u32(n.parent)

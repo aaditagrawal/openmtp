@@ -19,11 +19,14 @@ final class AppModel {
         let id = UUID()
         let name: String
         let direction: Direction
-        let total: UInt64
+        let total: UInt64?
         var done: UInt64 = 0
         var error: String?
         var finished = false
-        var fraction: Double { total == 0 ? (finished ? 1 : 0) : Double(done) / Double(total) }
+        var fraction: Double? {
+            guard let total else { return finished ? 1 : nil }
+            return total == 0 ? (finished ? 1 : 0) : min(1, Double(done) / Double(total))
+        }
     }
 
     private(set) var candidates: [USBMTPCandidate] = []
@@ -31,7 +34,12 @@ final class AppModel {
     private(set) var deviceName = ""
     private(set) var storages: [StorageInfo] = []
     var selectedStorage: UInt32? {
-        didSet { if oldValue != selectedStorage { path = []; Task { await reload() } } }
+        didSet {
+            if oldValue != selectedStorage {
+                path = []; entries = []; selection = []
+                Task { await reload() }
+            }
+        }
     }
 
     /// Folders from the storage root to the current directory.
@@ -42,11 +50,34 @@ final class AppModel {
     var sortOrder = [KeyPathComparator(\MTPObject.name, comparator: .localizedStandard)]
     var transfers: [Transfer] = []
     var errorMessage: String?
+    var pendingDeletion: PendingDeletion?
     let browser = BrowserState()
 
     private var client: MTPClient?
     private var connectedID: UInt64?
     private var monitor: USBHotplugMonitor?
+
+    // Dependency injection lets simulated devices exercise the same file actions as the UI.
+    init(client: MTPClient? = nil, storage: UInt32? = nil) {
+        self.client = client
+        selectedStorage = storage
+        if client != nil { connection = .connected }
+    }
+
+    struct PendingDeletion {
+        let client: MTPClient
+        let storage: UInt32
+        let parent: UInt32
+        let objects: [MTPObject]
+        let location: String
+
+        var title: String {
+            objects.count == 1 ? "Permanently delete \"\(objects[0].name)\"?" : "Permanently delete \(objects.count) items?"
+        }
+        var message: String {
+            "These items will be permanently deleted from the phone at \(location). This cannot be undone. Folders include all their contents.\n\n" + objects.map(\.name).joined(separator: "\n")
+        }
+    }
 
     var currentParent: UInt32 { path.last?.handle ?? MTPHandle.root }
     var sortedEntries: [MTPObject] {
@@ -120,6 +151,8 @@ final class AppModel {
         storages = []
         entries = []
         path = []
+        selection = []
+        pendingDeletion = nil
         connection = candidates.isEmpty ? .noDevice : connection
     }
 
@@ -131,7 +164,9 @@ final class AppModel {
         defer { isLoading = false }
         let parent = currentParent
         do {
-            entries = try await client.run { try $0.children(storage: storage, parent: parent, refresh: refresh) }
+            let listed = try await client.run { try $0.children(storage: storage, parent: parent, refresh: refresh) }
+            guard self.client === client, selectedStorage == storage, currentParent == parent else { return }
+            entries = listed
             selection = selection.filter { id in entries.contains { $0.id == id } }
         } catch {
             report(error)
@@ -141,6 +176,7 @@ final class AppModel {
     func open(_ object: MTPObject) {
         guard object.isDirectory else { return }
         path.append(object)
+        entries = []
         selection = []
         Task { await reload() }
     }
@@ -149,6 +185,7 @@ final class AppModel {
         let target = depth ?? max(path.count - 1, 0)
         guard target < path.count else { return }
         path.removeLast(path.count - target)
+        entries = []
         selection = []
         Task { await reload() }
     }
@@ -157,8 +194,8 @@ final class AppModel {
 
     // MARK: File operations
 
-    func downloadSelection() {
-        let files = selectedObjects.filter { !$0.isDirectory }
+    func downloadSelection(_ ids: Set<MTPObject.ID>? = nil) {
+        let files = entries.filter { (ids ?? selection).contains($0.id) && !$0.isDirectory }
         guard !files.isEmpty else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -187,10 +224,13 @@ final class AppModel {
         }
     }
 
-    func upload(_ urls: [URL]) {
-        guard let client, let storage = selectedStorage else { return }
+    @discardableResult
+    func upload(_ urls: [URL]) -> Bool {
+        guard let client, let storage = selectedStorage, !urls.isEmpty else { return false }
+        do { try UploadPreflight.validate(urls) }
+        catch { errorMessage = "Nothing was uploaded. \(error)"; return false }
         let parent = currentParent
-        for url in urls where !url.hasDirectoryPath {
+        for url in urls {
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(UInt64.init) ?? 0
             let id = startTransfer(url.lastPathComponent, .upload, total: size)
             Task {
@@ -205,6 +245,7 @@ final class AppModel {
                 }
             }
         }
+        return true
     }
 
     func chooseFilesToUpload() {
@@ -237,21 +278,35 @@ final class AppModel {
         }
     }
 
-    func deleteSelection() {
-        guard let client else { return }
-        let objects = selectedObjects
-        Task {
-            do {
-                try await client.run { device in try objects.forEach { try device.delete($0) } }
-                selection = []
-                await reload()
-            } catch { report(error) }
+    func requestDeletion(_ ids: Set<MTPObject.ID>? = nil) {
+        guard let client, let storage = selectedStorage, connection == .connected else { return }
+        let objects = entries.filter { (ids ?? selection).contains($0.id) }
+        guard !objects.isEmpty else { return }
+        let storageName = storages.first { $0.id == storage }?.displayName ?? "Storage \(storage)"
+        pendingDeletion = PendingDeletion(client: client, storage: storage, parent: currentParent,
+            objects: objects, location: ([storageName] + path.map(\.name)).joined(separator: "/"))
+    }
+
+    func confirmDeletion(_ request: PendingDeletion) async {
+        // A selection change is safe: use the snapshot. A connection or navigation
+        // change cancels the request, so handles cannot be reused on another phone.
+        guard client === request.client, connection == .connected,
+              selectedStorage == request.storage, currentParent == request.parent else {
+            errorMessage = "Deletion cancelled because the phone or folder changed. Select the items again."
+            return
         }
+        do {
+            try await request.client.run { device in try request.objects.forEach { try device.delete($0) } }
+            if client === request.client, selectedStorage == request.storage, currentParent == request.parent {
+                selection.subtract(request.objects.map(\.id))
+                await reload()
+            }
+        } catch { report(error) }
     }
 
     // MARK: Transfers
 
-    private func startTransfer(_ name: String, _ direction: Transfer.Direction, total: UInt64) -> UUID {
+    private func startTransfer(_ name: String, _ direction: Transfer.Direction, total: UInt64?) -> UUID {
         let transfer = Transfer(name: name, direction: direction, total: total)
         transfers.insert(transfer, at: 0)
         return transfer.id
@@ -274,7 +329,7 @@ final class AppModel {
         guard let i = transfers.firstIndex(where: { $0.id == id }) else { return }
         transfers[i].finished = true
         transfers[i].error = error
-        if error == nil { transfers[i].done = transfers[i].total }
+        if error == nil, let total = transfers[i].total { transfers[i].done = total }
         if let error { errorMessage = error }
     }
 

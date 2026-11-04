@@ -27,6 +27,11 @@ struct OpenMTPApp: App {
                     .keyboardShortcut("d")
                     .disabled(model.selection.isEmpty)
             }
+            CommandGroup(after: .pasteboard) {
+                Button("Delete from Phone…", role: .destructive) { model.requestDeletion() }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(model.connection != .connected || model.selection.isEmpty)
+            }
             CommandGroup(after: .toolbar) {
                 Button("Refresh") { Task { await model.reload(refresh: true) } }
                     .keyboardShortcut("r")
@@ -82,6 +87,17 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(model.errorMessage ?? "")
+        }
+        .alert(model.pendingDeletion?.title ?? "Delete from Phone", isPresented: Binding(
+            get: { model.pendingDeletion != nil },
+            set: { if !$0 { model.pendingDeletion = nil } }
+        ), presenting: model.pendingDeletion) { request in
+            Button("Delete Permanently", role: .destructive) {
+                Task { await model.confirmDeletion(request) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { request in
+            Text(request.message)
         }
     }
 }
@@ -158,13 +174,13 @@ struct Browser: View {
                         .frame(width: 16, height: 16)
                 }
             }
-            TableColumn("Size", value: \.size) { object in
-                Text(object.isDirectory ? "--" : object.size.formatted(.byteCount(style: .file)))
+            TableColumn("Size", sortUsing: KeyPathComparator(\MTPObject.size)) { object in
+                Text(sizeLabel(for: object))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
             .width(min: 70, ideal: 90, max: 120)
-            TableColumn("Date Modified") { (object: MTPObject) in
+            TableColumn("Date Modified", sortUsing: KeyPathComparator(\MTPObject.modified)) { object in
                 Text(object.modified?.formatted(date: .abbreviated, time: .shortened) ?? "--")
                     .foregroundStyle(.secondary)
             }
@@ -172,22 +188,20 @@ struct Browser: View {
         }
         .contextMenu(forSelectionType: MTPObject.ID.self) { ids in
             if !ids.isEmpty {
-                Button("Download…") { model.downloadSelection() }
+                Button("Download…") { model.downloadSelection(ids) }
                 if ids.count == 1, let object = model.entries.first(where: { ids.contains($0.id) }) {
                     Button("Rename…") { ui.renaming = object; ui.renameText = object.name }
                 }
                 Divider()
-                Button("Delete", role: .destructive) { model.deleteSelection() }
+                Button("Delete from Phone…", role: .destructive) { model.requestDeletion(ids) }
             }
         } primaryAction: { ids in
             if ids.count == 1, let object = model.entries.first(where: { ids.contains($0.id) }) {
-                if object.isDirectory { model.open(object) } else { model.downloadSelection() }
+                if object.isDirectory { model.open(object) } else { model.downloadSelection(ids) }
             }
         }
-        .onKeyPress(.delete) { model.deleteSelection(); return .handled }
         .dropDestination(for: URL.self) { urls, _ in
             model.upload(urls)
-            return true
         } isTargeted: { ui.isDropTargeted = $0 }
         .overlay {
             if ui.isDropTargeted {
@@ -232,6 +246,12 @@ struct Browser: View {
         let ext = (object.name as NSString).pathExtension
         return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
     }
+
+    private func sizeLabel(for object: MTPObject) -> String {
+        if object.isDirectory { return "--" }
+        guard let size = object.size else { return "Unknown" }
+        return ByteCountFormatter.string(fromByteCount: Int64(clamping: size), countStyle: .file)
+    }
 }
 
 /// Breadcrumb as a pop-up, like Finder's title-bar path menu.
@@ -250,4 +270,3 @@ struct PathMenu: View {
         .disabled(model.path.isEmpty)
     }
 }
-

@@ -275,13 +275,15 @@ public struct MTPObject: Sendable, Hashable, Identifiable {
     public var parent: UInt32
     public var name: String
     public var format: UInt16
-    public var size: UInt64
+    /// Exact payload length, including zero. Nil means metadata did not supply a size.
+    /// This is independent of the data container's 0xFFFFFFFF transport length.
+    public var size: UInt64?
     public var modified: Date?
 
     public var id: UInt32 { handle }
     public var isDirectory: Bool { format == ObjectFormat.association }
 
-    public init(handle: UInt32, storageID: UInt32, parent: UInt32, name: String, format: UInt16, size: UInt64, modified: Date?) {
+    public init(handle: UInt32, storageID: UInt32, parent: UInt32, name: String, format: UInt16, size: UInt64?, modified: Date?) {
         self.handle = handle
         self.storageID = storageID
         self.parent = parent

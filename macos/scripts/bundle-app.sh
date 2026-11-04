@@ -9,6 +9,8 @@ VERSION="$(git describe --tags --always 2>/dev/null || echo 0.0.0)"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/OpenMTP Native"
+cp ../LICENSE "$APP/Contents/Resources/LICENSE"
+cp NOTICE "$APP/Contents/Resources/NOTICE"
 [ -f ../app/app.icns ] && cp ../app/app.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

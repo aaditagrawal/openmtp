@@ -1,0 +1,15 @@
+OpenMTP native exploration
+
+Imported on 2026-11-04 from the existing macos prototype at
+/home/mav/Code/agent-worktrees/openmtp-swift-native/macos.
+The import includes its Swift sources, SwiftPM manifest, design reference, scripts
+and simulated tests. The original directory was not modified. Subsequent changes
+in this draft harden file transfers and native file actions.
+
+OpenMTP and the retained repository license:
+Copyright (c) 2010-present Ganesh Rathinavel
+The MIT License (MIT), reproduced in ../LICENSE.
+
+The prototype's README and protocol comments reference the existing kalam,
+go-mtpx and go-mtpfs implementations. Their source and attribution remain in the
+repository's ffi/ tree. No Go or libusb implementation is bundled in the native app.

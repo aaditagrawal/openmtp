@@ -11,7 +11,7 @@ import MTPUSB
 //   mtpctl push local-file /device/dir
 //   mtpctl mkdir /device/dir/name | rm /device/path | mv /device/path new-name
 //   mtpctl bench-ls /path        compare listing strategies (round trips and time)
-//   mtpctl bench-pull /path      compare 16 KiB (go-mtpfs) vs larger bulk transfers
+//   mtpctl bench-pull /path      compare Swift at different bulk buffer sizes
 //
 // Options: --device N (candidate index), --storage ID (hex or decimal), --seize
 
@@ -38,8 +38,9 @@ func fail(_ message: String) -> Never {
     exit(1)
 }
 
-func bytes(_ n: UInt64) -> String {
-    ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file)
+func bytes(_ n: UInt64?) -> String {
+    guard let n else { return "unknown" }
+    return ByteCountFormatter.string(fromByteCount: Int64(clamping: n), countStyle: .file)
 }
 
 func time<T>(_ body: () throws -> T) rethrows -> (T, TimeInterval) {
@@ -120,15 +121,17 @@ do {
         let dir = URL(fileURLWithPath: args.dropFirst().first ?? FileManager.default.currentDirectoryPath)
         let dest = dir.appendingPathComponent(obj.name)
         var lastPrint = Date.distantPast
+        var received: UInt64 = 0
         let (_, seconds) = try time {
             try device.download(obj, to: dest) { done in
+                received = done
                 if Date().timeIntervalSince(lastPrint) > 0.5 {
                     lastPrint = Date()
                     FileHandle.standardError.write(Data("\r\(bytes(done)) / \(bytes(obj.size))   ".utf8))
                 }
             }
         }
-        print("\n\(dest.path): \(bytes(obj.size)) in \(String(format: "%.2f", seconds))s, \(bytes(UInt64(Double(obj.size) / max(seconds, 0.001))))/s")
+        print("\n\(dest.path): \(bytes(received)) in \(String(format: "%.2f", seconds))s, \(bytes(UInt64(Double(received) / max(seconds, 0.001))))/s")
 
     case "push":
         guard args.count >= 2 else { fail("push local-file /device/dir") }

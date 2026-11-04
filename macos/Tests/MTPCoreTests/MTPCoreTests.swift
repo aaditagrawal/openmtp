@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import MTPCore
+@testable import MTPSimulation
 
 private func pattern(_ count: Int, seed: UInt8 = 7) -> Data {
     var d = Data(count: count)
@@ -198,7 +199,7 @@ struct TransactionTests {
         #expect(sim.violations.isEmpty)
     }
 
-    @Test func largeTransfersUseFewerUSBRequests() throws {
+    @Test func largerBuffersReduceSimulatedBulkReadCalls() throws {
         func inTransfers(_ transferSize: Int) throws -> Int {
             let sim = SimulatedDevice()
             let h = sim.add("v.mp4", contents: pattern(8 << 20))
@@ -207,10 +208,12 @@ struct TransactionTests {
             try device.session.getObject(h, sink: { _ in })
             return sim.inTransfers - before
         }
-        let goMTPFS = try inTransfers(16 * 1024) // rwBufSize in go-mtpfs
-        let swift = try inTransfers(1 << 20)
-        #expect(goMTPFS >= 512)
-        #expect(swift <= 10)
+        // Both runs use this Swift engine. Counts include the data phase and response,
+        // not individual USB packets. No Go code or hardware is exercised here.
+        let smallBuffer = try inTransfers(16 * 1024)
+        let largeBuffer = try inTransfers(1 << 20)
+        #expect(smallBuffer == 514)
+        #expect(largeBuffer == 10)
     }
 
     @Test func partialObject64Reads() throws {

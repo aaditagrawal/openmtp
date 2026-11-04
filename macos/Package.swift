@@ -22,6 +22,8 @@ let package = Package(
         ),
         .executableTarget(name: "mtpctl", dependencies: ["MTPCore", "MTPUSB"]),
         .executableTarget(name: "OpenMTPMac", dependencies: ["MTPCore", "MTPUSB"]),
-        .testTarget(name: "MTPCoreTests", dependencies: ["MTPCore"]),
+        .target(name: "MTPSimulation", dependencies: ["MTPCore"], path: "Tests/MTPSimulation"),
+        .testTarget(name: "MTPCoreTests", dependencies: ["MTPCore", "MTPSimulation"]),
+        .testTarget(name: "OpenMTPMacTests", dependencies: ["OpenMTPMac", "MTPSimulation"]),
     ]
 )
