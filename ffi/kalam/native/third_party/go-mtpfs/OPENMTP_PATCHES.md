@@ -19,6 +19,14 @@ The module no longer requires go-fuse. Upstream MTP tests remain available with
 The other upstream tests include physical-device mutation tests; run those only
 against disposable fixtures.
 
+`object_prop_list.go` adds a bounded, typed depth-one GetObjectPropList operation.
+`directory_metadata.go` checks its result against scoped handles before exposing
+browsing metadata, with explicit unsupported/incomplete fallback decisions.
+These additions leave `mtp.go`, dependency versions and transfer buffers unchanged.
+See [Kalam's experimental listing notes](../../BATCHED_LISTING.md) for protocol
+references, limits and device-free checks. The new tests run without
+`openmtp_manual` and do not access USB devices.
+
 Date decoding preserves UTC `Z` and numeric offsets and interprets zone-less
 Android timestamps in the host's local timezone. Android emits local wall time
 in [MtpUtils.cpp](https://android.googlesource.com/platform/frameworks/av/+/754a4310b132681592fa9ed8d449b9953795056b/media/mtp/MtpUtils.cpp).

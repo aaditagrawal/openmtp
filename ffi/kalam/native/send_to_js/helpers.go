@@ -11,6 +11,10 @@ import (
 // process errors
 func processError(e error) (errorType ErrorType, errorMsg string) {
 	switch v := e.(type) {
+	case DirectoryListingError:
+		errorType = ErrorListDirectory
+		errorMsg = v.Error()
+
 	case mtp.RCError:
 		if v == 0x2009 {
 			errorType = ErrorStorageFull

@@ -53,6 +53,12 @@ the count and `OPENMTP_STRESS_LIBRARY` selects a baseline dylib for comparison.
 Protocol logs can include device identifiers and file metadata, so enable this
 only when diagnosing a device. Normal lifecycle timings use `OPENMTP_TRACE_FILE`.
 
+`OPENMTP_BATCHED_LISTING=1` enables experimental, capability-gated metadata
+batching for nonrecursive directory browsing after rebuilding the native backend.
+It is off by default pending physical-device validation. See
+[batched listing](BATCHED_LISTING.md) for fallback rules, bounds and simulated
+request counts. Recursive Smart Sync keeps the existing walk.
+
 Kalam owns libusb context/device lifetime. Native exports release their mutex
 only after all callbacks return, and the JS bridge waits for that native return
 before advancing its operation queue. Go panics invalidate and release the
