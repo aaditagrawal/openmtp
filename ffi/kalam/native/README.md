@@ -68,6 +68,9 @@ process-level crash diagnosis.
 
 A failed download also disposes the session before returning its error, because
 destination-write failures can leave unread MTP packets. Reconnect before retrying.
+The bundled ARM64 Kalam library includes this fix, rebuilt with Go 1.27.3 and
+libusb 1.0.30 for macOS 13. Its Mach-O layout and ad-hoc signature pass the host
+builder's checks. Physical-phone transfer and reconnect behavior still need validation.
 
 The module uses a local, source-attributed `go-mtpfs` replacement with corrected
 selection/error cleanup. See [the patch record](third_party/go-mtpfs/OPENMTP_PATCHES.md)
