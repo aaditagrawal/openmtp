@@ -11,6 +11,16 @@ struct DownloadSafetyTests {
         return dir
     }
 
+    @Test(arguments: ["", ".", "..", "../other", "nested/file", "/absolute", "name\0suffix"],
+          [MTPDevice.ListingStrategy.objectInfo, .propertyList])
+    func invalidRemoteNamesAreRejected(name: String, strategy: MTPDevice.ListingStrategy) throws {
+        let sim = SimulatedDevice()
+        sim.add(name, contents: Data([1]))
+        let device = try MTPDevice(transport: sim)
+        device.listingStrategy = strategy
+        #expect(throws: MTPError.self) { _ = try device.children(storage: sim.storageID) }
+    }
+
     @Test(arguments: [UInt64(0), 17, 0xFFFF_FFFF, 0x1_0000_0000, 0x1_0000_0025, UInt64.max],
           [MTPDevice.ListingStrategy.objectInfo, .propertyList])
     func metadataMismatchPreservesDestination(expected: UInt64, strategy: MTPDevice.ListingStrategy) throws {

@@ -61,6 +61,9 @@ fork's +05:30 fix). These cases are simulated, not hardware certification.
 
 ## File actions and transfer safety
 
+Remote filenames must be nonempty path components. Dot entries, slash-separated
+paths and embedded NULs are rejected before they become browser entries.
+
 Downloads use an exclusive, unique hidden `.openmtp-*` temporary file beside the
 destination. Before an atomic rename, the engine checks every known metadata size,
 including zero and 64-bit sizes, then syncs and closes the file. Missing sizes are

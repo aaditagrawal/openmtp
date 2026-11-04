@@ -101,7 +101,7 @@ public final class MTPDevice: @unchecked Sendable {
                 handle: handle,
                 storageID: storage,
                 parent: parent,
-                name: name,
+                name: try validatedFilename(name),
                 format: UInt16(truncatingIfNeeded: format),
                 size: isDirectory ? 0 : props[.objectSize]?.uint64,
                 modified: props[.dateModified]?.stringValue.flatMap { MTPDate.parse($0) }
@@ -134,9 +134,16 @@ public final class MTPDevice: @unchecked Sendable {
         }
         let parent = oi.parentObject == 0 ? (fallbackParent ?? MTPHandle.root) : oi.parentObject
         return MTPObject(
-            handle: handle, storageID: oi.storageID, parent: parent, name: oi.filename,
+            handle: handle, storageID: oi.storageID, parent: parent, name: try validatedFilename(oi.filename),
             format: oi.objectFormat, size: size, modified: MTPDate.parse(oi.dateModified)
         )
+    }
+
+    private func validatedFilename(_ name: String) throws -> String {
+        guard !name.isEmpty, name != ".", name != "..", !name.contains("/"), !name.contains("\0") else {
+            throw MTPError.protocolDesync("invalid object filename \(name.debugDescription)")
+        }
+        return name
     }
 
     /// Resolves "/DCIM/Camera" one directory listing per component (cached), instead of

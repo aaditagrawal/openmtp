@@ -36,7 +36,7 @@ BIN=$(swift build --show-bin-path)
 "$BIN/mtpctl" devices
 ```
 
-- The complete test script passed: 28 protocol/file-operation tests across four
+- The complete test script passed: 29 protocol/file-operation tests across four
   suites and six native model tests in one suite. Parameterized cases also passed.
 - Size-mismatch tests use three-byte payloads with fake metadata at zero, a small
   size, `0xFFFFFFFF`, 4 GiB, above 4 GiB and `UInt64.max`, through both listing
@@ -46,14 +46,17 @@ BIN=$(swift build --show-bin-path)
 - A follow-up combined unknown transport lengths with split-header devices. Both
   listing strategies reproduced a protocol desync before the fix. The engine now
   reads the payload after the header-only packet; known zero-byte objects remain
-  supported. The full 34-test suite passes with the expanded parameterized cases.
+  supported. The full suite passes with the expanded parameterized cases.
+- Metadata filenames are rejected before producing browser entries when empty,
+  dot entries, slash-separated or NUL-containing. Both listing strategies pass
+  all 14 filename cases. The complete suite now contains 35 tests.
 - Native model tests cover captured selection, context-menu targets, cancellation,
   changed navigation/connection, date sorting including missing dates, and rejection
   of mixed files/folders, symlinks and missing files before any upload is queued.
 - Debug CLI and release SwiftUI app builds passed. The ad-hoc-signed bundle passed
   strict verification. Its embedded LICENSE and NOTICE match the source files.
 - The release app executable's SHA-256 was
-  `33f8794bb8b2005ed9bdd6e70402e9c2073ae718af041a492ca9989ab4fbc71b`.
+  `8a6b4c40a426a2490ad1eb4bde991142795f02351faab16fec0e919a9aebbf7a`.
 - Discovery returned `No MTP/PTP interfaces found`. It did not open a phone session.
 - The toolchain emitted linker search-path warnings for absent CLT
   `Developer/Library/Frameworks` and `Developer/usr/lib` paths. The provided CLT
