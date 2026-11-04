@@ -319,8 +319,8 @@ func (d *Device) sendReq(req *Container) error {
 
 // Fetches one USB packet. The header is split off, and the remainder is returned.
 // dest should be at least 512bytes.
-func (d *Device) fetchPacket(dest []byte, header *usbBulkHeader) (rest []byte, bytesRead int, err error) {
-	n, err := d.h.BulkTransfer(d.fetchEP, dest[:d.fetchMaxPacketSize()], d.Timeout)
+func (d *Device) fetchPacket(dest []byte, header *usbBulkHeader, read bulkReadFunc, packetSize int) (rest []byte, bytesRead int, err error) {
+	n, err := read(dest[:packetSize])
 	if n > 0 {
 		d.dataPrint(d.fetchEP, dest[:n])
 	}
@@ -400,7 +400,6 @@ func (d *Device) RunTransaction(req *Container, rep *Container,
 // before and after the call.
 func (d *Device) runTransaction(req *Container, rep *Container,
 	dest io.Writer, src io.Reader, writeSize int64, progressCb ProgressFunc) error {
-	var finalPacket []byte
 	if d.session != nil {
 		req.SessionID = d.session.sid
 		req.TransactionID = d.session.tid
@@ -431,10 +430,20 @@ func (d *Device) runTransaction(req *Container, rep *Container,
 			return err
 		}
 	}
-	fetchPacketSize := d.fetchMaxPacketSize()
+	return d.readResponse(req, rep, dest, progressCb, func(buf []byte) (int, error) {
+		return d.h.BulkTransfer(d.fetchEP, buf, d.Timeout)
+	}, d.fetchMaxPacketSize())
+}
+
+// bulkReadFunc keeps the receive path testable without a USB device.
+type bulkReadFunc func([]byte) (int, error)
+
+func (d *Device) readResponse(req *Container, rep *Container, dest io.Writer,
+	progressCb ProgressFunc, read bulkReadFunc, fetchPacketSize int) error {
+	var finalPacket []byte
 	data := make([]byte, fetchPacketSize)
 	h := &usbBulkHeader{}
-	rest, n, err := d.fetchPacket(data[:], h)
+	rest, n, err := d.fetchPacket(data[:], h, read, fetchPacketSize)
 	if err != nil {
 		return err
 	}
@@ -451,7 +460,9 @@ func (d *Device) runTransaction(req *Container, rep *Container,
 			log.Printf("MTP data 0x%x bytes", h.Length)
 		}
 
-		dest.Write(rest)
+		if _, err := writePayload(dest, rest); err != nil {
+			return err
+		}
 
 		if len(rest)+usbHdrLen == fetchPacketSize || uint32(n) < h.Length {
 			// Special case: From appendix H in the MTP 1.1 spec, the
@@ -471,7 +482,7 @@ func (d *Device) runTransaction(req *Container, rep *Container,
 			// If this was a full packet, or if the packet wasn't full but
 			// the device said it was sending more data than we received,
 			// continue reading until we have a read less than a full packet.
-			_, finalPacket, err = d.bulkRead(dest, progressCb)
+			_, finalPacket, err = d.bulkRead(dest, progressCb, read, fetchPacketSize)
 			if err != nil {
 				return err
 			}
@@ -486,8 +497,11 @@ func (d *Device) runTransaction(req *Container, rep *Container,
 			finalBuf := bytes.NewBuffer(finalPacket[:len(finalPacket)])
 			err = binary.Read(finalBuf, binary.LittleEndian, h)
 		} else {
-			rest, _, err = d.fetchPacket(data[:], h)
+			rest, _, err = d.fetchPacket(data[:], h, read, fetchPacketSize)
 		}
+	}
+	if err != nil {
+		return err
 	}
 
 	err = d.decodeRep(h, rest, rep)
@@ -602,29 +616,39 @@ func (d *Device) bulkWrite(hdr *usbBulkHeader, r io.Reader, size int64, req *Con
 	return n, err
 }
 
-func (d *Device) bulkRead(w io.Writer, progressCb ProgressFunc) (n int64, lastPacket []byte, err error) {
+// writePayload rejects a sink that silently accepts only part of a USB payload.
+func writePayload(w io.Writer, payload []byte) (int, error) {
+	n, err := w.Write(payload)
+	if err == nil && n != len(payload) {
+		err = io.ErrShortWrite
+	}
+	return n, err
+}
+
+func (d *Device) bulkRead(w io.Writer, progressCb ProgressFunc, read bulkReadFunc, packetSize int) (n int64, lastPacket []byte, err error) {
 	var buf [rwBufSize]byte
 	var lastRead int
 
 	for {
 		toread := buf[:]
-		lastRead, err = d.h.BulkTransfer(d.fetchEP, toread, d.Timeout)
+		lastRead, err = read(toread)
 		if err != nil {
-			break
+			return n, nil, err
 		}
 
 		if lastRead > 0 {
 			d.dataPrint(d.fetchEP, buf[:lastRead])
 
-			w, err := w.Write(buf[:lastRead])
-			n += int64(w)
+			var written int
+			written, err = writePayload(w, buf[:lastRead])
+			n += int64(written)
 			if err != nil {
-				break
+				return n, nil, err
 			}
 		}
 
 		if err = progressCb(n); err != nil {
-			break
+			return n, nil, err
 		}
 
 		if d.MTPDebug {
@@ -635,17 +659,19 @@ func (d *Device) bulkRead(w io.Writer, progressCb ProgressFunc) (n int64, lastPa
 			break
 		}
 	}
-	packetSize := d.fetchMaxPacketSize()
 	if lastRead%packetSize == 0 {
 		// This should be a null packet, but on Linux + XHCI it's actually
 		// CONTAINER_OK instead. To be liberal with the XHCI behavior, return
 		// the final packet and inspect it in the calling function.
 		var nullReadSize int
-		nullReadSize, err = d.h.BulkTransfer(d.fetchEP, buf[:], d.Timeout)
+		nullReadSize, err = read(buf[:])
 		if d.MTPDebug {
 			log.Printf("Expected null packet, read %d bytes", nullReadSize)
 		}
 
+		if err != nil {
+			return n, buf[:nullReadSize], err
+		}
 		if err = progressCb(n); err != nil {
 			return n, buf[:nullReadSize], err
 		}

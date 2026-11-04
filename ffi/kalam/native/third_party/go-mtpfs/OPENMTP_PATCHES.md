@@ -27,3 +27,11 @@ Zone-less timestamps cannot identify a device timezone different from the host.
 
 Kalam converts decoded timestamps to UTC before serializing its `dateAdded`
 field with a `Z` suffix, so listings and downloaded mtimes describe the same instant.
+
+Download payload writes now propagate destination errors from both the initial
+packet and later bulk reads, and report silent short writes as `io.ErrShortWrite`.
+The receive path stops on its first error before USB termination reads or progress
+callbacks can replace it. Successful packet, separate-header, response and ZLP
+handling is unchanged. Kalam disposes the session after any download failure,
+since unread packets may remain and go-mtpx does not retain all error types.
+Device-free download regression tests use a private USB read function seam.

@@ -196,6 +196,10 @@ func _downloadFiles(storageId uint32, sources []string, destination string, prep
 
 	_, _, err = mtpx.DownloadFiles(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb)
 	if err != nil {
+		// A failed destination write can leave unread data/response packets.
+		// go-mtpx wraps errors without preserving their type, so invalidate
+		// every failed download rather than reuse a possibly desynchronized session.
+		_ = _dispose()
 		return err
 	}
 
