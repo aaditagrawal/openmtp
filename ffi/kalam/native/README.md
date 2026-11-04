@@ -35,6 +35,13 @@ Native tests are opt-in and are not run by CI. Run the unit and race tests:
 go -C ffi/kalam/native test -race -tags openmtp_manual ./...
 ```
 
+The vendored MTP download regressions are device-free. Select them explicitly
+to avoid the other vendored tests that mutate physical devices:
+
+```sh
+go -C ffi/kalam/native/third_party/go-mtpfs test -race -tags openmtp_manual ./mtp -run '^TestDownload'
+```
+
 With no MTP phone attached, enable the read-only hardware stress test:
 
 ```sh
@@ -58,6 +65,12 @@ only after all callbacks return, and the JS bridge waits for that native return
 before advancing its operation queue. Go panics invalidate and release the
 session before returning an operation error. A native C fault still requires
 process-level crash diagnosis.
+
+A failed download also disposes the session before returning its error, because
+destination-write failures can leave unread MTP packets. Reconnect before retrying.
+The bundled ARM64 Kalam library includes this fix, rebuilt with Go 1.27.3 and
+libusb 1.0.30 for macOS 13. Its Mach-O layout and ad-hoc signature pass the host
+builder's checks. Physical-phone transfer and reconnect behavior still need validation.
 
 The module uses a local, source-attributed `go-mtpfs` replacement with corrected
 selection/error cleanup. See [the patch record](third_party/go-mtpfs/OPENMTP_PATCHES.md)
