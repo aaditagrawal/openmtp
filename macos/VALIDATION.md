@@ -43,13 +43,17 @@ BIN=$(swift build --show-bin-path)
   strategies. They preserve existing destinations and another transfer's partial.
 - Tests cover empty downloads, unknown metadata, unknown transport containers,
   cancellation, overlapping temporary files and final-rename failure cleanup.
+- A follow-up combined unknown transport lengths with split-header devices. Both
+  listing strategies reproduced a protocol desync before the fix. The engine now
+  reads the payload after the header-only packet; known zero-byte objects remain
+  supported. The full 34-test suite passes with the expanded parameterized cases.
 - Native model tests cover captured selection, context-menu targets, cancellation,
   changed navigation/connection, date sorting including missing dates, and rejection
   of mixed files/folders, symlinks and missing files before any upload is queued.
 - Debug CLI and release SwiftUI app builds passed. The ad-hoc-signed bundle passed
   strict verification. Its embedded LICENSE and NOTICE match the source files.
 - The release app executable's SHA-256 was
-  `e955efcfba31e573dd7a0dff3bb5f4e66a737822f20db5bcfa42532dcef0d323`.
+  `33f8794bb8b2005ed9bdd6e70402e9c2073ae718af041a492ca9989ab4fbc71b`.
 - Discovery returned `No MTP/PTP interfaces found`. It did not open a phone session.
 - The toolchain emitted linker search-path warnings for absent CLT
   `Developer/Library/Frameworks` and `Developer/usr/lib` paths. The provided CLT

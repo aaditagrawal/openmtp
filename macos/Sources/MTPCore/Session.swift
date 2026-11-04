@@ -127,6 +127,7 @@ public final class MTPSession: @unchecked Sendable {
         _ params: [UInt32] = [],
         send: MTPOutgoingData? = nil,
         receive: ((Data) throws -> Void)? = nil,
+        expectedReceiveSize: UInt64? = nil,
         progress: MTPProgress? = nil
     ) throws -> MTPResponse {
         precondition(params.count <= 5, "MTP commands carry at most five parameters")
@@ -136,7 +137,7 @@ public final class MTPSession: @unchecked Sendable {
             let tid = nextTransactionID
             if isOpen || op == .openSession { nextTransactionID &+= 1 }
             do {
-                return try run(op, params, tid: tid, send: send, receive: receive, progress: progress)
+                return try run(op, params, tid: tid, send: send, receive: receive, expectedReceiveSize: expectedReceiveSize, progress: progress)
             } catch let error as MTPError where error == .cancelled {
                 try? transport.cancelTransaction(tid)
                 isBroken = true
@@ -169,6 +170,7 @@ public final class MTPSession: @unchecked Sendable {
         tid: UInt32,
         send: MTPOutgoingData?,
         receive: ((Data) throws -> Void)?,
+        expectedReceiveSize: UInt64?,
         progress: MTPProgress?
     ) throws -> MTPResponse {
         // Command phase.
@@ -193,7 +195,7 @@ public final class MTPSession: @unchecked Sendable {
                 throw MTPError.protocolDesync("data container for \(OperationCode(rawValue: header.code)) during \(op)")
             }
             unexpectedData = receive == nil
-            try receiveData(header: header, first: buffer, sink: receive ?? { _ in }, progress: progress)
+            try receiveData(header: header, first: buffer, sink: receive ?? { _ in }, expectedSize: expectedReceiveSize, progress: progress)
             buffer = try nextContainerStart()
             header = try ContainerHeader(buffer)
         }
@@ -280,7 +282,7 @@ public final class MTPSession: @unchecked Sendable {
         }
     }
 
-    private func receiveData(header: ContainerHeader, first: Data, sink: (Data) throws -> Void, progress: MTPProgress?) throws {
+    private func receiveData(header: ContainerHeader, first: Data, sink: (Data) throws -> Void, expectedSize: UInt64?, progress: MTPProgress?) throws {
         var received: UInt64 = 0
         func deliver(_ d: Data) throws {
             guard !d.isEmpty else { return }
@@ -293,7 +295,9 @@ public final class MTPSession: @unchecked Sendable {
         if header.length == 0xFFFF_FFFF {
             // Unknown length (objects >= 4 GiB): read until a short transfer ends the container.
             try deliver(firstPayload)
-            var short = lastReadWasShort
+            // The header-only short packet starts a split-header data phase. It
+            // does not end the payload. A known empty object has no payload to read.
+            var short = lastReadWasShort && !(separateHeader && first.count == 12 && expectedSize != 0)
             while !short {
                 let d = try read(transferSize)
                 try deliver(d)

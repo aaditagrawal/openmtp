@@ -48,8 +48,8 @@ public extension MTPSession {
         try ObjectPropList(decoding: collect(.getObjectPropList, [handle, format, property, group, depth]).1)
     }
 
-    func getObject(_ handle: UInt32, sink: @escaping (Data) throws -> Void, progress: MTPProgress? = nil) throws {
-        try transact(.getObject, [handle], receive: sink, progress: progress)
+    func getObject(_ handle: UInt32, sink: @escaping (Data) throws -> Void, expectedSize: UInt64? = nil, progress: MTPProgress? = nil) throws {
+        try transact(.getObject, [handle], receive: sink, expectedReceiveSize: expectedSize, progress: progress)
     }
 
     /// Android GetPartialObject64: reads `length` bytes from a 64-bit `offset`.

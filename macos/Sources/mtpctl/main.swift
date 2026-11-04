@@ -173,7 +173,9 @@ do {
         for size in [16 * 1024, 256 * 1024, 1 << 20, 4 << 20] {
             device.session.transferSize = size
             var total: UInt64 = 0
-            let (_, seconds) = try time { try device.session.getObject(obj.handle, sink: { total += UInt64($0.count) }) }
+            let (_, seconds) = try time {
+                try device.session.getObject(obj.handle, sink: { total += UInt64($0.count) }, expectedSize: obj.size)
+            }
             print(String(format: "%5d KiB transfers: %@ in %.2fs = %@/s", size / 1024, bytes(total), seconds, bytes(UInt64(Double(total) / max(seconds, 0.001)))))
         }
 

@@ -186,7 +186,7 @@ public final class MTPDevice: @unchecked Sendable {
         try session.getObject(object.handle, sink: { chunk in
             try handle.write(contentsOf: chunk)
             written += UInt64(chunk.count)
-        }, progress: progress)
+        }, expectedSize: object.size, progress: progress)
         if let expected = object.size, written != expected {
             throw MTPError.transport("received \(written) of \(expected) bytes for \(object.name)")
         }

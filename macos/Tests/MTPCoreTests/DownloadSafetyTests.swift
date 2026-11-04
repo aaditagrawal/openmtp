@@ -39,9 +39,10 @@ struct DownloadSafetyTests {
         #expect(sim.violations.isEmpty)
     }
 
-    @Test(arguments: [MTPDevice.ListingStrategy.objectInfo, .propertyList])
-    func missingSizeIsExplicitAndUnknownContainersStillWork(strategy: MTPDevice.ListingStrategy) throws {
+    @Test(arguments: [MTPDevice.ListingStrategy.objectInfo, .propertyList], [false, true])
+    func missingSizeIsExplicitAndUnknownContainersStillWork(strategy: MTPDevice.ListingStrategy, splitHeader: Bool) throws {
         let sim = SimulatedDevice()
+        sim.splitHeader = splitHeader
         let payload = Data(repeating: 0xAB, count: 90_000)
         sim.add("file", contents: payload)
         sim.omitObjectSizes = true
@@ -60,9 +61,10 @@ struct DownloadSafetyTests {
         #expect(sim.violations.isEmpty)
     }
 
-    @Test(arguments: [false, true])
-    func successfulCommitReplacesAtomically(unknownContainer: Bool) throws {
+    @Test(arguments: [false, true], [false, true])
+    func successfulCommitReplacesAtomically(unknownContainer: Bool, splitHeader: Bool) throws {
         let sim = SimulatedDevice()
+        sim.splitHeader = splitHeader
         sim.add("file", contents: Data())
         if unknownContainer { sim.unknownLengthThreshold = 0 }
         let device = try MTPDevice(transport: sim)
