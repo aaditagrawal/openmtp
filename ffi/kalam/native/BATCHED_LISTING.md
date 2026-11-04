@@ -33,10 +33,12 @@ synthesized for transfers or mutations.
 Fallback is allowed for valid incomplete datasets and explicit, data-free
 OperationNotSupported, ParameterNotSupported, SpecificationByGroupUnsupported
 or SpecificationByDepthUnsupported responses with a matching transaction ID.
-Other response errors, transport errors, malformed types/strings/dates, duplicate
+Other response errors, transport errors, malformed types/strings/dates/filenames, duplicate
 properties, truncated datasets, oversized sizes and byte/entry limit failures
 return a listing error with no legacy retry in that call. Existing special error
 mapping for locked/unavailable storage is retained.
+Filenames must be nonempty path components. Dot entries, slash-separated paths
+and embedded NULs cannot become rows targeting a parent or another directory.
 
 The new decoder accepts at most 8 MiB and 131,072 property records. Directories
 above 16,384 scoped handles bypass the batch request. The capped receive writer
@@ -87,6 +89,16 @@ Hardware work remains: compare complete JS listing output with the default on
 multiple Android devices and storages, verify root/non-root and large-directory
 behavior, exercise device rejection/lock/disconnect cases, and measure real
 request traces and listing latency. No throughput improvement is claimed.
+
+On 2026-11-04, Quasar passed the vendored metadata tests and Kalam tests with the
+race detector, including the filename regression added during review. Its host
+build used Go 1.27.3 and libusb 1.0.30, preserved the macOS 13 deployment target,
+and passed Mach-O and strict ad-hoc signature checks. No phone was opened.
+Build products remain in validation staging; this PR keeps packaged binaries
+unchanged and requires a native rebuild to enable the experiment.
+A combined source tree with the download-integrity fix from PR #7 also passed
+the targeted vendored and Kalam race tests on Quasar. The two changes merge
+without conflicts and do not require each other's branch.
 
 Protocol references:
 

@@ -110,7 +110,13 @@ func DirectoryMetadataFromProperties(props []ObjectProperty, handles []uint32, s
 			// dataset. Do not turn inconsistent membership into success.
 			return nil, ErrIncompleteDirectoryMetadata
 		}
-		entry := DirectoryMetadata{Handle: h, Name: v[OPC_ObjectFileName].String, IsDir: v[OPC_ObjectFormat].Number == OFC_Association}
+		name := v[OPC_ObjectFileName].String
+		// Browsing later joins this component to the parent path. A property
+		// value must not redirect a row to the parent or a different directory.
+		if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
+			return nil, fmt.Errorf("invalid MTP object filename %q", name)
+		}
+		entry := DirectoryMetadata{Handle: h, Name: name, IsDir: v[OPC_ObjectFormat].Number == OFC_Association}
 		if !entry.IsDir {
 			size, ok := v[OPC_ObjectSize]
 			if !ok {

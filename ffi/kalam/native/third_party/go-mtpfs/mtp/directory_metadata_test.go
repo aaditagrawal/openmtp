@@ -50,6 +50,18 @@ func TestDirectoryMetadataMissingOrInconsistent(t *testing.T) {
 	}
 }
 
+func TestDirectoryMetadataRejectsPathComponents(t *testing.T) {
+	for _, name := range []string{"", ".", "..", "nested/file", "../other", "/absolute"} {
+		t.Run(fmt.Sprintf("%q", name), func(t *testing.T) {
+			props := childProperties(8, 1, 5, name)
+			got, err := DirectoryMetadataFromProperties(props, []uint32{8}, 1, 5)
+			if err == nil || len(got) != 0 || errors.Is(err, ErrIncompleteDirectoryMetadata) {
+				t.Fatalf("invalid filename must fail without a path-based retry: %v %v", got, err)
+			}
+		})
+	}
+}
+
 func TestDirectoryMetadataTypesDatesAndDirectories(t *testing.T) {
 	for _, bad := range []string{"type", "duplicate", "date", "size"} {
 		t.Run(bad, func(t *testing.T) {
