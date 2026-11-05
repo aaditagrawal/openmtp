@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     let destination: String
     let storage: UInt32
     let phoneIdentity: String
+    var ownedIncoming: [NativeIncomingOwnership]? = nil
     var state: State = .queued
     var total: UInt64?
     var done: UInt64 = 0
@@ -131,7 +132,9 @@ final class AppModel: ObservableObject {
   @Published private(set) var localEntries: [LocalFile] = [] { didSet { localRevision += 1 } }
   @Published private(set) var localLoading = false
   @Published var localSelection = Set<URL>()
-  @Published var activePane: WorkspacePane = .phone
+  @Published var activePane: WorkspacePane = .phone {
+    didSet { if activePane == .local && !settings.showLocalPane { activePane = .phone } }
+  }
   @Published var localSearch = "" { didSet { if oldValue != localSearch { localSelection = [] } } }
   @Published var phoneSearch = "" { didSet { if oldValue != phoneSearch { selection = [] } } }
   @Published var transfers: [Transfer] = []
@@ -141,7 +144,9 @@ final class AppModel: ObservableObject {
   @Published private(set) var clipboard: Clipboard?
   @Published var dropInProgress = false
   @Published private(set) var preparingPreview = false
+  @Published private(set) var isTerminating = false
   let settings: WorkspaceSettings
+  let fileIntegration: NativeFileIntegration
   let browser = BrowserState()
 
   private var client: MTPClient?
@@ -150,10 +155,13 @@ final class AppModel: ObservableObject {
   private var deviceKey = ""
   private var connectionEpoch = UUID()
   private var worker: Task<Void, Never>?
+  private var dropTasks: [UUID: Task<Void, Never>] = [:]
   private var tokens: [UUID: TransferCancellationToken] = [:]
   private var conflictContinuation: CheckedContinuation<ConflictDecision?, Never>?
   private let defaults: WorkspacePreferenceStore
   private var settingsSubscription: AnyCancellable?
+  private var paneVisibilitySubscription: AnyCancellable?
+  private var closingConnection = false
   private var localHistory: [URL] = []
   private var localHistoryIndex = -1
   private var phoneHistory: [PhoneLocation] = []
@@ -179,11 +187,12 @@ final class AppModel: ObservableObject {
 
   init(
     client: MTPClient? = nil, storage: UInt32? = nil, settings: WorkspaceSettings? = nil,
-    defaults: UserDefaults? = nil
+    defaults: UserDefaults? = nil, fileIntegration: NativeFileIntegration? = nil
   ) {
     let store: UserDefaults? =
       defaults ?? (client == nil && settings == nil ? UserDefaults.standard : nil)
     self.settings = settings ?? WorkspaceSettings(defaults: store)
+    self.fileIntegration = fileIntegration ?? NativeFileIntegration.shared
     self.defaults = self.settings.store
     self.client = client
     selectedStorage = storage
@@ -217,7 +226,21 @@ final class AppModel: ObservableObject {
     settingsSubscription = self.settings.objectWillChange.sink { [weak self] _ in
       self?.objectWillChange.send()
     }
+    paneVisibilitySubscription = self.settings.$showLocalPane.sink { [weak self] visible in
+      if !visible {
+        self?.activePane = .phone
+        self?.localSelection = []
+      }
+    }
+    if self.defaults.isPersistent {
+      for index in transfers.indices where transfers[index].state == .completed {
+        let remaining = self.fileIntegration.cleanupIncoming(transfers[index].ownedIncoming ?? [])
+        transfers[index].ownedIncoming = remaining.isEmpty ? nil : remaining
+      }
+      self.fileIntegration.prune(preserving: transfers.flatMap { $0.ownedIncoming ?? [] })
+    }
     applySavedSort()
+    persistJobs()
   }
 
   var nativeClient: MTPClient? { client }
@@ -230,10 +253,52 @@ final class AppModel: ObservableObject {
   }
   var selectedObjects: [MTPObject] { entries.filter { selection.contains($0.id) } }
   var selectedLocalFiles: [LocalFile] { localEntries.filter { localSelection.contains($0.id) } }
-  var activeSelectionCount: Int { activePane == .local ? localSelection.count : selection.count }
+  var activeSelectionCount: Int {
+    isTerminating ? 0 : (activePane == .local ? localSelection.count : selection.count)
+  }
   var hasActiveTransfers: Bool {
-    NativeFileIntegration.shared.hasActiveTransfers || pendingConflict != nil
+    fileIntegration.hasActiveTransfers || !dropTasks.isEmpty || pendingConflict != nil
       || transfers.contains { !$0.finished && $0.state != .waiting }
+  }
+  var hasInFlightWork: Bool {
+    worker != nil || !tokens.isEmpty || !dropTasks.isEmpty || closingConnection
+      || fileIntegration.hasActiveTransfers
+  }
+
+  /// Stop accepting work, then let cancellation and exact-handle cleanup finish.
+  /// A stalled provider/device cancels this quit attempt instead of forcing exit.
+  func prepareForTermination(timeout: TimeInterval = 65) async -> Bool {
+    guard !isTerminating else { return false }
+    isTerminating = true
+    let wasMonitoring = monitor != nil
+    monitor?.stop()
+    monitor = nil
+    cancelAll()
+    for task in dropTasks.values { task.cancel() }
+    cancelPreview()
+    fileIntegration.beginTermination()
+    if !closingConnection {
+      closingConnection = true
+      Task { [weak self] in
+        guard let self else { return }
+        await disconnect(preserveWaiting: true)
+        closingConnection = false
+      }
+    }
+    let deadline = ProcessInfo.processInfo.systemUptime + max(0, timeout)
+    while hasInFlightWork {
+      if Task.isCancelled || ProcessInfo.processInfo.systemUptime >= deadline {
+        isTerminating = false
+        fileIntegration.cancelTermination()
+        if wasMonitoring { startDeviceMonitoring() }
+        errorMessage =
+          "The copy is still stopping. OpenMTP stayed open so cleanup can finish. Try Quit again after it stops."
+        return false
+      }
+      try? await Task.sleep(nanoseconds: 20_000_000)
+    }
+    persistJobs()
+    return true
   }
   var canGoBack: Bool { activePane == .local ? localHistoryIndex > 0 : phoneHistoryIndex > 0 }
   var canGoForward: Bool {
@@ -281,11 +346,7 @@ final class AppModel: ObservableObject {
 
   func start() {
     guard monitor == nil else { return }
-    let monitor = USBHotplugMonitor { [weak self] list in
-      Task { @MainActor [weak self] in self?.devicesChanged(list) }
-    }
-    self.monitor = monitor
-    monitor.start()
+    startDeviceMonitoring()
     navigateLocal(to: localDirectory)
     NativeUpdateService.shared.automaticPreferencesChanged = { [weak self] checks, installs in
       guard let self else { return }
@@ -293,7 +354,7 @@ final class AppModel: ObservableObject {
       if settings.autoInstallUpdates != installs { settings.autoInstallUpdates = installs }
     }
     NativeUpdateService.shared.hasActiveTransfers = { [weak self] in
-      self?.hasActiveTransfers ?? NativeFileIntegration.shared.hasActiveTransfers
+      self?.hasActiveTransfers ?? false
     }
     NativeUpdateService.shared.start(
       automaticallyChecks: settings.autoCheckUpdates,
@@ -305,7 +366,16 @@ final class AppModel: ObservableObject {
       }
     }
   }
+  private func startDeviceMonitoring() {
+    guard monitor == nil, !isTerminating else { return }
+    let monitor = USBHotplugMonitor { [weak self] list in
+      Task { @MainActor [weak self] in self?.devicesChanged(list) }
+    }
+    self.monitor = monitor
+    monitor.start()
+  }
   private func devicesChanged(_ list: [USBMTPCandidate]) {
+    guard !isTerminating else { return }
     candidates = list
     if let connectedID, !list.contains(where: { $0.id == connectedID }) {
       cancelAll()
@@ -319,6 +389,7 @@ final class AppModel: ObservableObject {
     }
   }
   func connect(_ candidate: USBMTPCandidate, seize: Bool = false) async {
+    guard !isTerminating else { return }
     await disconnect()
     let epoch = UUID()
     connectionEpoch = epoch
@@ -554,6 +625,7 @@ final class AppModel: ObservableObject {
     }
   }
   func selectGridItem(_ id: String, in pane: WorkspacePane, modifiers: NSEvent.ModifierFlags) {
+    guard !isTerminating, pane != .local || settings.showLocalPane else { return }
     let ordered =
       pane == .local
       ? sortedLocalEntries.map { $0.id.absoluteString } : sortedEntries.map { String($0.id) }
@@ -577,6 +649,23 @@ final class AppModel: ObservableObject {
     } else {
       selection = Set(selected.compactMap(UInt32.init))
     }
+  }
+
+  func contextSelectionIDs(clicked id: String, in pane: WorkspacePane) -> [String] {
+    let selected =
+      pane == .local
+      ? Set(localSelection.map(\.absoluteString)) : Set(selection.map(String.init))
+    return selected.contains(id) ? selected.sorted() : [id]
+  }
+  @discardableResult func applyContextSelection(_ ids: [String], in pane: WorkspacePane) -> Bool {
+    guard !isTerminating, pane != .local || settings.showLocalPane else { return false }
+    activePane = pane
+    if pane == .local {
+      localSelection = Set(ids.compactMap(URL.init(string:)))
+    } else {
+      selection = Set(ids.compactMap(UInt32.init))
+    }
+    return true
   }
 
   func copySelection(append: Bool = false) {
@@ -617,6 +706,7 @@ final class AppModel: ObservableObject {
     clipboardChangeCount = NSPasteboard.general.changeCount
   }
   var canPaste: Bool {
+    if isTerminating { return false }
     guard connection == .connected else { return false }
     if let clipboard, NSPasteboard.general.changeCount == clipboardChangeCount {
       return clipboard.pane != activePane
@@ -657,7 +747,7 @@ final class AppModel: ObservableObject {
 
   func remoteItemProvider(_ object: MTPObject) -> NSItemProvider {
     guard let file = remoteFile(object) else { return NSItemProvider() }
-    let provider = NativeFileIntegration.shared.itemProvider(for: file)
+    let provider = fileIntegration.itemProvider(for: file)
     let payload = Clipboard(
       pane: .phone, paths: [Self.remoteChildPath(phonePath, object.name)], storage: selectedStorage,
       phoneIdentity: deviceKey)
@@ -677,14 +767,20 @@ final class AppModel: ObservableObject {
   @discardableResult func receiveDrop(_ providers: [NSItemProvider], into pane: WorkspacePane)
     -> Bool
   {
-    guard !providers.isEmpty, pane == .local || connection == .connected else { return false }
+    guard !isTerminating, !providers.isEmpty, pane == .local || connection == .connected else {
+      return false
+    }
     let destination = localDirectory
     let parentPath = phonePath
     let storage = selectedStorage
     let identity = deviceKey
+    let taskID = UUID()
     dropInProgress = true
-    Task {
-      defer { dropInProgress = false }
+    dropTasks[taskID] = Task {
+      defer {
+        dropTasks[taskID] = nil
+        dropInProgress = !dropTasks.isEmpty
+      }
       do {
         if providers.allSatisfy({ $0.hasItemConformingToTypeIdentifier(Self.remoteDragType) }) {
           guard pane == .local else {
@@ -711,11 +807,16 @@ final class AppModel: ObservableObject {
             throw MTPError.transport(
               "Drop Mac files into the phone pane, or drag phone files into Finder.")
           }
-          let urls = try await NativeFileIntegration.shared.receive(providers)
-          guard identity == deviceKey else {
+          let received = try await fileIntegration.receiveOwned(providers)
+          var enqueued = false
+          defer { if !enqueued { _ = fileIntegration.cleanupIncoming(received.ownership) } }
+          try Task.checkCancellation()
+          guard !isTerminating, identity == deviceKey else {
             throw MTPError.transport("The phone changed while receiving the drop.")
           }
-          _ = enqueueUpload(urls, storage: storage, parentPath: parentPath)
+          enqueued = enqueueUpload(
+            received.urls, storage: storage, parentPath: parentPath,
+            ownedIncoming: received.ownership)
         }
       } catch { errorMessage = String(describing: error) }
     }
@@ -752,8 +853,13 @@ final class AppModel: ObservableObject {
     guard let storage = selectedStorage, connection == .connected else { return false }
     return enqueueUpload(urls, storage: storage, parentPath: phonePath)
   }
-  private func enqueueUpload(_ urls: [URL], storage: UInt32, parentPath: String) -> Bool {
-    guard !urls.isEmpty else { return false }
+  private func enqueueUpload(
+    _ urls: [URL], storage: UInt32, parentPath: String,
+    ownedIncoming: [NativeIncomingOwnership] = []
+  ) -> Bool {
+    var accepted = false
+    defer { if !accepted { _ = fileIntegration.cleanupIncoming(ownedIncoming) } }
+    guard !isTerminating, !urls.isEmpty else { return false }
     do {
       for url in urls {
         guard url.isFileURL else {
@@ -776,7 +882,9 @@ final class AppModel: ObservableObject {
       Transfer(
         id: UUID(), name: names.count == 1 ? names[0] : "\(names.count) selected items",
         direction: .upload, sourcePaths: urls.map(\.path), destination: parentPath,
-        storage: storage, phoneIdentity: deviceKey))
+        storage: storage, phoneIdentity: deviceKey,
+        ownedIncoming: ownedIncoming.isEmpty ? nil : ownedIncoming))
+    accepted = true
     return true
   }
   private func enqueueDownload(paths: [String], storage: UInt32, destination: URL, identity: String)
@@ -791,6 +899,7 @@ final class AppModel: ObservableObject {
         phoneIdentity: identity))
   }
   private func enqueue(_ job: Transfer) {
+    guard !isTerminating else { return }
     transfers.append(job)
     settings.showTransfers = true
     persistJobs()
@@ -805,10 +914,12 @@ final class AppModel: ObservableObject {
     if panel.runModal() == .OK { _ = upload(panel.urls) }
   }
   private func startWorkerIfNeeded() {
-    guard worker == nil, client != nil, connection == .connected else { return }
+    guard !isTerminating, worker == nil, client != nil, connection == .connected else { return }
     worker = Task { [weak self] in
       guard let self else { return }
-      while let job = transfers.first(where: { $0.state == .queued }) { await run(job) }
+      while !isTerminating, let job = transfers.first(where: { $0.state == .queued }) {
+        await run(job)
+      }
       worker = nil
     }
   }
@@ -906,6 +1017,9 @@ final class AppModel: ObservableObject {
         $0.done = summary.bytes
         $0.total = summary.bytes
       }
+      persistJobs()
+      let remaining = fileIntegration.cleanupIncoming(job.ownedIncoming ?? [])
+      updateJob(job.id) { $0.ownedIncoming = remaining.isEmpty ? nil : remaining }
       if job.direction == .download,
         URL(fileURLWithPath: job.destination).standardizedFileURL == localDirectory
       {
@@ -994,6 +1108,7 @@ final class AppModel: ObservableObject {
     return job.state == .failed || job.state == .cancelled || job.state == .waiting
   }
   func retryTransfer(_ id: UUID) {
+    guard !isTerminating else { return }
     guard let index = transfers.firstIndex(where: { $0.id == id }) else { return }
     guard connection == .connected, transfers[index].phoneIdentity == deviceKey else {
       errorMessage =
@@ -1008,16 +1123,25 @@ final class AppModel: ObservableObject {
     startWorkerIfNeeded()
   }
   func clearFinishedTransfers() {
+    for job in transfers where job.finished {
+      _ = fileIntegration.cleanupIncoming(job.ownedIncoming ?? [])
+    }
     transfers.removeAll { $0.finished }
     persistJobs()
   }
   private func persistJobs() {
-    if let data = try? JSONEncoder().encode(Array(transfers.suffix(200))) {
+    // Retryable jobs own their provider copies until explicitly cleared. Bound
+    // completed history, rather than evicting pending or failed ownership.
+    let retryable = transfers.filter { $0.state != .completed }
+    let completed = transfers.filter { $0.state == .completed }.suffix(
+      max(0, 200 - retryable.count))
+    if let data = try? JSONEncoder().encode(retryable + Array(completed)) {
       defaults.set(data, forKey: "workspace.transferJobs")
     }
   }
 
   func beginNewFolder() {
+    guard !isTerminating else { return }
     browser.folderContext = FolderCreationContext(
       pane: activePane, localDirectory: localDirectory, client: client,
       storage: selectedStorage, parent: currentParent,
@@ -1026,6 +1150,7 @@ final class AppModel: ObservableObject {
     browser.showingNewFolder = true
   }
   func commitNewFolder() {
+    guard !isTerminating else { return }
     guard let context = browser.folderContext else { return }
     defer { browser.folderContext = nil }
     guard activePane == context.pane,
@@ -1077,6 +1202,7 @@ final class AppModel: ObservableObject {
     }
   }
   func beginRename() {
+    guard !isTerminating else { return }
     browser.renameText =
       activePane == .local
       ? (selectedLocalFiles.first?.name ?? "") : (selectedObjects.first?.name ?? "")
@@ -1088,6 +1214,7 @@ final class AppModel: ObservableObject {
     browser.showingRename = browser.renaming != nil || browser.renamingLocal != nil
   }
   func commitRename() {
+    guard !isTerminating else { return }
     let name = browser.renameText
     guard Self.validName(name) else {
       errorMessage = "Use a valid filename."
@@ -1113,6 +1240,7 @@ final class AppModel: ObservableObject {
     }
   }
   func requestActiveDeletion() {
+    guard !isTerminating else { return }
     if activePane == .local {
       let urls = selectedLocalFiles.map(\.url)
       Task {
@@ -1130,6 +1258,7 @@ final class AppModel: ObservableObject {
     }
   }
   func requestDeletion(_ ids: Set<MTPObject.ID>? = nil) {
+    guard !isTerminating else { return }
     guard let client, let storage = selectedStorage, connection == .connected else { return }
     let objects = entries.filter { (ids ?? selection).contains($0.id) }
     guard !objects.isEmpty else { return }
@@ -1138,6 +1267,7 @@ final class AppModel: ObservableObject {
       location: phoneLocation)
   }
   func confirmDeletion(_ request: PendingDeletion) async {
+    guard !isTerminating else { return }
     guard client === request.client, connection == .connected, selectedStorage == request.storage,
       currentParent == request.parent
     else {
@@ -1158,14 +1288,15 @@ final class AppModel: ObservableObject {
     } catch { report(error) }
   }
   func previewSelection() {
-    if NativeFileIntegration.shared.isPreviewVisible
-      || NativeFileIntegration.shared.isPreviewLoading || preparingPreview
+    guard !isTerminating else { return }
+    if fileIntegration.isPreviewVisible
+      || fileIntegration.isPreviewLoading || preparingPreview
     {
       cancelPreview()
       return
     }
     if activePane == .local {
-      NativeFileIntegration.shared.preview(localURLs: selectedLocalFiles.map(\.url))
+      fileIntegration.preview(localURLs: selectedLocalFiles.map(\.url))
     } else {
       let files = selectedObjects.compactMap { remoteFile($0) }
       guard !files.isEmpty else { return }
@@ -1175,7 +1306,7 @@ final class AppModel: ObservableObject {
       Task {
         defer { if previewEpoch == epoch { preparingPreview = false } }
         do {
-          try await NativeFileIntegration.shared.preview(remoteFiles: files)
+          try await fileIntegration.preview(remoteFiles: files)
         } catch is CancellationError {} catch MTPError.cancelled {
           if let client, client.device.session.isBroken { await disconnect(preserveWaiting: true) }
         } catch { report(error) }
@@ -1185,7 +1316,7 @@ final class AppModel: ObservableObject {
   func cancelPreview() {
     previewEpoch = UUID()
     preparingPreview = false
-    NativeFileIntegration.shared.closePreview()
+    fileIntegration.closePreview()
   }
   private func remoteFile(_ object: MTPObject) -> NativeFileIntegration.RemoteFile? {
     guard let client, let storage = selectedStorage else { return nil }

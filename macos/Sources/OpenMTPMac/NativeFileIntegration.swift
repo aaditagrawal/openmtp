@@ -19,33 +19,62 @@ enum NativeFileIntegrationError: LocalizedError {
   }
 }
 
+/// An incoming provider copy is owned only while this exact receipt's marker
+/// matches. Source path names alone never grant permission to remove files.
+struct NativeIncomingOwnership: Codable, Equatable, Sendable {
+  let directory: URL
+  let identifier: UUID
+}
+
+struct NativeReceivedFiles: Sendable {
+  let urls: [URL]
+  let ownership: [NativeIncomingOwnership]
+}
+
 /// Owns only generated cache directories. Export requests never reuse a previous
 /// device handle's file, even if a phone reconnects with the same object handle.
 final class NativeExportStore: @unchecked Sendable {
   let root: URL
   private let activityLock = NSLock()
-  private var activeRequests = 0
+  private var activeRequests: [UUID: Progress] = [:]
+  private var shuttingDown = false
   var hasActiveTransfers: Bool {
     activityLock.lock()
     defer { activityLock.unlock() }
-    return activeRequests > 0
+    return !activeRequests.isEmpty
   }
-  private func beginActivity() {
+  fileprivate func beginActivity(_ progress: Progress) throws -> UUID {
     activityLock.lock()
-    activeRequests += 1
+    defer { activityLock.unlock() }
+    guard !shuttingDown else { throw CancellationError() }
+    let id = UUID()
+    activeRequests[id] = progress
+    return id
+  }
+  fileprivate func endActivity(_ id: UUID) {
+    activityLock.lock()
+    activeRequests[id] = nil
     activityLock.unlock()
   }
-  private func endActivity() {
+  func cancelTransfers(preventNewRequests: Bool) {
     activityLock.lock()
-    activeRequests -= 1
+    shuttingDown = preventNewRequests
+    let progresses = Array(activeRequests.values)
+    activityLock.unlock()
+    for progress in progresses { progress.cancel() }
+  }
+  func allowTransfers() {
+    activityLock.lock()
+    shuttingDown = false
     activityLock.unlock()
   }
 
   init(root: URL? = nil) {
     self.root =
-      root
+      (root
       ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-      .appendingPathComponent("io.ganeshrvel.openmtp/NativeExports", isDirectory: true)
+      .appendingPathComponent("io.ganeshrvel.openmtp/NativeExports", isDirectory: true))
+      .standardizedFileURL.resolvingSymlinksInPath()
   }
 
   static func validateFilename(_ name: String) throws {
@@ -70,8 +99,8 @@ final class NativeExportStore: @unchecked Sendable {
   func materialize(_ file: NativeFileIntegration.RemoteFile, progress: Progress, parent: URL? = nil)
     async throws -> URL
   {
-    beginActivity()
-    defer { endActivity() }
+    let activity = try beginActivity(progress)
+    defer { endActivity(activity) }
     try Self.validateFilename(file.name)
     let staging = try directory(identity: file.identity, parent: parent)
     do {
@@ -102,8 +131,8 @@ final class NativeExportStore: @unchecked Sendable {
   func fulfill(_ file: NativeFileIntegration.RemoteFile, at destination: URL, progress: Progress)
     async throws
   {
-    beginActivity()
-    defer { endActivity() }
+    let activity = try beginActivity(progress)
+    defer { endActivity(activity) }
     guard destination.isFileURL else { throw NativeFileIntegrationError.invalidExport }
     guard !FileManager.default.fileExists(atPath: destination.path) else {
       throw NativeFileIntegrationError.destinationExists
@@ -112,6 +141,7 @@ final class NativeExportStore: @unchecked Sendable {
       file, progress: progress, parent: destination.deletingLastPathComponent())
     let staging = result.deletingLastPathComponent()
     defer { try? FileManager.default.removeItem(at: staging) }
+    if progress.isCancelled { throw CancellationError() }
     var coordinationError: NSError?
     var writeError: Error?
     NSFileCoordinator().coordinate(
@@ -139,15 +169,67 @@ final class NativeExportStore: @unchecked Sendable {
     return destination
   }
 
+  func incomingDirectory() throws -> NativeIncomingOwnership {
+    let directory = try directory(identity: "incoming promise")
+    let ownership = NativeIncomingOwnership(directory: directory, identifier: UUID())
+    do {
+      try JSONEncoder().encode(ownership).write(
+        to: directory.appendingPathComponent(".incoming-owner.json"), options: .atomic)
+      try FileManager.default.createDirectory(
+        at: directory.appendingPathComponent("files", isDirectory: true),
+        withIntermediateDirectories: false)
+      return ownership
+    } catch {
+      try? FileManager.default.removeItem(at: directory)
+      throw error
+    }
+  }
+
+  func ownsIncoming(_ ownership: NativeIncomingOwnership) -> Bool {
+    let directory = ownership.directory.standardizedFileURL
+    let marker = directory.appendingPathComponent(".incoming-owner.json")
+    guard directory.isFileURL,
+      directory.deletingLastPathComponent() == root.standardizedFileURL,
+      directory.resolvingSymlinksInPath() == directory,
+      (try? FileManager.default.attributesOfItem(atPath: directory.path)[.type])
+        as? FileAttributeType == .typeDirectory,
+      (try? FileManager.default.attributesOfItem(atPath: marker.path)[.type])
+        as? FileAttributeType == .typeRegular,
+      let data = try? Data(contentsOf: marker), data.count < 4096,
+      let stored = try? JSONDecoder().decode(NativeIncomingOwnership.self, from: data)
+    else { return false }
+    return stored == ownership
+  }
+
+  /// Return receipts whose cleanup failed so they can remain in persisted state.
+  func cleanupIncoming(_ ownership: [NativeIncomingOwnership]) -> [NativeIncomingOwnership] {
+    ownership.filter { item in
+      guard ownsIncoming(item) else { return false }
+      do {
+        try FileManager.default.removeItem(at: item.directory)
+        return false
+      } catch { return true }
+    }
+  }
+
+  fileprivate func removeMaterialized(_ url: URL) {
+    try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+  }
+
   /// Cache files may be removed by the OS. Prune only old generated directories,
   /// never user destinations or arbitrary files that happen to share a name.
-  func prune(olderThan date: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60)) {
+  func prune(
+    olderThan date: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60),
+    preserving ownership: [NativeIncomingOwnership] = []
+  ) {
+    let protected = Set(ownership.filter(ownsIncoming).map { $0.directory.standardizedFileURL })
     guard
       let children = try? FileManager.default.contentsOfDirectory(
         at: root,
         includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey, .isSymbolicLinkKey])
     else { return }
-    for child in children.prefix(1024) where Self.isGeneratedDirectory(child.lastPathComponent) {
+    for child in children where Self.isGeneratedDirectory(child.lastPathComponent) {
+      if protected.contains(child.standardizedFileURL) { continue }
       guard
         let values = try? child.resourceValues(forKeys: [
           .creationDateKey, .isDirectoryKey, .isSymbolicLinkKey,
@@ -184,6 +266,60 @@ private final class NativeCompletion: @unchecked Sendable {
     finished = true
     lock.unlock()
     callback(error)
+  }
+}
+
+/// A cancelled provider is not required to invoke its callback promptly. Resume
+/// our waiter exactly once, and ignore any later provider completion.
+private final class NativeProviderRequest: @unchecked Sendable {
+  private let lock = NSLock()
+  private var continuation: CheckedContinuation<URL, Error>?
+  private var providerProgress: Progress?
+  private var cancelled = false
+  private var finished = false
+  var isCancelled: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return cancelled
+  }
+  func install(_ continuation: CheckedContinuation<URL, Error>) {
+    lock.lock()
+    let cancelled = self.cancelled
+    if !cancelled { self.continuation = continuation }
+    lock.unlock()
+    if cancelled { continuation.resume(throwing: CancellationError()) }
+  }
+  func setProgress(_ progress: Progress?) {
+    lock.lock()
+    if !finished { providerProgress = progress }
+    let cancelled = self.cancelled
+    lock.unlock()
+    if cancelled { DispatchQueue.global(qos: .userInitiated).async { progress?.cancel() } }
+  }
+  @discardableResult func finish(_ result: Result<URL, Error>) -> Bool {
+    lock.lock()
+    let continuation = self.continuation
+    self.continuation = nil
+    finished = true
+    providerProgress = nil
+    lock.unlock()
+    guard let continuation else { return false }
+    continuation.resume(with: result)
+    return true
+  }
+  func cancel() {
+    lock.lock()
+    cancelled = true
+    finished = true
+    let continuation = self.continuation
+    self.continuation = nil
+    let progress = providerProgress
+    providerProgress = nil
+    lock.unlock()
+    continuation?.resume(throwing: CancellationError())
+    // A provider's cancellation handler belongs to another component. It must
+    // not block the main actor while our quit operation waits for owned work.
+    DispatchQueue.global(qos: .userInitiated).async { progress?.cancel() }
   }
 }
 
@@ -285,7 +421,6 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
   init(store: NativeExportStore = NativeExportStore()) {
     self.store = store
     super.init()
-    store.prune()
   }
 
   var isPreviewVisible: Bool {
@@ -293,6 +428,17 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
   }
   var isPreviewLoading: Bool { previewProgress != nil }
   var hasActiveTransfers: Bool { store.hasActiveTransfers }
+  func beginTermination() {
+    closePreview()
+    store.cancelTransfers(preventNewRequests: true)
+  }
+  func cancelTermination() { store.allowTransfers() }
+  func prune(preserving ownership: [NativeIncomingOwnership]) {
+    store.prune(preserving: ownership)
+  }
+  func cleanupIncoming(_ ownership: [NativeIncomingOwnership]) -> [NativeIncomingOwnership] {
+    store.cleanupIncoming(ownership)
+  }
   private func cancelPreviewRequest() {
     previewGeneration = UUID()
     previewProgress?.cancel()
@@ -334,6 +480,10 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
     let generation = previewGeneration
     defer { if previewGeneration == generation { previewProgress = nil } }
     var urls = [URL]()
+    var completed = false
+    defer {
+      if !completed { for url in urls { store.removeMaterialized(url) } }
+    }
     // Explicit selections only. No thumbnail sweep competes with an MTP copy.
     for file in remoteFiles where !file.isDirectory {
       try Task.checkCancellation()
@@ -349,6 +499,7 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
     }
     try Task.checkCancellation()
     guard previewGeneration == generation else { throw CancellationError() }
+    completed = true
     showPreview(localURLs: urls)
   }
 
@@ -378,22 +529,43 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
   }
 
   func receive(_ providers: [NSItemProvider]) async throws -> [URL] {
+    try await receiveOwned(providers).urls
+  }
+
+  func receiveOwned(_ providers: [NSItemProvider]) async throws -> NativeReceivedFiles {
     guard !providers.isEmpty else { throw NativeFileIntegrationError.unsupportedDrop }
+    let progress = Progress(totalUnitCount: Int64(providers.count))
+    let activity = try store.beginActivity(progress)
+    defer { store.endActivity(activity) }
     var result = [URL]()
-    var ownedDirectories = [URL]()
+    var ownership = [NativeIncomingOwnership]()
     do {
       for provider in providers {
+        try Task.checkCancellation()
+        if progress.isCancelled { throw CancellationError() }
+        let request = NativeProviderRequest()
+        progress.cancellationHandler = { request.cancel() }
         if provider.canLoadObject(ofClass: NSURL.self) {
-          let url: URL = try await withCheckedThrowingContinuation { continuation in
-            _ = provider.loadObject(ofClass: NSURL.self) { value, error in
-              if let error {
-                continuation.resume(throwing: error)
-              } else if let url = value as? URL, url.isFileURL {
-                continuation.resume(returning: url)
-              } else {
-                continuation.resume(throwing: NativeFileIntegrationError.unsupportedDrop)
+          let url: URL = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+              request.install(continuation)
+              guard !progress.isCancelled, !request.isCancelled else {
+                request.cancel()
+                return
               }
+              request.setProgress(
+                provider.loadObject(ofClass: NSURL.self) { value, error in
+                  if let error {
+                    request.finish(.failure(error))
+                  } else if let url = value as? URL, url.isFileURL {
+                    request.finish(.success(url))
+                  } else {
+                    request.finish(.failure(NativeFileIntegrationError.unsupportedDrop))
+                  }
+                })
             }
+          } onCancel: {
+            request.cancel()
           }
           result.append(url)
           continue
@@ -404,27 +576,43 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
               && UTType($0)?.conforms(to: .item) == true
           })
         else { throw NativeFileIntegrationError.unsupportedDrop }
-        let directory = try store.directory(identity: "incoming promise")
-        ownedDirectories.append(directory)
+        let owner = try store.incomingDirectory()
+        ownership.append(owner)
+        let directory = owner.directory.appendingPathComponent("files", isDirectory: true)
         let suggested = provider.suggestedName
         let store = store
-        let url: URL = try await withCheckedThrowingContinuation { continuation in
-          _ = provider.loadFileRepresentation(forTypeIdentifier: identifier) { url, error in
-            do {
-              if let error { throw error }
-              guard let url else { throw NativeFileIntegrationError.unsupportedDrop }
-              // The provider's temporary URL is valid only during this callback.
-              let name = suggested ?? url.lastPathComponent
-              continuation.resume(
-                returning: try store.copyIncoming(url, name: name, into: directory))
-            } catch { continuation.resume(throwing: error) }
+        let url: URL = try await withTaskCancellationHandler {
+          try await withCheckedThrowingContinuation { continuation in
+            request.install(continuation)
+            guard !progress.isCancelled, !request.isCancelled else {
+              request.cancel()
+              return
+            }
+            request.setProgress(
+              provider.loadFileRepresentation(forTypeIdentifier: identifier) { url, error in
+                do {
+                  if let error { throw error }
+                  guard let url else { throw NativeFileIntegrationError.unsupportedDrop }
+                  let copyActivity = try store.beginActivity(progress)
+                  defer { store.endActivity(copyActivity) }
+                  if request.isCancelled { throw CancellationError() }
+                  // The provider URL is valid only during this callback.
+                  let copy = try store.copyIncoming(
+                    url, name: suggested ?? url.lastPathComponent, into: directory)
+                  if !request.finish(.success(copy)) { _ = store.cleanupIncoming([owner]) }
+                } catch { request.finish(.failure(error)) }
+              })
           }
+        } onCancel: {
+          request.cancel()
         }
         result.append(url)
       }
-      return result
+      try Task.checkCancellation()
+      if progress.isCancelled { throw CancellationError() }
+      return NativeReceivedFiles(urls: result, ownership: ownership)
     } catch {
-      for directory in ownedDirectories { try? FileManager.default.removeItem(at: directory) }
+      _ = store.cleanupIncoming(ownership)
       throw error
     }
   }

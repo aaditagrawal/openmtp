@@ -671,6 +671,64 @@ private final class LocalWorkArea {
   deinit { if !preserve { try? FileManager.default.removeItem(at: url) } }
 }
 
+/// Every rename is exclusive. The displaced object is verified after it moves,
+/// so a writer that replaces the destination after preflight cannot lose data.
+/// The move argument lets filesystem race tests exercise this production path.
+enum LocalTransferCommit {
+  static func moveExclusive(_ source: URL, _ destination: URL) throws {
+    #if canImport(Darwin)
+      let status = source.path.withCString { from in
+        destination.path.withCString { to in renamex_np(from, to, UInt32(RENAME_EXCL)) }
+      }
+      guard status == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+    #else
+      throw TreeTransferError.invalidInput("Exclusive local commits require macOS.")
+    #endif
+  }
+
+  static func commit(
+    _ staged: URL, to target: URL, backup: URL,
+    matchesExpected: ((URL) throws -> Bool)?,
+    move: (URL, URL) throws -> Void = LocalTransferCommit.moveExclusive
+  ) throws {
+    guard let matchesExpected else {
+      try move(staged, target)
+      return
+    }
+    try move(target, backup)
+    do {
+      guard try matchesExpected(backup) else {
+        throw TreeTransferError.destinationChanged(target.path)
+      }
+    } catch {
+      throw TreeTransferError.recoveryRequired(
+        "The destination changed during replacement. The new copy is preserved at \(staged.path), and the displaced item is preserved at \(backup.path)."
+      )
+    }
+    do {
+      try move(staged, target)
+    } catch {
+      let commitError = error
+      do {
+        // Restoration must also be exclusive: a new writer may own the path.
+        try move(backup, target)
+      } catch {
+        throw TreeTransferError.recoveryRequired(
+          "The destination changed during replacement. The new copy is preserved at \(staged.path), and the previous copy is preserved at \(backup.path)."
+        )
+      }
+      throw commitError
+    }
+    do {
+      try FileManager.default.removeItem(at: backup)
+    } catch {
+      throw TreeTransferError.recoveryRequired(
+        "The new copy is complete at \(target.path). The previous copy remains at \(backup.path): \(error)"
+      )
+    }
+  }
+}
+
 private final class TreeExecutor {
   let device: MTPDevice
   let plan: TreeTransferPlan
@@ -875,41 +933,21 @@ private final class TreeExecutor {
 
   func commitLocal(_ staged: URL, to target: URL, expected: TreeItem?, work: LocalWorkArea) throws {
     let existing = try validateLocalDestination(target, expected: expected)
-    guard let existing else {
-      try FileManager.default.moveItem(at: staged, to: target)
-      return
-    }
-    let stagedDirectory = try localTreeItem(staged)?.isDirectory == true
-    if !existing.isDirectory && !stagedDirectory {
-      let result = staged.path.withCString { source in
-        target.path.withCString { destination in
-          #if canImport(Darwin)
-            Darwin.rename(source, destination)
-          #else
-            Glibc.rename(source, destination)
-          #endif
-        }
-      }
-      guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-      return
-    }
     let backup = work.url.appendingPathComponent("previous")
-    try FileManager.default.moveItem(at: target, to: backup)
-    do { try FileManager.default.moveItem(at: staged, to: target) } catch {
-      do { try FileManager.default.moveItem(at: backup, to: target) } catch {
-        work.preserve = true
-        cancellation.record(backup.path)
-        throw TreeTransferError.recoveryRequired(
-          "The original is preserved at \(backup.path). The destination changed during replacement."
-        )
+    let matchesExpected: ((URL) throws -> Bool)? = existing.map { snapshot in
+      { url in
+        guard let displaced = try localTreeItem(url) else { return false }
+        return sameLocal(snapshot, displaced, contents: true)
       }
-      throw error
     }
-    do { try FileManager.default.removeItem(at: backup) } catch {
+    do {
+      try LocalTransferCommit.commit(
+        staged, to: target, backup: backup, matchesExpected: matchesExpected)
+    } catch let error as TreeTransferError {
+      guard case .recoveryRequired = error else { throw error }
       work.preserve = true
-      cancellation.record(backup.path)
-      throw TreeTransferError.recoveryRequired(
-        "The new copy is complete. The previous copy remains at \(backup.path): \(error)")
+      cancellation.record(work.url.path)
+      throw error
     }
   }
 

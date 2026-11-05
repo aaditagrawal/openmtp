@@ -62,6 +62,49 @@ enum IOReturnCode {
   static let usbPipeStalled = Int32(bitPattern: 0xE000_5000)
 }
 
+/// USB 2.0 string descriptor zero is a bounded array of little-endian LANGIDs,
+/// rather than a text string. Other string indices are read in a reported language.
+enum USBInterfaceIdentification {
+  static func languageIDs(from descriptor: Data) throws -> [UInt16] {
+    guard descriptor.count >= 4, descriptor[descriptor.startIndex + 1] == 3 else {
+      throw USBTransportError.notMTP("the supported-language descriptor is invalid")
+    }
+    let length = Int(descriptor[descriptor.startIndex])
+    guard length >= 4, length <= descriptor.count, length.isMultiple(of: 2) else {
+      throw USBTransportError.notMTP("the supported-language descriptor is truncated")
+    }
+    var reader = ByteReader(Data(descriptor.prefix(length).dropFirst(2)))
+    var result = [UInt16]()
+    var seen = Set<UInt16>()
+    while !reader.isAtEnd {
+      let language = try reader.u16()
+      if language != 0, seen.insert(language).inserted { result.append(language) }
+    }
+    guard !result.isEmpty else {
+      throw USBTransportError.notMTP("the device reports no string languages")
+    }
+    return result
+  }
+
+  static func mtpName(
+    index: Int, languageDescriptor: () throws -> Data,
+    string: (Int, UInt16) throws -> String
+  ) throws -> String {
+    guard index != 0 else {
+      throw USBTransportError.notMTP("the vendor-specific interface has no name")
+    }
+    let languages = try languageIDs(from: languageDescriptor())
+    for language in languages {
+      if let name = try? string(index, language),
+        name.localizedCaseInsensitiveContains("MTP")
+      {
+        return name
+      }
+    }
+    throw USBTransportError.notMTP("no reported language identifies the interface as MTP")
+  }
+}
+
 public enum USBDiscovery {
   public static func candidates() -> [USBMTPCandidate] {
     var iterator: io_iterator_t = 0
@@ -138,6 +181,7 @@ public enum USBDiscovery {
 public final class USBMTPTransport: MTPTransport, @unchecked Sendable {
   public let candidate: USBMTPCandidate
   public let maxPacketSize: Int
+  public let maxOutPacketSize: Int
   private let interface: IOUSBHostInterface
   private let bulkIn: IOUSBHostPipe
   private let bulkOut: IOUSBHostPipe
@@ -169,18 +213,19 @@ public final class USBMTPTransport: MTPTransport, @unchecked Sendable {
       let descriptor = interface.interfaceDescriptor
       if !candidate.isPTPClass {
         let index = Int(descriptor.pointee.iInterface)
-        let name =
-          index == 0
-          ? ""
-          : ((try? interface.__string(with: index, languageID: 0x0409)).map { String($0) } ?? "")
-        guard name.localizedCaseInsensitiveContains("MTP") else {
-          throw USBTransportError.notMTP("interface string is \"\(name)\"")
-        }
+        let namedInterface = interface
+        _ = try USBInterfaceIdentification.mtpName(
+          index: index,
+          languageDescriptor: { try USBMTPTransport.languageDescriptor(from: namedInterface) },
+          string: { index, language in
+            String(try namedInterface.__string(with: index, languageID: Int(language)))
+          })
       }
 
       var inAddress: Int?
       var outAddress: Int?
-      var packet = 512
+      var inPacket: Int?
+      var outPacket: Int?
       let configuration = interface.configurationDescriptor
       var current: UnsafePointer<IOUSBDescriptorHeader>? = nil
       while let endpoint = IOUSBGetNextEndpointDescriptor(configuration, descriptor, current) {
@@ -188,15 +233,19 @@ public final class USBMTPTransport: MTPTransport, @unchecked Sendable {
         if e.bmAttributes & 0x03 == 0x02 {  // bulk
           if e.bEndpointAddress & 0x80 != 0 {
             inAddress = Int(e.bEndpointAddress)
-            packet = Int(e.wMaxPacketSize & 0x07FF)
+            inPacket = Int(e.wMaxPacketSize & 0x07FF)
           } else {
             outAddress = Int(e.bEndpointAddress)
+            outPacket = Int(e.wMaxPacketSize & 0x07FF)
           }
         }
         current = UnsafeRawPointer(endpoint).assumingMemoryBound(to: IOUSBDescriptorHeader.self)
       }
-      guard let inAddress, let outAddress else { throw USBTransportError.missingEndpoints }
-      maxPacketSize = packet
+      guard let inAddress, let outAddress, let inPacket, inPacket > 0,
+        let outPacket, outPacket > 0
+      else { throw USBTransportError.missingEndpoints }
+      maxPacketSize = inPacket
+      maxOutPacketSize = outPacket
       bulkIn = try interface.copyPipe(withAddress: inAddress)
       bulkOut = try interface.copyPipe(withAddress: outAddress)
     } catch {
@@ -206,6 +255,23 @@ public final class USBMTPTransport: MTPTransport, @unchecked Sendable {
   }
 
   deinit { close() }
+
+  private static func languageDescriptor(from interface: IOUSBHostInterface) throws -> Data {
+    // Standard device GET_DESCRIPTOR(STRING, index 0), USB 2.0 9.4.3/9.6.7.
+    guard let buffer = NSMutableData(length: 255) else {
+      throw USBTransportError.notMTP("cannot allocate a string-language descriptor")
+    }
+    let request = IOUSBDeviceRequest(
+      bmRequestType: 0x80, bRequest: 6, wValue: 3 << 8,
+      wIndex: 0, wLength: UInt16(buffer.length))
+    var transferred = 0
+    try interface.__send(
+      request, data: buffer, bytesTransferred: &transferred, completionTimeout: 5)
+    guard transferred >= 0, transferred <= buffer.length else {
+      throw USBTransportError.notMTP("invalid string-language transfer length")
+    }
+    return Data(bytes: buffer.bytes, count: transferred)
+  }
 
   public func bulkWrite(_ data: Data, timeout: TimeInterval) throws {
     let buffer = NSMutableData(data: data)

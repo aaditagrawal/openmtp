@@ -5,6 +5,7 @@ SHELL := /bin/bash
 verify:
 	./macos/scripts/verify-environment.sh
 test: verify
+	./macos/scripts/test-release-policy.sh
 	./macos/scripts/swift-test.sh
 build: verify
 	./macos/scripts/bundle-app.sh

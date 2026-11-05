@@ -128,8 +128,9 @@ public final class MTPDevice: @unchecked Sendable {
   }
 
   func childrenViaObjectInfo(storage: UInt32, parent: UInt32) throws -> [MTPObject] {
-    try session.getObjectHandles(storage: storage, parent: parent).map {
-      try object($0, fallbackParent: parent)
+    try session.getObjectHandles(storage: storage, parent: parent).compactMap {
+      let entry = try object($0)
+      return entry.storageID == storage && entry.parent == parent ? entry : nil
     }
   }
 
@@ -149,7 +150,9 @@ public final class MTPDevice: @unchecked Sendable {
         size = nil
       }
     }
-    let parent = oi.parentObject == 0 ? (fallbackParent ?? MTPHandle.root) : oi.parentObject
+    // Android reports storage-root objects with zero. Never infer a nested
+    // parent from the requested listing or a previous object snapshot.
+    let parent = oi.parentObject == 0 ? MTPHandle.root : oi.parentObject
     return MTPObject(
       handle: handle, storageID: oi.storageID, parent: parent,
       name: try validatedFilename(oi.filename),
@@ -248,20 +251,17 @@ public final class MTPDevice: @unchecked Sendable {
     _ source: URL, storage: UInt32, parent: UInt32 = MTPHandle.root, name: String? = nil,
     onCreated: ((UInt32) -> Void)? = nil, progress: MTPProgress? = nil
   ) throws -> UInt32 {
-    try UploadPreflight.validate([source])
-    let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
-    let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+    let opened = try UploadPreflight.openRegularFile(source)
+    let file = opened.file
+    defer { try? file.close() }
+    let size = opened.size
     var oi = ObjectInfo()
     oi.storageID = storage
     oi.objectFormat = ObjectFormat.undefined
     oi.compressedSize = size >= 0xFFFF_FFFF ? 0xFFFF_FFFF : UInt32(size)
     oi.parentObject = parent == MTPHandle.root ? 0 : parent
-    oi.filename = name ?? source.lastPathComponent
-    if let modified = attributes[.modificationDate] as? Date {
-      oi.dateModified = MTPDate.format(modified)
-    }
-    let file = try FileHandle(forReadingFrom: source)
-    defer { try? file.close() }
+    oi.filename = try validatedFilename(name ?? source.lastPathComponent)
+    oi.dateModified = MTPDate.format(opened.modified)
     let handle = try session.exclusive {
       // SendObject must directly follow its SendObjectInfo.
       let created = try session.sendObjectInfo(storage: storage, parent: parent, oi)
@@ -285,7 +285,7 @@ public final class MTPDevice: @unchecked Sendable {
     oi.objectFormat = ObjectFormat.association
     oi.associationType = AssociationType.genericFolder
     oi.parentObject = parent == MTPHandle.root ? 0 : parent
-    oi.filename = name
+    oi.filename = try validatedFilename(name)
     if let modified { oi.dateModified = MTPDate.format(modified) }
     let created = try session.sendObjectInfo(storage: storage, parent: parent, oi)
     invalidate(storage: storage, parent: parent)
@@ -299,7 +299,8 @@ public final class MTPDevice: @unchecked Sendable {
   }
 
   public func rename(_ object: MTPObject, to newName: String) throws {
-    try session.setObjectPropValue(object.handle, .objectFileName, string: newName)
+    let name = try validatedFilename(newName)
+    try session.setObjectPropValue(object.handle, .objectFileName, string: name)
     invalidate(storage: object.storageID, parent: object.parent)
   }
 }

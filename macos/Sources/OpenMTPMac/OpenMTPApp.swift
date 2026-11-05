@@ -32,13 +32,16 @@ struct OpenMTPApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   weak var model: AppModel?
+  private var terminationTask: Task<Void, Never>?
   func applicationDidFinishLaunching(_: Notification) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
   }
   func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool { false }
   func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
-    guard let model, model.hasActiveTransfers else { return .terminateNow }
+    if terminationTask != nil { return .terminateLater }
+    guard let model else { return .terminateNow }
+    guard model.hasActiveTransfers || model.hasInFlightWork else { return .terminateNow }
     let alert = NSAlert()
     alert.messageText = "Quit while copies are pending?"
     alert.informativeText =
@@ -46,8 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     alert.addButton(withTitle: "Quit")
     alert.addButton(withTitle: "Cancel")
     guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
-    model.cancelAll()
-    return .terminateNow
+    terminationTask = Task { [weak self] in
+      let finished = await model.prepareForTermination()
+      self?.terminationTask = nil
+      NSApp.reply(toApplicationShouldTerminate: finished)
+    }
+    return .terminateLater
   }
 }
 

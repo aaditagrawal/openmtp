@@ -18,7 +18,7 @@ for openmtp_script in scripts/*.sh; do
   bash -n "$openmtp_script"
 done
 openmtp_version="$(tr -d '\n\r' < VERSION)"
-if [[ ! "$openmtp_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
+if [[ ! "$openmtp_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
   echo 'macos/VERSION must contain a release SemVer.' >&2
   exit 1
 fi

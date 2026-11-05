@@ -62,3 +62,34 @@ CodeRabbit initially skipped the whole replacement because legacy deletions exce
 The four independent-review findings were fixed and regression-tested: unknown-length packet framing with omitted ZLPs, basic-device uploads without filename renaming, beta discovery after automatic checks are disabled, and universal builds sharing a SwiftPM products directory. The final integrated run passed 104 tests across 15 suites: 64 core and 40 native tests. Ordinary metadata mismatch still preserves destinations and session health. Unsupported upload compatibility retries require a definite unsupported-operation response, exact staged-object cleanup, and source/destination revalidation; replacements and ambiguous failures never take that path.
 
 `OPENMTP_ARCH=universal make package` plus universal package verification passed using the shared-products-directory toolchain that exposed the original defect. Both executables contain arm64 and x86_64 slices. Deep signatures, minimum OS, ZIP integrity, checksums and DMG verification passed. Logs are `optional-rename-validation.log` and `review-universal-package.log` in integrated staging. The output is ad-hoc signed, not a notarized public release.
+
+## CodeRabbit review disposition
+
+All 20 inline findings and the two additional review-body findings were checked against the implementation. The changes below preserve the review scope; review thresholds were not reduced.
+
+| Finding | Disposition |
+| --- | --- |
+| Stable release promotion | Older maintenance tags remain non-latest; publication is serialized; API failures stop promotion. Sparkle also checks semantic release order independently of build numbers. |
+| Prerelease hyphens | Verification accepts identifiers such as rc-1. |
+| Full minimum macOS version | Package policy rejects 13.0.1 and 13.5, while accepting 13.0. |
+| Date suffix junk | Invalid trailing data is rejected; Smart Sync treats it as unknown metadata. |
+| ObjectInfo scope | Returned objects are checked against actual parent/storage without a duplicate metadata request. |
+| Upload source race | O_NOFOLLOW and descriptor fstat bind bytes and size to a verified regular file. |
+| CLI device index, chunk arithmetic and explicit storage | Invalid values fail with errors, and missing storage never falls back silently. |
+| Rename path components | Invalid names fail before a mutation is sent. |
+| Vendor MTP language IDs | Interface identification tries the languages reported by the device. |
+| Distinct bulk-OUT packet size | Upload alignment and terminating ZLP use OUT; downloads continue using IN. |
+| Automatic install-on-quit | Sparkle retains this behavior; it cannot become a restart merely because copies finish. Requested restarts still defer. |
+| Prune after 1,024 entries | All generated cache entries are considered, preserving explicitly owned retry sources. |
+| Interrupted multi-file preview | Only that request's completed staging directories are removed on failure/cancellation. |
+| Incoming drop copies | Explicit nonce-backed ownership is persisted; completed/rejected/discarded jobs clean their copies, while failed/cancelled jobs retain retry sources. |
+| Quit cancellation drain | Termination is deferred until active operations drain; an operation that cannot stop cancels the quit attempt instead of forcing exit. |
+| Hidden Mac pane | Focus moves to Phone and hidden local selections clear. |
+| Grid context selection | A selected clicked item retains the complete selection; an unselected item acts alone. |
+| Local replacement race, review-body finding | Exclusive backup/commit/restore operations verify the displaced item and retain recovery copies on a conflict. There can be a brief absent-target window; no filesystem compare-and-swap is claimed. |
+| Preference migration, review-body finding | One atomic setMany write includes the complete imported dictionary and migration marker. |
+| Unknown size and omitted ZLP | Safe success cannot be inferred from arbitrary payload bytes. This peer combination remains unsupported and fails without committing the destination; regressions also preserve response-looking payload bytes when framing is valid. |
+
+The separate docstring-coverage check is a nonblocking documentation warning. Its threshold was left unchanged; filler comments were not added to manufacture coverage. Physical-device, minimum-OS and signed-release checks above remain outstanding.
+
+Final CodeRabbit-correction validation on Quasar passed 139 Swift tests across 20 suites: 77 core, five USB and 57 native tests. Strict formatting and the mocked release-promotion/minimum-OS policy harness passed. A separate real environment-verification fixture accepted 4.0.0-rc-1 and rejected an empty prerelease identifier. The universal app and CLI both contain arm64 and x86_64; deep signatures, ZIP integrity, checksums and DMG verification passed. Evidence is review-final-validation.log in integrated staging. CLI smoke additionally rejected nine malformed argument combinations without a trap. No physical-device mutation or public release occurred.

@@ -80,6 +80,7 @@ struct WorkspaceView: View {
         }
       }
     }
+    .disabled(model.isTerminating)
     .background(WorkspaceKeyboardBridge(model: model).frame(width: 0, height: 0))
     .modifier(WorkspaceDialogs(model: model, browser: model.browser))
     .preferredColorScheme(settings.appearance.colorScheme)
@@ -430,7 +431,10 @@ private struct FileBrowserPane: View {
                 item.id.absoluteString, in: pane, modifiers: NSEvent.modifierFlags)
             }
             .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
-            .contextMenu { contextActions(ids: [item.id.absoluteString]) }
+            .contextMenu {
+              contextActions(
+                ids: model.contextSelectionIDs(clicked: item.id.absoluteString, in: pane))
+            }
           }
         } else {
           ForEach(model.sortedEntries) { item in
@@ -445,7 +449,9 @@ private struct FileBrowserPane: View {
               model.selectGridItem(String(item.id), in: pane, modifiers: NSEvent.modifierFlags)
             }
             .onDrag { model.remoteItemProvider(item) }
-            .contextMenu { contextActions(ids: [String(item.id)]) }
+            .contextMenu {
+              contextActions(ids: model.contextSelectionIDs(clicked: String(item.id), in: pane))
+            }
           }
         }
       }.padding(12)
@@ -466,24 +472,24 @@ private struct FileBrowserPane: View {
   @ViewBuilder private func contextActions(ids: [String]) -> some View {
     if !ids.isEmpty {
       Button("Open") {
-        applyContext(ids)
+        guard applyContext(ids) else { return }
         model.openSelection()
       }
       Button("Quick Look") {
-        applyContext(ids)
+        guard applyContext(ids) else { return }
         model.previewSelection()
       }
       Button("Copy") {
-        applyContext(ids)
+        guard applyContext(ids) else { return }
         model.copySelection()
       }
       Button(isLocal ? "Copy to Phone" : "Copy to Mac") {
-        applyContext(ids)
+        guard applyContext(ids) else { return }
         model.copyToOtherPane()
       }.disabled(model.connection != .connected)
       if ids.count == 1 {
         Button("Rename…") {
-          applyContext(ids)
+          guard applyContext(ids) else { return }
           model.beginRename()
         }
       }
@@ -496,7 +502,7 @@ private struct FileBrowserPane: View {
       }
       Divider()
       Button(isLocal ? "Move to Trash" : "Delete from Phone…", role: .destructive) {
-        applyContext(ids)
+        guard applyContext(ids) else { return }
         model.requestActiveDeletion()
       }
     }
@@ -505,13 +511,8 @@ private struct FileBrowserPane: View {
       model.beginNewFolder()
     }
   }
-  private func applyContext(_ ids: [String]) {
-    model.activePane = pane
-    if isLocal {
-      model.localSelection = Set(ids.compactMap(URL.init(string:)))
-    } else {
-      model.selection = Set(ids.compactMap(UInt32.init))
-    }
+  private func applyContext(_ ids: [String]) -> Bool {
+    model.applyContextSelection(ids, in: pane)
   }
 }
 

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+source "$(dirname "$0")/release-policy.sh"
 cd "$(dirname "$0")/../.."
 openmtp_version="$(tr -d '\n\r' < macos/VERSION)"
 openmtp_tag="${1:?Expected release tag}"
@@ -39,5 +40,9 @@ for openmtp_feed in dist/appcast-*.xml; do
   gh release upload "$openmtp_tag" "$openmtp_feed" --repo aaditagrawal/openmtp
 done
 openmtp_latest=true
-[[ "$openmtp_version" != *-* ]] || openmtp_latest=false
+if [[ "$openmtp_version" == *-* ]]; then
+  openmtp_latest=false
+else
+  openmtp_latest="$(openmtp_may_promote_stable)"
+fi
 gh release edit "$openmtp_tag" --repo aaditagrawal/openmtp --draft=false "--latest=$openmtp_latest"

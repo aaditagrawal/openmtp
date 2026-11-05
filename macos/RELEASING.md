@@ -48,3 +48,5 @@ Release publication waits for both architecture jobs. It creates a draft, upload
 ## Validation limits
 
 As of the replacement work, this repository has no configured Developer ID/notarization or Sparkle secrets. Local ad-hoc packaging and simulated update selection cannot establish a signed update round trip. Before a stable release, test an actual signed older-to-newer install, both CPU packages, physical-phone transfers and the user interactions recorded in VALIDATION.md.
+
+Stable publication is serialized across tags. Publishing an older maintenance version keeps it out of the latest stable feed; latest-release API errors stop publication rather than guessing. The updater also rejects semantically older core versions even when their build number is higher, including a beta client falling back to an older stable feed. Automatic install-on-quit waits for a normal user quit; only a requested restart resumes when transfers become idle.

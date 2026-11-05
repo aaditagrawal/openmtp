@@ -26,7 +26,8 @@ var args = Array(CommandLine.arguments.dropFirst())
 }
 
 @MainActor func option(_ name: String) -> String? {
-  guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
+  guard let i = args.firstIndex(of: name) else { return nil }
+  guard i + 1 < args.count else { fail("missing value for \(name)") }
   let value = args[i + 1]
   args.removeSubrange(i...i + 1)
   return value
@@ -52,10 +53,32 @@ func time<T>(_ body: () throws -> T) rethrows -> (T, TimeInterval) {
   return (value, Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9)
 }
 
-let deviceIndex = option("--device").flatMap { Int($0) } ?? 0
-let storageOption = option("--storage").flatMap(parseInt)
+let deviceIndex: Int
+if let value = option("--device") {
+  guard let index = Int(value), index >= 0 else { fail("--device needs a nonnegative index") }
+  deviceIndex = index
+} else {
+  deviceIndex = 0
+}
+let storageOption: UInt32?
+if let value = option("--storage") {
+  guard let storage = parseInt(value) else {
+    fail("--storage needs a valid decimal or hexadecimal ID")
+  }
+  storageOption = storage
+} else {
+  storageOption = nil
+}
 let seize = flag("--seize")
-let chunkKiB = option("--chunk-kib").flatMap { Int($0) }
+let chunkBytes: Int?
+if let value = option("--chunk-kib") {
+  guard let kib = Int(value), kib > 0, kib <= Int.max / 1024 else {
+    fail("--chunk-kib needs a positive integer no larger than \(Int.max / 1024)")
+  }
+  chunkBytes = kib * 1024
+} else {
+  chunkBytes = nil
+}
 let forceObjectInfo = flag("--objectinfo")
 let forcePropList = flag("--proplist")
 guard let command = args.first else {
@@ -79,7 +102,7 @@ if command == "devices" {
   exit(0)
 }
 
-guard deviceIndex < candidates.count else {
+guard candidates.indices.contains(deviceIndex) else {
   fail("no device at index \(deviceIndex); run `mtpctl devices`")
 }
 let device: MTPDevice
@@ -90,16 +113,23 @@ do {
   fail("\(error)")
 }
 defer { device.close() }
-if let chunkKiB { device.session.transferSize = chunkKiB * 1024 }
+if let chunkBytes { device.session.transferSize = chunkBytes }
 if forceObjectInfo { device.listingStrategy = .objectInfo }
 if forcePropList { device.listingStrategy = .propertyList }
 
 do {
   let storages = try device.storages()
-  guard
-    let storage = storageOption.flatMap({ id in storages.first { $0.id == id } }) ?? storages.first
-  else {
-    fail("no mounted storage; unlock the phone and choose File transfer")
+  let storage: StorageInfo
+  if let requested = storageOption {
+    guard let selected = storages.first(where: { $0.id == requested }) else {
+      fail("no mounted storage with ID \(String(format: "0x%08X", requested))")
+    }
+    storage = selected
+  } else {
+    guard let selected = storages.first else {
+      fail("no mounted storage; unlock the phone and choose File transfer")
+    }
+    storage = selected
   }
 
   func lookup(_ path: String) throws -> MTPObject? {

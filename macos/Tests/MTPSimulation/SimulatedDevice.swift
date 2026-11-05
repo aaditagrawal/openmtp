@@ -32,6 +32,8 @@ final class SimulatedDevice: MTPTransport {
   var omitObjectSizes = false
   var omitListingIdentity = false
   var propertyListAllObjects = false
+  var objectHandlesAllObjects = false
+  var objectInfoStorageIDs: [UInt32: UInt32] = [:]
 
   let storageID: UInt32 = 0x0001_0001
   private(set) var nodes: [UInt32: Node] = [:]
@@ -219,7 +221,7 @@ final class SimulatedDevice: MTPTransport {
     case .getObjectHandles:
       let parent = params[2] == MTPHandle.root ? 0 : params[2]
       var w = ByteWriter()
-      w.u32Array(children(of: parent).map(\.handle))
+      w.u32Array(objectHandlesAllObjects ? nodes.keys.sorted() : children(of: parent).map(\.handle))
       reply(.ok, data: w.data)
     case .getObjectInfo:
       guard let n = nodes[params[0]] else { return reply(.invalidObjectHandle) }
@@ -346,7 +348,7 @@ final class SimulatedDevice: MTPTransport {
 
   private func objectInfo(_ n: Node) -> ObjectInfo {
     var oi = ObjectInfo()
-    oi.storageID = storageID
+    oi.storageID = objectInfoStorageIDs[n.handle] ?? storageID
     oi.objectFormat = n.isDirectory ? ObjectFormat.association : ObjectFormat.undefined
     let size = reportedSizes[n.handle] ?? UInt64(n.contents.count)
     oi.compressedSize = omitObjectSizes || size >= 0xFFFF_FFFF ? 0xFFFF_FFFF : UInt32(size)

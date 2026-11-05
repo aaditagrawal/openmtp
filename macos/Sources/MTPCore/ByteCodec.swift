@@ -149,15 +149,18 @@ public enum MTPDate {
       switch chars[idx] {
       case UInt8(ascii: "Z"):
         zone = TimeZone(secondsFromGMT: 0)!
+        idx += 1
       case UInt8(ascii: "+"), UInt8(ascii: "-"):
         guard let hh = num(idx + 1..<idx + 3), let mm = num(idx + 3..<idx + 5) else { return nil }
         let sign = chars[idx] == UInt8(ascii: "-") ? -1 : 1
         guard let z = TimeZone(secondsFromGMT: sign * (hh * 3600 + mm * 60)) else { return nil }
         zone = z
+        idx += 5
       default:
         return nil
       }
     }
+    guard idx == chars.count else { return nil }
 
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = zone

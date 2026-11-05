@@ -448,6 +448,28 @@ final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate 
   }
   func updaterDidNotFindUpdate(_ updater: SPUUpdater) { state = .upToDate }
   func updater(
+    _ updater: SPUUpdater, shouldProceedWithUpdate item: SUAppcastItem,
+    updateCheck: SPUUpdateCheck
+  ) throws {
+    try validateSemanticUpdate(item)
+  }
+
+  /// Build numbers order installations, but a later maintenance build or the
+  /// stable feed shown to a beta user must never downgrade the release version.
+  func validateSemanticUpdate(_ item: SUAppcastItem) throws {
+    guard let installed = NativeVersion(currentVersion),
+      let offered = NativeVersion(item.displayVersionString),
+      !offered.numbers.lexicographicallyPrecedes(installed.numbers),
+      !(offered.numbers == installed.numbers && installed.prerelease.isEmpty
+        && !(item.channel ?? "").isEmpty)
+    else {
+      throw NSError(
+        domain: "io.ganeshrvel.openmtp.updates", code: 1,
+        userInfo: [NSLocalizedDescriptionKey: "This update is older than the installed release."])
+    }
+  }
+
+  func updater(
     _ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem,
     untilInvokingBlock installHandler: @escaping () -> Void
   ) -> Bool {
@@ -457,12 +479,13 @@ final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate 
     _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
     immediateInstallationBlock installHandler: @escaping () -> Void
   ) -> Bool {
-    postponeInstallationIfBusy(installHandler)
+    // Sparkle already installs on normal termination. Taking ownership here
+    // would turn an automatic install-on-quit into an unsolicited restart.
+    false
   }
 
-  /// Both a requested restart and Sparkle's automatic install-on-quit path
-  /// wait for queued copies, conflict choices, previews and Finder promises.
-  /// Normal application termination still independently confirms active work.
+  /// Delay a requested restart while copies or exports are active. Automatic
+  /// install-on-quit stays with Sparkle; app termination drains active work.
   func postponeInstallationIfBusy(_ installHandler: @escaping () -> Void) -> Bool {
     guard hasActiveTransfers() else { return false }
     deferredInstallation = installHandler

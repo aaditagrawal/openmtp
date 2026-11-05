@@ -90,6 +90,9 @@ jobs:
     name: Publish native release
     needs: package
     runs-on: macos-26
+    concurrency:
+      group: native-release-publication
+      cancel-in-progress: false
     permissions:
       contents: write
     env:

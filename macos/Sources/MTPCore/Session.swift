@@ -4,10 +4,12 @@ import Foundation
 ///
 /// Semantics match a real USB host controller: a bulk IN transfer completes when a
 /// short (or zero-length) packet arrives or the buffer fills; a bulk OUT transfer whose
-/// length is a multiple of `maxPacketSize` needs a separate zero-length write to end a container.
+/// length is a multiple of `maxOutPacketSize` needs a zero-length write to end a container.
 public protocol MTPTransport: AnyObject {
-  /// wMaxPacketSize of the bulk endpoints: 512 on USB 2, 1024 on USB 3.
+  /// wMaxPacketSize of the bulk IN endpoint.
   var maxPacketSize: Int { get }
+  /// wMaxPacketSize of bulk OUT; it need not match IN on full-speed interfaces.
+  var maxOutPacketSize: Int { get }
   /// One bulk OUT transfer. `Data()` sends a zero-length packet.
   func bulkWrite(_ data: Data, timeout: TimeInterval) throws
   /// One bulk IN transfer of at most `maxLength` bytes; `maxLength` is a multiple of `maxPacketSize`.
@@ -18,6 +20,7 @@ public protocol MTPTransport: AnyObject {
 }
 
 extension MTPTransport {
+  public var maxOutPacketSize: Int { maxPacketSize }
   public func cancelTransaction(_: UInt32) throws {}
 }
 
@@ -159,10 +162,11 @@ public final class MTPSession: @unchecked Sendable {
     }
   }
 
-  private var packetSize: Int { max(transport.maxPacketSize, 64) }
+  private var packetSize: Int { max(transport.maxPacketSize, 1) }
+  private var outPacketSize: Int { max(transport.maxOutPacketSize, 1) }
 
-  private func roundedTransfer(_ n: Int) -> Int {
-    let p = packetSize
+  private func roundedTransfer(_ n: Int, packet: Int? = nil) -> Int {
+    let p = packet ?? packetSize
     return max(p, (n + p - 1) / p * p)
   }
 
@@ -252,7 +256,7 @@ public final class MTPSession: @unchecked Sendable {
 
     // Every transfer except the last is a whole number of packets, so the device
     // never sees a premature short packet.
-    let chunk = roundedTransfer(transferSize)
+    let chunk = roundedTransfer(transferSize, packet: outPacketSize)
     var remaining = source.count
     var sent: UInt64 = 0
     var buffer: Data
@@ -286,7 +290,7 @@ public final class MTPSession: @unchecked Sendable {
     }
     // A container that ends exactly on a packet boundary needs a zero-length packet.
     // (A lone separate header is a 12-byte short packet and already terminates.)
-    if lastTransferLength % packetSize == 0, !(separateHeader && source.count == 0) {
+    if lastTransferLength % outPacketSize == 0, !(separateHeader && source.count == 0) {
       try transport.bulkWrite(Data(), timeout: timeout)
     }
   }
@@ -308,6 +312,10 @@ public final class MTPSession: @unchecked Sendable {
       // Large objects use an unknown container length even when metadata gives
       // their exact size. An omitted ZLP can join the response to the last read.
       // Split only at that known boundary and preserve the complete response.
+      // Without metadata, a peer must terminate an aligned payload with a ZLP.
+      // If it omits that boundary, arbitrary file bytes cannot be distinguished
+      // from a response-looking tail. Do not guess or strip bytes: the missing
+      // subsequent response fails the transaction and atomic downloads do not commit.
       func deliverUnknown(_ data: Data) throws -> Bool {
         if let expectedSize, received <= expectedSize {
           let remaining = expectedSize - received

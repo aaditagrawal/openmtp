@@ -23,14 +23,19 @@ final class WorkspacePreferenceStore {
   private var file: URL?
   private var values: [String: Any] = [:]
   private(set) var lastError: String?
+  var isPersistent: Bool { defaults != nil || file != nil }
 
-  init(defaults: UserDefaults?, legacyDirectory: URL? = nil) {
-    if defaults != nil, let profile = ProcessInfo.processInfo.environment["OPENMTP_PROFILE_DIR"],
-      !profile.isEmpty
-    {
+  init(defaults: UserDefaults?, legacyDirectory: URL? = nil, profileDirectory: URL? = nil) {
+    let profile =
+      profileDirectory
+      ?? (defaults == nil
+        ? nil
+        : ProcessInfo.processInfo.environment["OPENMTP_PROFILE_DIR"].flatMap {
+          $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true)
+        })
+    if let profile {
       self.defaults = nil
-      file = URL(fileURLWithPath: profile, isDirectory: true).appendingPathComponent(
-        "native-settings.json")
+      file = profile.appendingPathComponent("native-settings.json")
       if let file, FileManager.default.fileExists(atPath: file.path) {
         do {
           let data = try Data(contentsOf: file)
@@ -120,21 +125,25 @@ final class WorkspacePreferenceStore {
       "enablePrereleaseUpdates": "includePrereleases",
       "enableBackgroundAutoUpdate": "autoInstallUpdates",
     ]
+    var migration: [String: Any] = ["workspace.migrated": true]
+    func importValue(_ value: Any, forKey key: String) {
+      if object(forKey: key) == nil { migration[key] = value }
+    }
     for (legacy, native) in keys {
-      if let value = old[legacy] as? Bool { set(value, forKey: "workspace.\(native)") }
+      if let value = old[legacy] as? Bool { importValue(value, forKey: "workspace.\(native)") }
     }
     if let theme = old["appThemeMode"] as? String {
-      set(theme == "auto" ? "system" : theme, forKey: "workspace.appearance")
+      importValue(theme == "auto" ? "system" : theme, forKey: "workspace.appearance")
     }
     if let hidden = old["hideHiddenFiles"] as? [String: Bool] {
-      if let value = hidden["local"] { set(!value, forKey: "workspace.showHiddenLocal") }
-      if let value = hidden["mtp"] { set(!value, forKey: "workspace.showHiddenPhone") }
+      if let value = hidden["local"] { importValue(!value, forKey: "workspace.showHiddenLocal") }
+      if let value = hidden["mtp"] { importValue(!value, forKey: "workspace.showHiddenPhone") }
     }
     if let views = old["fileExplorerListingType"] as? [String: String] {
-      if let value = views["local"] { set(value, forKey: "workspace.localView") }
-      if let value = views["mtp"] { set(value, forKey: "workspace.phoneView") }
+      if let value = views["local"] { importValue(value, forKey: "workspace.localView") }
+      if let value = views["mtp"] { importValue(value, forKey: "workspace.phoneView") }
     }
-    set(true, forKey: "workspace.migrated")
+    setMany(migration)
   }
 }
 

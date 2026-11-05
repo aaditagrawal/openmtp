@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+source "$(dirname "$0")/release-policy.sh"
 cd "$(dirname "$0")/.."
 openmtp_app="build/OpenMTP.app"
 openmtp_arch="${OPENMTP_ARCH:-$(uname -m)}"
@@ -26,7 +27,7 @@ for openmtp_binary in OpenMTP mtpctl; do
   openmtp_minimum="$(vtool -show-build "$openmtp_app/Contents/MacOS/$openmtp_binary" | awk '/minos/{print $2}')"
   test -n "$openmtp_minimum"
   while IFS= read -r openmtp_slice_minimum; do
-    test "${openmtp_slice_minimum%%.*}" -le 13
+    openmtp_minimum_os_is_supported "$openmtp_slice_minimum"
   done <<< "$openmtp_minimum"
 done
 test -s "../dist/${openmtp_name}.zip"

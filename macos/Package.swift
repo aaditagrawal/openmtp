@@ -33,6 +33,7 @@ let package = Package(
     ),
     .target(name: "MTPSimulation", dependencies: ["MTPCore"], path: "Tests/MTPSimulation"),
     .testTarget(name: "MTPCoreTests", dependencies: ["MTPCore", "MTPSimulation"]),
+    .testTarget(name: "MTPUSBTests", dependencies: ["MTPUSB", "MTPCore"]),
     .testTarget(
       name: "OpenMTPMacTests", dependencies: ["OpenMTPMac", "MTPSimulation"],
       resources: [.copy("Fixtures")]),
