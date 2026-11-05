@@ -1,120 +1,107 @@
-name: Release
+name: Native macOS release
 
-# Cut a release by pushing a tag: `git tag v3.2.26 && git push origin v3.2.26`
 on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: read
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: native-release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
-env:
-  NODE_VERSION: '26.9.0'
-
 jobs:
-  release:
-    name: Build & release macOS (arm64)
+  package:
     if: github.repository == 'aaditagrawal/openmtp'
-    runs-on: macos-14
+    name: Native release (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     env:
-      # macOS (arm64) only for now: GitHub-hosted macos-14 runners are
-      # arm64, and cross-building the x64 target's native modules (koffi,
-      # usb, node-mac-permissions) from an arm64 host is unreliable.
-      # Intel builds are produced by the dedicated `mac_pro` (x64) instance
-      # already configured in codemagic.yaml.
-      HAS_SIGNING_SECRETS: ${{ secrets.CSC_LINK != '' && secrets.CSC_KEY_PASSWORD != '' }}
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      OPENMTP_ARCH: ${{ matrix.arch }}
+      OPENMTP_BUILD_NUMBER: ${{ github.run_number }}
+      HAS_SIGNING: ${{ secrets.CSC_LINK != '' && secrets.CSC_KEY_PASSWORD != '' }}
+      OPENMTP_SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+      HAS_UPDATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' && vars.SPARKLE_PUBLIC_KEY != '' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: '.bun-version'
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Verify Electron install
-        run: bun run ensure-electron
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Package (signed + notarized)
-        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate release version and signing mode
+        run: |
+          test "$GITHUB_REF_NAME" = "v$(cat macos/VERSION)"
+          test "$(uname -m)" = "$OPENMTP_ARCH"
+          if [[ "$GITHUB_REF_NAME" != *-* && ( "$HAS_SIGNING" != true || "$HAS_UPDATE_KEY" != true ) ]]; then
+            echo 'Stable releases require Developer ID signing, notarization and Sparkle update keys.' >&2
+            exit 1
+          fi
+          if [[ "$HAS_SIGNING" == true && "$HAS_UPDATE_KEY" != true ]]; then
+            echo 'Signed releases require matching Sparkle update keys.' >&2
+            exit 1
+          fi
+          make verify
+      - name: Test native release
+        run: make format-check test
+      - name: Import Developer ID certificate
+        if: env.HAS_SIGNING == 'true'
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: ./macos/scripts/import-signing.sh
+      - name: Package signed and notarized release
+        if: env.HAS_SIGNING == 'true'
+        env:
+          OPENMTP_NOTARIZE: '1'
           APPLEID: ${{ secrets.APPLEID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bun run package-mac-no-verify
-
-      - name: Package (unsigned)
-        if: ${{ env.HAS_SIGNING_SECRETS != 'true' }}
+        run: make package
+      - name: Package ad-hoc prerelease
+        if: env.HAS_SIGNING != 'true'
+        run: make package
+      - name: Verify native artifacts
+        run: ./macos/scripts/verify-package.sh
+      - name: Generate and verify signed native update feed
+        if: env.HAS_SIGNING == 'true'
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: bun run package-mac-without-notarize-no-verify
-
-      - name: Locate app bundle
-        id: locate
-        run: |
-          set -euo pipefail
-          app_path=$(find dist -maxdepth 2 -name 'OpenMTP.app' -print -quit)
-          if [ -z "$app_path" ]; then
-            echo '::error::electron-builder did not produce OpenMTP.app under dist/'
-            exit 1
-          fi
-          echo "OpenMTP.app found at: $app_path"
-          echo "app_path=$app_path" >> "$GITHUB_OUTPUT"
-
-      - name: Generate checksums
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          artifacts=(dist/*.dmg dist/*.zip)
-          if [ ${#artifacts[@]} -eq 0 ]; then
-            echo '::error::No .dmg or .zip artifacts were produced under dist/'
-            exit 1
-          fi
-          test -s dist/latest-mac.yml
-          shasum -a 256 "${artifacts[@]}" | tee dist/CHECKSUMS_SHA256.txt
-
-      - name: Upload OpenMTP.app (workflow artifact)
-        uses: actions/upload-artifact@v4
+          OPENMTP_SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: ./macos/scripts/generate-appcast.sh
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: OpenMTP-macos-arm64-app
-          path: ${{ steps.locate.outputs.app_path }}
+          name: OpenMTP-native-${{ matrix.arch }}
+          path: dist/*
           if-no-files-found: error
+      - name: Remove temporary signing keychain
+        if: always()
+        run: |
+          if [[ -n "${OPENMTP_SIGN_KEYCHAIN:-}" ]]; then
+            security delete-keychain "$OPENMTP_SIGN_KEYCHAIN"
+          fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+  publish:
+    name: Publish native release
+    needs: package
+    runs-on: macos-26
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download native artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: OpenMTP ${{ github.ref_name }}
-          # Anything after a hyphen (v3.2.26-beta.1) is marked as pre-release.
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/CHECKSUMS_SHA256.txt
-            dist/latest-mac.yml
-            dist/*.blockmap
+          pattern: OpenMTP-native-*
+          merge-multiple: true
+          path: dist
+      - name: Create release with native asset labels
+        run: ./macos/scripts/publish-release.sh "$GITHUB_REF_NAME"

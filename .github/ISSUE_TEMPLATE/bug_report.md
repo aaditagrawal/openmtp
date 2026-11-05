@@ -1,32 +1,15 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-labels: 'bug'
-
+about: Report a problem with the native macOS app
+labels: bug
 ---
 
-**Prerequisites**
+Describe what happened and what you expected. Include steps to reproduce it.
 
-- [ ] Have you reviewed the steps in the following link to see if they address your issue? 
-  - https://github.com/ganeshrvel/openmtp/issues/276
+- OpenMTP version and whether it is a signed release or a local build
+- macOS version and Apple Silicon or Intel
+- Device model, Android/firmware version, and selected USB mode
+- Cable/hub connection and any other app using the phone
+- Transfer direction, approximate file count/size, and conflict choice if relevant
 
-**Describe the bug**
-A clear and concise description of what the bug is.
-
-
-**Attachments**
-Include if relevant,
-1. Open your Terminal and run the following code:
-```shell
-zip -r -X ~/Desktop/OpenMTP-log.zip "$HOME/Library/Application Support/io.ganeshrvel.openmtp/logs/"
-```
-2. Attach the file *OpenMTP-log.zip* found in your Desktop folder here.
-
-Or
-
-1. Open the App,
-2. Click on Help > Report Bugs.
-3. Generate and send us the bugs report.
-
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+Include the visible error message or a screenshot when useful. Remove private filenames and device identifiers before posting. Local build output or `mtpctl devices` output may help diagnose connection problems. Do not attach personal files or credentials.

@@ -1,272 +1,158 @@
 import AppKit
-import MTPCore
-import MTPUSB
 import SwiftUI
-import UniformTypeIdentifiers
 
 @main
 struct OpenMTPApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    // App is created once per process. Plain `let` instead of `@State`: on the macOS 27 SDK
-    // `@State` is a macro whose plugin ships with Xcode but not the Command Line Tools.
-    private let model = AppModel()
+  @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+  private let model = AppModel()
 
-    var body: some Scene {
-        WindowGroup("OpenMTP") {
-            ContentView()
-                .environment(model)
-                .frame(minWidth: 760, minHeight: 440)
-                .task { model.start() }
-        }
-        .commands {
-            CommandGroup(after: .newItem) {
-                Button("Upload Files…") { model.chooseFilesToUpload() }
-                    .keyboardShortcut("u")
-                    .disabled(model.connection != .connected)
-                Button("Download Selection…") { model.downloadSelection() }
-                    .keyboardShortcut("d")
-                    .disabled(model.selection.isEmpty)
-            }
-            CommandGroup(after: .pasteboard) {
-                Button("Delete from Phone…", role: .destructive) { model.requestDeletion() }
-                    .keyboardShortcut(.delete, modifiers: .command)
-                    .disabled(model.connection != .connected || model.selection.isEmpty)
-            }
-            CommandGroup(after: .toolbar) {
-                Button("Refresh") { Task { await model.reload(refresh: true) } }
-                    .keyboardShortcut("r")
-            }
+  var body: some Scene {
+    Window("OpenMTP", id: "main") {
+      WorkspaceView()
+        .environmentObject(model)
+        .environmentObject(model.settings)
+        .preferredColorScheme(model.settings.appearance.colorScheme)
+        .frame(minWidth: 760, minHeight: 460)
+        .task {
+          delegate.model = model
+          model.start()
         }
     }
+    .defaultSize(width: 1120, height: 740)
+    .windowToolbarStyle(.unified)
+    .commands { WorkspaceCommands(model: model) }
+
+    Settings {
+      WorkspaceSettingsView(settings: model.settings)
+        .preferredColorScheme(model.settings.appearance.colorScheme)
+    }
+  }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_: Notification) {
-        // Lets the unbundled `swift run` binary come to the front like a normal app.
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate()
-    }
-
-    func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool { true }
+  weak var model: AppModel?
+  func applicationDidFinishLaunching(_: Notification) {
+    NSApp.setActivationPolicy(.regular)
+    NSApp.activate(ignoringOtherApps: true)
+  }
+  func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool { false }
+  func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+    guard let model, model.hasActiveTransfers else { return .terminateNow }
+    let alert = NSAlert()
+    alert.messageText = "Quit while copies are pending?"
+    alert.informativeText =
+      "Active copies will be interrupted. Completed files stay complete, and pending jobs can be retried next time."
+    alert.addButton(withTitle: "Quit")
+    alert.addButton(withTitle: "Cancel")
+    guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+    model.cancelAll()
+    return .terminateNow
+  }
 }
 
-struct ContentView: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        @Bindable var model = model
-        NavigationSplitView {
-            Sidebar()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 230)
-        } detail: {
-            switch model.connection {
-            case .connected:
-                Browser()
-            case .noDevice:
-                ContentUnavailableView(
-                    "Connect an Android phone",
-                    systemImage: "cable.connector",
-                    description: Text("Unlock it and choose “File transfer” in the USB notification.")
-                )
-            case let .connecting(name):
-                ProgressView("Opening \(name)…")
-            case let .failed(message, canSeize):
-                ContentUnavailableView {
-                    Label("Can’t open the phone", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(message)
-                } actions: {
-                    Button("Try Again") { model.retry(seize: false) }
-                    if canSeize {
-                        Button("Ask the Other App to Release It") { model.retry(seize: true) }
-                    }
-                }
-            }
-        }
-        .alert("OpenMTP", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(model.errorMessage ?? "")
-        }
-        .alert(model.pendingDeletion?.title ?? "Delete from Phone", isPresented: Binding(
-            get: { model.pendingDeletion != nil },
-            set: { if !$0 { model.pendingDeletion = nil } }
-        ), presenting: model.pendingDeletion) { request in
-            Button("Delete Permanently", role: .destructive) {
-                Task { await model.confirmDeletion(request) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { request in
-            Text(request.message)
-        }
+@MainActor
+struct WorkspaceCommands: Commands {
+  @ObservedObject var model: AppModel
+  private var editingText: Bool {
+    (NSApp.keyWindow?.firstResponder as? NSTextView)?.isFieldEditor == true
+  }
+  var body: some Commands {
+    CommandGroup(replacing: .newItem) {
+      Button("New Folder…") { model.beginNewFolder() }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .disabled(model.activePane == .phone && model.connection != .connected)
+      Button("Open Selection") { model.openSelection() }.keyboardShortcut("o")
+        .disabled(model.activeSelectionCount == 0)
+      Button("Rename…") { model.beginRename() }.disabled(model.activeSelectionCount != 1)
+      Divider()
+      Button("Copy to Mac…") { model.downloadSelection() }.disabled(
+        model.selection.isEmpty || model.connection != .connected)
+      Button("Copy Files to Phone…") { model.chooseFilesToUpload() }.disabled(
+        model.connection != .connected)
+      Button("Quick Look") { model.previewSelection() }.keyboardShortcut("y").disabled(
+        model.activeSelectionCount == 0)
     }
-}
-
-struct Sidebar: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        @Bindable var model = model
-        List(selection: $model.selectedStorage) {
-            if model.connection == .connected {
-                Section(model.deviceName) {
-                    ForEach(model.storages) { storage in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label(storage.displayName, systemImage: storage.storageType == 4 ? "sdcard" : "internaldrive")
-                            if storage.maxCapacity > 0 {
-                                Gauge(value: Double(storage.maxCapacity - storage.freeSpaceInBytes), in: 0 ... Double(storage.maxCapacity)) {
-                                    EmptyView()
-                                } currentValueLabel: {
-                                    Text("\(storage.freeSpaceInBytes.formatted(.byteCount(style: .file))) free")
-                                }
-                                .gaugeStyle(.accessoryLinearCapacity)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                        }
-                        .tag(storage.id as UInt32?)
-                    }
-                }
-            }
-            if !model.transfers.isEmpty {
-                Section("Transfers") {
-                    ForEach(model.transfers) { TransferRow(transfer: $0) }
-                    Button("Clear Finished") { model.clearFinishedTransfers() }
-                        .buttonStyle(.link)
-                }
-            }
+    CommandGroup(replacing: .pasteboard) {
+      Button("Cut") { NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil) }
+        .keyboardShortcut("x").disabled(!editingText)
+      Button("Copy") {
+        if editingText {
+          NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
+        } else {
+          model.copySelection()
         }
+      }.keyboardShortcut("c").disabled(!editingText && model.activeSelectionCount == 0)
+      Button("Paste") {
+        if editingText {
+          NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+        } else {
+          model.pasteSelection()
+        }
+      }.keyboardShortcut("v").disabled(!editingText && !model.canPaste)
+      Button("Add to Copy Selection") { model.copySelection(append: true) }
+        .keyboardShortcut("c", modifiers: [.command, .shift]).disabled(
+          model.activeSelectionCount == 0 || editingText)
+      Divider()
+      Button("Select All") {
+        if editingText {
+          NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+        } else {
+          model.selectAll()
+        }
+      }.keyboardShortcut("a")
+      Button(model.activePane == .local ? "Move to Trash" : "Delete from Phone…") {
+        model.requestActiveDeletion()
+      }
+      .keyboardShortcut(.delete, modifiers: .command).disabled(
+        model.activeSelectionCount == 0 || editingText)
     }
-}
-
-struct TransferRow: View {
-    let transfer: AppModel.Transfer
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(transfer.name, systemImage: transfer.direction == .download ? "arrow.down.circle" : "arrow.up.circle")
-                .lineLimit(1)
-                .truncationMode(.middle)
-            if let error = transfer.error {
-                Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
-            } else {
-                ProgressView(value: transfer.fraction)
-                    .progressViewStyle(.linear)
-                    .controlSize(.small)
-            }
-        }
+    CommandGroup(after: .toolbar) {
+      Button("Icon View") { model.settings.setView(.grid, for: model.activePane) }.keyboardShortcut(
+        "1")
+      Button("List View") { model.settings.setView(.list, for: model.activePane) }.keyboardShortcut(
+        "2")
+      Button("Show Hidden Files") { model.settings.toggleHidden(for: model.activePane) }
+        .keyboardShortcut(".", modifiers: [.command, .shift])
+      Divider()
+      Toggle(
+        "Show Mac Pane",
+        isOn: Binding(
+          get: { model.settings.showLocalPane }, set: { model.settings.showLocalPane = $0 }))
+      Toggle(
+        "Mac Pane on Left",
+        isOn: Binding(
+          get: { model.settings.localPaneOnLeft }, set: { model.settings.localPaneOnLeft = $0 }))
+      Toggle(
+        "Show Transfers",
+        isOn: Binding(
+          get: { model.settings.showTransfers }, set: { model.settings.showTransfers = $0 }))
     }
-}
-
-struct Browser: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        @Bindable var model = model
-        @Bindable var ui = model.browser
-        Table(model.sortedEntries, selection: $model.selection, sortOrder: $model.sortOrder) {
-            TableColumn("Name", value: \.name, comparator: .localizedStandard) { object in
-                Label {
-                    Text(object.name)
-                } icon: {
-                    Image(nsImage: icon(for: object))
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                }
-            }
-            TableColumn("Size", sortUsing: KeyPathComparator(\MTPObject.size)) { object in
-                Text(sizeLabel(for: object))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            .width(min: 70, ideal: 90, max: 120)
-            TableColumn("Date Modified", sortUsing: KeyPathComparator(\MTPObject.modified)) { object in
-                Text(object.modified?.formatted(date: .abbreviated, time: .shortened) ?? "--")
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 120, ideal: 160)
-        }
-        .contextMenu(forSelectionType: MTPObject.ID.self) { ids in
-            if !ids.isEmpty {
-                Button("Download…") { model.downloadSelection(ids) }
-                if ids.count == 1, let object = model.entries.first(where: { ids.contains($0.id) }) {
-                    Button("Rename…") { ui.renaming = object; ui.renameText = object.name }
-                }
-                Divider()
-                Button("Delete from Phone…", role: .destructive) { model.requestDeletion(ids) }
-            }
-        } primaryAction: { ids in
-            if ids.count == 1, let object = model.entries.first(where: { ids.contains($0.id) }) {
-                if object.isDirectory { model.open(object) } else { model.downloadSelection(ids) }
-            }
-        }
-        .dropDestination(for: URL.self) { urls, _ in
-            model.upload(urls)
-        } isTargeted: { ui.isDropTargeted = $0 }
-        .overlay {
-            if ui.isDropTargeted {
-                RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor, lineWidth: 3).padding(4)
-            } else if model.entries.isEmpty, !model.isLoading {
-                ContentUnavailableView("Empty folder", systemImage: "folder", description: Text("Drop files here to copy them to the phone."))
-            }
-        }
-        .navigationTitle(model.path.last?.name ?? model.storages.first { $0.id == model.selectedStorage }?.displayName ?? "OpenMTP")
-        .navigationSubtitle(model.isLoading ? "Loading…" : "\(model.entries.count) items")
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button { model.goUp() } label: { Label("Enclosing Folder", systemImage: "chevron.left") }
-                    .disabled(model.path.isEmpty)
-                    .keyboardShortcut(.upArrow, modifiers: .command)
-            }
-            ToolbarItem(placement: .navigation) {
-                PathMenu()
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { ui.showingNewFolder = true } label: { Label("New Folder", systemImage: "folder.badge.plus") }
-                Button { model.chooseFilesToUpload() } label: { Label("Upload", systemImage: "square.and.arrow.up") }
-                Button { model.downloadSelection() } label: { Label("Download", systemImage: "square.and.arrow.down") }
-                    .disabled(model.selection.isEmpty)
-                Button { Task { await model.reload(refresh: true) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-            }
-        }
-        .alert("New Folder", isPresented: $ui.showingNewFolder) {
-            TextField("Name", text: $ui.newFolderName)
-            Button("Create") { model.makeFolder(named: ui.newFolderName); ui.newFolderName = "" }
-            Button("Cancel", role: .cancel) { ui.newFolderName = "" }
-        }
-        .alert("Rename", isPresented: Binding(get: { ui.renaming != nil }, set: { if !$0 { ui.renaming = nil } })) {
-            TextField("Name", text: $ui.renameText)
-            Button("Rename") { if let target = ui.renaming { model.rename(target, to: ui.renameText) } }
-            Button("Cancel", role: .cancel) {}
-        }
+    CommandMenu("Go") {
+      Button("Back") { model.goBack() }.keyboardShortcut("[").disabled(!model.canGoBack)
+      Button("Forward") { model.goForward() }.keyboardShortcut("]").disabled(!model.canGoForward)
+      Button("Enclosing Folder") { model.goUpActive() }.keyboardShortcut(
+        .upArrow, modifiers: .command
+      ).disabled(!model.canGoUp)
+      Button("Choose Mac Folder…") { model.chooseLocalFolder() }.keyboardShortcut(
+        "g", modifiers: [.command, .shift])
+      Button("Refresh") { model.reloadActive() }.keyboardShortcut("r")
+      Divider()
+      Button("Focus Mac Pane") {
+        model.settings.showLocalPane = true
+        model.activePane = .local
+      }
+      .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+      Button("Focus Phone Pane") { model.activePane = .phone }
+        .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
     }
-
-    private func icon(for object: MTPObject) -> NSImage {
-        if object.isDirectory { return NSWorkspace.shared.icon(for: .folder) }
-        let ext = (object.name as NSString).pathExtension
-        return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
-    }
-
-    private func sizeLabel(for object: MTPObject) -> String {
-        if object.isDirectory { return "--" }
-        guard let size = object.size else { return "Unknown" }
-        return ByteCountFormatter.string(fromByteCount: Int64(clamping: size), countStyle: .file)
-    }
-}
-
-/// Breadcrumb as a pop-up, like Finder's title-bar path menu.
-struct PathMenu: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Menu {
-            Button("Storage Root") { model.goUp(to: 0) }
-            ForEach(Array(model.path.enumerated()), id: \.offset) { index, folder in
-                Button(folder.name) { model.goUp(to: index + 1) }
-            }
-        } label: {
-            Label("Path", systemImage: "folder")
+    CommandGroup(after: .appInfo) {
+      Button("Check for Updates…") {
+        Task {
+          await NativeUpdateService.shared.check(
+            includePrereleases: model.settings.includePrereleases)
         }
-        .disabled(model.path.isEmpty)
+      }
     }
+  }
 }

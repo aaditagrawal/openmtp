@@ -1,115 +1,62 @@
 # OpenMTP
 
-Android file transfers over USB for macOS. This is [aaditagrawal/openmtp](https://github.com/aaditagrawal/openmtp), a maintained fork of [Ganesh Rathinavel's OpenMTP](https://github.com/ganeshrvel/openmtp).
+A native macOS app for transferring files between a Mac and an MTP device. SwiftUI replaces the Electron interface; Swift and IOUSBHost replace the Go/libusb bridge. This is the user-owned [aaditagrawal/openmtp](https://github.com/aaditagrawal/openmtp) fork of Ganesh Rathinavel's OpenMTP.
 
-The app keeps the upstream split-pane file manager, Kalam MTP backend, Legacy mode, internal storage and SD card access, drag and drop, keyboard navigation, and large-file transfers.
+Browse Mac and phone folders side by side, copy complete folder trees, manage a transfer queue, and resolve conflicts with skip, replace, keep both or Smart Sync. Finder file promises, Quick Look, native menus and saved preferences are included. On macOS 26 and later, controls use Liquid Glass with accessibility fallbacks.
 
-## How this fork has evolved
+The app targets macOS 13 and later. Building requires macOS SDK 26 or later and Swift 6.2 or later. CI builds Apple Silicon and Intel separately. Real-phone compatibility, older macOS runtime behavior and signed update installation still need the validation recorded in [macos/VALIDATION.md](macos/VALIDATION.md).
 
-- A revised interface with selectable file transfers, file checkboxes, a transfer queue, list and grid views, light and dark themes, and configurable pane order.
-- Smart Sync skips matching files. Large directories use windowed rendering and bounded asynchronous filesystem reads. Sorting computes filename keys once per entry, and keyboard selection uses linear scans.
-- Electron 44, React 19, MUI 9, Babel 8, Koffi 3, the `usb` 3 library, and Bun. The Apple Silicon native build uses Go 1.27 and libusb 1.0.30 with a macOS 13 deployment target.
-- Atomic settings writes, recovery from missing or corrupt profiles, serialized native calls, and explicit native-session cleanup.
-- Shared window creation, renderer build rules, transfer dispatch, and native response encoding replace duplicated implementations. Unused Sass helpers, reducer injection, and the unused FUSE frontend are removed.
-- Updates and releases point to this fork. Local diagnostics and hardware checks are available without adding them to CI.
+## Build and run
 
-The current runtime requires **macOS 13 or newer**. Apple Silicon is the actively tested build. Historical Intel binaries remain in the repository, but the current host native build and physical-device verification cover ARM64.
-
-## Upstream changes
-
-Upstream released [3.3.0](https://github.com/ganeshrvel/openmtp/releases/tag/v3.3.0) after this fork diverged. Its [macOS 27 ARM64 compatibility change](https://github.com/ganeshrvel/openmtp/pull/481) uses an additional native binary variant. This fork builds with a newer Go linker and validates the Mach-O chained-fixup segment counts directly, so it does not need that extra variant.
-
-The [progress-bar update fix](https://github.com/ganeshrvel/openmtp/pull/434) is adapted to the current MUI component: transfer progress updates without an interpolated CSS transition. Upstream changes are reviewed individually to preserve this fork's UI, transfer behavior, native lifetime fixes, and release configuration.
-
-## Install or build
-
-Use artifacts from [this fork's releases](https://github.com/aaditagrawal/openmtp/releases), when available. The upstream website and Homebrew cask distribute the upstream app.
-
-For development, install Git, Node.js 26.9.0 and Bun 1.4.2. Runtime pins are checked in as `.nvmrc` and `.bun-version`.
+Install Xcode 26 or later, or its Command Line Tools, then:
 
 ```sh
 git clone https://github.com/aaditagrawal/openmtp.git
 cd openmtp
-bun install --frozen-lockfile
-bun run dev
+make test
+make run
 ```
 
-Development creates missing profile files automatically. If Electron was incompletely installed, run `bun run ensure-electron`. DevTools extension downloads are optional through `OPENMTP_INSTALL_DEVTOOLS=1`.
+`make build` creates `macos/build/OpenMTP.app`, including the `mtpctl` diagnostic CLI. `make package` creates an ad-hoc signed ZIP and DMG under `dist/`. No Node, Bun, Electron, Go or libusb installation is required.
+
+Use a private profile and starting folder for development:
 
 ```sh
-bun run build          # lint and production bundles
-bun run start          # build and launch the production app
-bun run package-mac   # build and package locally
-bun run build-docs     # build the website
+OPENMTP_PROFILE_DIR=/tmp/openmtp-profile OPENMTP_LOCAL_ROOT=/tmp/openmtp-files make run
 ```
 
-Local packaging signs only when signing credentials are configured. The native host build creates ad-hoc signed binaries; it does not notarize them. See [native build instructions](ffi/kalam/native/README.md) for rebuilding Kalam and libusb.
+Unlock the phone and select USB file transfer mode. Another MTP client, Image Capture, Photos or vendor software may hold the USB interface. OpenMTP reports its owner when the system provides that information.
 
-## Tests and diagnostics
+## Using the app
 
-The existing unit suite remains the CI baseline:
+Choose a device and storage in the sidebar. Each pane has its own navigation, selection, filter and list/grid preference. Copy with Cmd+C, focus the destination pane, and paste with Cmd+V, or use Copy to Phone / Copy to Mac. Cmd+Shift+C appends to the captured copy selection. Transfers run sequentially for a device so MTP transactions remain ordered.
 
-```sh
-bun run test
-```
+Smart Sync copies new or changed files and skips matching files using known sizes and modification dates at the device's timestamp precision. Removing destination extras requires a separate confirmation. Local removals go to Trash; phone removals are permanent.
 
-Additional regression tests, benchmarks, startup checks, and device checks are **manual only**. Their entry points refuse to run when `CI` is set. The manual runner isolates suites so Electron and native-module mocks cannot leak between them.
+| Action | Shortcut |
+| --- | --- |
+| Copy / paste | Cmd+C / Cmd+V |
+| Append to copy selection | Cmd+Shift+C |
+| New folder | Cmd+Shift+N |
+| Open / rename | Cmd+O / Return |
+| Quick Look | Space or Cmd+Y |
+| Move to Trash / confirm phone deletion | Cmd+Delete |
+| Icon / list view | Cmd+1 / Cmd+2 |
+| Show hidden files | Cmd+Shift+. |
+| Back / forward | Cmd+[ / Cmd+] |
+| Parent folder / refresh | Cmd+Up / Cmd+R |
+| Focus Mac / phone pane | Cmd+Option+Left / Cmd+Option+Right |
 
-```sh
-bun run test:manual
-bun run test:startup   # real Electron, fresh/existing/corrupt profiles
-bun run benchmark
+## Development and releases
 
-go -C ffi/kalam/native test -race -tags openmtp_manual ./...
-```
+- [Native architecture, protocol and performance notes](macos/README.md)
+- [Feature comparison with the previous app](macos/PARITY.md)
+- [Build, test and hardware evidence](macos/VALIDATION.md)
+- [Signing, notarization and native updates](macos/RELEASING.md)
+- [Contributing](CONTRIBUTING.md)
 
-Build before running the Electron startup checks. For transfer tests, close other MTP clients and follow the [physical-device test instructions](ffi/kalam/native/README.md). Those checks create unique disposable directories, compare SHA-256 hashes, and remove only their own fixtures. They are never part of CI.
-
-```sh
-OPENMTP_TRACE=1 OPENMTP_RENDERER_DIAGNOSTICS=1 bun run dev
-```
-
-`OPENMTP_TRACE_FILE` chooses a JSONL diagnostics file. `OPENMTP_PROFILE_DIR` isolates settings for test runs. `OPENMTP_REDUX_LOGS=1` enables verbose Redux logging. Native protocol logging is opt-in through `OPENMTP_NATIVE_DEBUG=1` and can include device identifiers and filenames.
-
-## Code layout
-
-| Path                                    | Purpose                                                     |
-| --------------------------------------- | ----------------------------------------------------------- |
-| `app/containers`, `app/components`      | Screens, file explorer, dialogs and shared UI               |
-| `app/data/file-explorer`                | Local, Kalam and Legacy operations behind one controller    |
-| `app/store`, `app/helpers`, `app/utils` | State, windows, filesystem and selection logic              |
-| `ffi/kalam/src`                         | Serialized JavaScript-to-native calls                       |
-| `ffi/kalam/native`                      | Go backend and attributed MTP source patches                |
-| `build/mac/bin`                         | Packaged native binaries                                    |
-| `webpack`, `internals`                  | Development, bundling and packaging                         |
-| `shared`                                | Privacy policy markup shared by the desktop app and website |
-| `docs-sources`, `docs`                  | Website sources and published website                       |
-| `tests/manual`, `scripts`               | Opt-in regression, startup and device checks                |
-
-## Common shortcuts
-
-| Action                  | Shortcut           |
-| ----------------------- | ------------------ |
-| Copy / paste            | ⌘C / ⌘V            |
-| Add to transfer queue   | ⌘⇧C                |
-| Select all              | ⌘A                 |
-| Select individual items | ⌘-click            |
-| Select a range          | ⇧-click or ⇧-arrow |
-| New folder / rename     | ⌘N / ⌘D            |
-| Delete                  | Backspace          |
-| Open / parent folder    | Enter / ⌘B         |
-| Refresh / switch pane   | ⌘R / ⌘1            |
-
-## Troubleshooting
-
-Unlock the Android device, choose USB file transfer mode, and close other apps using MTP. Check the cable and USB port if storage does not appear. Samsung Smart Switch and other device clients can hold the connection. Kalam and Legacy mode remain available in settings.
-
-Report fork-specific issues in [this repository](https://github.com/aaditagrawal/openmtp/issues), with macOS version, device model, transfer mode, and relevant logs.
+Electron source and its toolchain are preserved in Git history at [`6eb3e7b`](https://github.com/aaditagrawal/openmtp/tree/6eb3e7b). The current repository ships the native app. Downloads and update checks use [this fork's releases](https://github.com/aaditagrawal/openmtp/releases); the upstream website and Homebrew cask distribute the upstream app.
 
 ## Credits and license
 
-OpenMTP was created by [Ganesh Rathinavel](https://github.com/ganeshrvel) and is distributed under the [MIT license](LICENSE). Copyright © 2018-present Ganesh Rathinavel. The Kalam kernel uses [go-mtpx](https://github.com/ganeshrvel/go-mtpx). Its name honors Dr. A. P. J. Abdul Kalam.
-
-Thanks to the upstream contributors and testers, CodeMagic and Kevin Suhajda for historical build infrastructure, Cody Jung for Fujifilm and Garmin support, and Ayushi Bothra for documentation. The app grew from [Electron React Redux Advanced Boilerplate](https://github.com/ganeshrvel/electron-react-redux-advanced-boilerplate) and [Electron React Boilerplate](https://github.com/electron-react-boilerplate/electron-react-boilerplate).
-
-The app logo is by [Shubhendu Mitra](https://www.behance.net/soponhara). Legacy MTP uses Vladimir Menshakov's [android-file-transfer-linux](https://github.com/whoozle/android-file-transfer-linux). Original icons by [Flaticon](https://www.flaticon.com), [Good Ware](https://www.flaticon.com/authors/good-ware), and [Kiranshastry](https://www.flaticon.com/authors/kiranshastry) are licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The fallback image icon is by [Phonlaphat Thongsriphong](https://www.iconfinder.com/phatpc).
+OpenMTP was created by [Ganesh Rathinavel](https://github.com/ganeshrvel) and is distributed under the [MIT license](LICENSE). The app logo is by [Shubhendu Mitra](https://www.behance.net/soponhara). [NOTICE](macos/NOTICE) records native source provenance and historical protocol references. Sparkle's license is included with the app.
