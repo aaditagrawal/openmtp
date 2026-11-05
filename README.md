@@ -1,14 +1,46 @@
 # OpenMTP
 
-A native macOS app for transferring files between a Mac and an MTP device. SwiftUI replaces the Electron interface; Swift and IOUSBHost replace the Go/libusb bridge. This is the user-owned [aaditagrawal/openmtp](https://github.com/aaditagrawal/openmtp) fork of Ganesh Rathinavel's OpenMTP.
+A native macOS app for transferring files between a Mac and an MTP device over USB. Built with SwiftUI, a pure Swift MTP engine and Apple's IOUSBHost framework.
 
-Browse Mac and phone folders side by side, copy complete folder trees, manage a transfer queue, and resolve conflicts with skip, replace, keep both or Smart Sync. Finder file promises, Quick Look, native menus and saved preferences are included. On macOS 26 and later, controls use Liquid Glass with accessibility fallbacks.
+This is the [aaditagrawal/openmtp](https://github.com/aaditagrawal/openmtp) fork of [Ganesh Rathinavel's OpenMTP](https://github.com/ganeshrvel/openmtp). The SwiftUI app replaces Electron and the Go/libusb bridge throughout the app, build and release workflows.
 
-The app targets macOS 13 and later. Building requires macOS SDK 26 or later and Swift 6.2 or later. CI builds Apple Silicon and Intel separately. Real-phone compatibility, older macOS runtime behavior and signed update installation still need the validation recorded in [macos/VALIDATION.md](macos/VALIDATION.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="macos/Design/screenshots/native-scene-dark.png">
+  <img src="macos/Design/screenshots/native-scene.png" alt="OpenMTP's native Mac and phone file browsers, grouped toolbar controls and compact transfer bar" width="1120">
+</picture>
+
+*Actual SwiftUI window with sample local files and a simulated phone. [Narrow icon view](macos/Design/screenshots/native-scene-narrow.png).*
+
+## The native app
+
+- Browse Mac and phone folders side by side, with independent navigation, selection, list/icon views and saved preferences. Toolbar search filters the active pane.
+- Copy files and complete folder trees, including empty folders. The persistent transfer queue shows progress, speed and estimated time, with cancellation and retry after reconnecting. Retry starts the file again.
+- Resolve conflicts with Skip, Replace, Keep Both or Smart Sync. Smart Sync compares file sizes and modification dates; removing destination extras requires a separate confirmation.
+- Drag files through Finder file promises, preview selections with Quick Look, and reveal local files in Finder. Local deletions go to Trash; phone deletions require permanent-deletion confirmation.
+- Use native menus, keyboard shortcuts and light, dark or system appearance. macOS 26 and later use Liquid Glass toolbar groups and controls, with accessibility fallbacks.
+
+Compatible preferences from the previous app import once without rewriting its settings file. The native app uses Sparkle for updates in configured, signed releases; preview builds use manual installation.
+
+## Get a preview
+
+Native builds are currently available from [Native macOS CI](https://github.com/aaditagrawal/openmtp/actions/workflows/main.yml) or by building from source. Open a successful `master` run and download the artifact for your Mac:
+
+| Mac | Artifact |
+| --- | --- |
+| Apple Silicon | `OpenMTP-native-arm64` |
+| Intel | `OpenMTP-native-x86_64` |
+
+Extract the downloaded artifact to find its app ZIP and DMG. Preview packages are ad-hoc signed and are not notarized.
+
+If a trusted preview is blocked as unnotarized, try opening the app once, then open **System Settings > Privacy & Security**, choose **Open Anyway**, and confirm **Open**. See [Apple's instructions for opening unnotarized apps](https://support.apple.com/en-us/102445).
+
+The existing v3.x [release](https://github.com/aaditagrawal/openmtp/releases) contains the previous Electron app. The upstream website and Homebrew cask also distribute the upstream app.
+
+Connect your phone with a data-capable USB cable, unlock it and choose **File transfer** in its USB notification. Select the device and storage in OpenMTP's sidebar. Close competing MTP clients if the USB interface is in use; OpenMTP reports the owner when macOS provides that information.
 
 ## Build and run
 
-Install Xcode 26 or later, or its Command Line Tools, then:
+Use a Mac with Xcode 26 or later, or matching Command Line Tools, providing macOS SDK 26+ and Swift 6.2+. The app targets macOS 13+. Liquid Glass requires macOS 26+; older systems use fallback controls.
 
 ```sh
 git clone https://github.com/aaditagrawal/openmtp.git
@@ -17,21 +49,42 @@ make test
 make run
 ```
 
-`make build` creates `macos/build/OpenMTP.app`, including the `mtpctl` diagnostic CLI. `make package` creates an ad-hoc signed ZIP and DMG under `dist/`. No Node, Bun, Electron, Go or libusb installation is required.
+| Command | Result |
+| --- | --- |
+| `make verify` | Check the native build environment and shell scripts. |
+| `make test` | Run protocol, transfer, workspace, parity and release-policy checks. |
+| `make build` | Create `macos/build/OpenMTP.app`, including the `mtpctl` diagnostic CLI. |
+| `make run` | Build and launch the app. |
+| `make package` | Create app ZIP/DMG packages, manifests and checksums under `dist/`. |
+| `make format-check` | Check Swift formatting. Use `make format` to apply it. |
 
-Use a private profile and starting folder for development:
+Packages default to the host CPU. For a universal development build:
 
 ```sh
-OPENMTP_PROFILE_DIR=/tmp/openmtp-profile OPENMTP_LOCAL_ROOT=/tmp/openmtp-files make run
+OPENMTP_ARCH=universal make package
+OPENMTP_ARCH=universal ./macos/scripts/verify-package.sh
 ```
 
-Unlock the phone and select USB file transfer mode. Another MTP client, Image Capture, Photos or vendor software may hold the USB interface. OpenMTP reports its owner when the system provides that information.
+Use separate development preferences and an existing starting folder:
 
-## Using the app
+```sh
+openmtp_dev_dir="$(mktemp -d)"
+mkdir -p "$openmtp_dev_dir/profile" "$openmtp_dev_dir/files"
+OPENMTP_PROFILE_DIR="$openmtp_dev_dir/profile" \
+  OPENMTP_LOCAL_ROOT="$openmtp_dev_dir/files" make run
+```
 
-Choose a device and storage in the sidebar. Each pane has its own navigation, selection, filter and list/grid preference. Copy with Cmd+C, focus the destination pane, and paste with Cmd+V, or use Copy to Phone / Copy to Mac. Cmd+Shift+C appends to the captured copy selection. Transfers run sequentially for a device so MTP transactions remain ordered.
+List USB device candidates without opening the graphical app:
 
-Smart Sync copies new or changed files and skips matching files using known sizes and modification dates at the device's timestamp precision. Removing destination extras requires a separate confirmation. Local removals go to Trash; phone removals are permanent.
+```sh
+macos/build/OpenMTP.app/Contents/MacOS/mtpctl devices
+```
+
+The build uses Swift Package Manager and its checked-in dependency lock. No Node, Bun, Electron, Go or libusb installation is required.
+
+## Keyboard shortcuts
+
+Select files, copy with Cmd+C, focus the destination pane and paste with Cmd+V. The toolbar's Copy to Phone / Copy to Mac action copies directly to the other pane. Text fields and selected error text retain native text-copy behavior.
 
 | Action | Shortcut |
 | --- | --- |
@@ -47,15 +100,18 @@ Smart Sync copies new or changed files and skips matching files using known size
 | Parent folder / refresh | Cmd+Up / Cmd+R |
 | Focus Mac / phone pane | Cmd+Option+Left / Cmd+Option+Right |
 
-## Development and releases
+## Validation and development
+
+Native CI runs on both Apple Silicon and Intel with macOS 26. The native replacement has passed 139 Swift tests; local checks also cover universal packaging and actual SwiftUI window rendering. Physical-phone compatibility, older macOS runtime behavior, interactive accessibility and signed update installation remain release checks. See [validation evidence and limitations](macos/VALIDATION.md).
+
+MTP transactions run in order on a dedicated queue per connection. Capability-gated metadata batching reduces directory requests in simulated tests; real-device throughput improvements still require hardware measurements. Network transports and byte-offset pause/resume are not implemented.
 
 - [Native architecture, protocol and performance notes](macos/README.md)
 - [Feature comparison with the previous app](macos/PARITY.md)
-- [Build, test and hardware evidence](macos/VALIDATION.md)
 - [Signing, notarization and native updates](macos/RELEASING.md)
 - [Contributing](CONTRIBUTING.md)
 
-Electron source and its toolchain are preserved in Git history at [`6eb3e7b`](https://github.com/aaditagrawal/openmtp/tree/6eb3e7b). The current repository ships the native app. Downloads and update checks use [this fork's releases](https://github.com/aaditagrawal/openmtp/releases); the upstream website and Homebrew cask distribute the upstream app.
+The Electron source and toolchain remain in Git history at [`6eb3e7b`](https://github.com/aaditagrawal/openmtp/tree/6eb3e7b). Current development and CI build the SwiftUI app.
 
 ## Credits and license
 
