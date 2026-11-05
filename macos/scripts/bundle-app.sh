@@ -97,8 +97,8 @@ codesign "${openmtp_sign_flags[@]}" "$openmtp_stage/OpenMTP.app/Contents/MacOS/m
 codesign "${openmtp_sign_flags[@]}" "$openmtp_stage/OpenMTP.app"
 codesign --verify --strict --deep "$openmtp_stage/OpenMTP.app"
 for openmtp_slice in "${openmtp_arches[@]}"; do
-  lipo -verify_arch "$openmtp_slice" "$openmtp_stage/OpenMTP.app/Contents/MacOS/OpenMTP"
-  lipo -verify_arch "$openmtp_slice" "$openmtp_stage/OpenMTP.app/Contents/MacOS/mtpctl"
+  lipo "$openmtp_stage/OpenMTP.app/Contents/MacOS/OpenMTP" -verify_arch "$openmtp_slice"
+  lipo "$openmtp_stage/OpenMTP.app/Contents/MacOS/mtpctl" -verify_arch "$openmtp_slice"
 done
 mkdir -p build
 rm -rf "$openmtp_app"
