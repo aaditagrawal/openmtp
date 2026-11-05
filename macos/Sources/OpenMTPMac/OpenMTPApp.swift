@@ -4,27 +4,26 @@ import SwiftUI
 @main
 struct OpenMTPApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-  private let model = AppModel()
+  @StateObject private var model = AppModel()
 
   var body: some Scene {
     Window("OpenMTP", id: "main") {
       WorkspaceView()
         .environmentObject(model)
         .environmentObject(model.settings)
-        .preferredColorScheme(model.settings.appearance.colorScheme)
-        .frame(minWidth: 760, minHeight: 460)
+        .frame(minWidth: model.settings.showLocalPane ? 900 : 600, minHeight: 520)
         .task {
           delegate.model = model
           model.start()
         }
     }
     .defaultSize(width: 1120, height: 740)
+    .windowResizability(.contentMinSize)
     .windowToolbarStyle(.unified)
     .commands { WorkspaceCommands(model: model) }
 
     Settings {
       WorkspaceSettingsView(settings: model.settings)
-        .preferredColorScheme(model.settings.appearance.colorScheme)
     }
   }
 }
@@ -61,8 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 struct WorkspaceCommands: Commands {
   @ObservedObject var model: AppModel
+  private var selectingText: Bool {
+    // SwiftUI selectable Text uses a responder that is not an NSTextView.
+    NSApp.target(forAction: #selector(NSText.copy(_:))) != nil
+  }
   private var editingText: Bool {
-    (NSApp.keyWindow?.firstResponder as? NSTextView)?.isFieldEditor == true
+    (NSApp.keyWindow?.firstResponder as? NSText)?.isEditable == true
   }
   var body: some Commands {
     CommandGroup(replacing: .newItem) {
@@ -84,25 +87,25 @@ struct WorkspaceCommands: Commands {
       Button("Cut") { NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil) }
         .keyboardShortcut("x").disabled(!editingText)
       Button("Copy") {
-        if editingText {
+        if selectingText {
           NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
         } else {
           model.copySelection()
         }
-      }.keyboardShortcut("c").disabled(!editingText && model.activeSelectionCount == 0)
+      }.keyboardShortcut("c").disabled(!selectingText && model.activeSelectionCount == 0)
       Button("Paste") {
         if editingText {
           NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
         } else {
           model.pasteSelection()
         }
-      }.keyboardShortcut("v").disabled(!editingText && !model.canPaste)
+      }.keyboardShortcut("v").disabled(!editingText && (selectingText || !model.canPaste))
       Button("Add to Copy Selection") { model.copySelection(append: true) }
         .keyboardShortcut("c", modifiers: [.command, .shift]).disabled(
-          model.activeSelectionCount == 0 || editingText)
+          model.activeSelectionCount == 0 || selectingText)
       Divider()
       Button("Select All") {
-        if editingText {
+        if selectingText {
           NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
         } else {
           model.selectAll()
@@ -112,7 +115,7 @@ struct WorkspaceCommands: Commands {
         model.requestActiveDeletion()
       }
       .keyboardShortcut(.delete, modifiers: .command).disabled(
-        model.activeSelectionCount == 0 || editingText)
+        model.activeSelectionCount == 0 || selectingText)
     }
     CommandGroup(after: .toolbar) {
       Button("Icon View") { model.settings.setView(.grid, for: model.activePane) }.keyboardShortcut(
