@@ -24,11 +24,17 @@ for openmtp_binary in OpenMTP mtpctl; do
     echo 'Native executable depends on a legacy or unbundled runtime.' >&2
     exit 1
   fi
-  openmtp_minimum="$(vtool -show-build "$openmtp_app/Contents/MacOS/$openmtp_binary" | awk '/minos/{print $2}')"
-  test -n "$openmtp_minimum"
-  while IFS= read -r openmtp_slice_minimum; do
-    openmtp_minimum_os_is_supported "$openmtp_slice_minimum"
-  done <<< "$openmtp_minimum"
+  for openmtp_slice in $(lipo -archs "$openmtp_app/Contents/MacOS/$openmtp_binary"); do
+    openmtp_build_info="$(vtool -arch "$openmtp_slice" -show-build "$openmtp_app/Contents/MacOS/$openmtp_binary")"
+    openmtp_minimum="$(awk '/^[[:space:]]*minos /{print $2}' <<< "$openmtp_build_info")"
+    test -n "$openmtp_minimum"
+    openmtp_minimum_os_is_supported "$openmtp_minimum"
+    openmtp_linked_sdk="$(awk '/^[[:space:]]*sdk /{print $2}' <<< "$openmtp_build_info")"
+    if [[ ! "$openmtp_linked_sdk" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || (( ${openmtp_linked_sdk%%.*} < 26 )); then
+      echo "$openmtp_binary ($openmtp_slice) must link macOS SDK 26+; found '$openmtp_linked_sdk'." >&2
+      exit 1
+    fi
+  done
 done
 test -s "../dist/${openmtp_name}.zip"
 test -s "../dist/${openmtp_name}.dmg"

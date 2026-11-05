@@ -4,27 +4,26 @@ import SwiftUI
 @main
 struct OpenMTPApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-  private let model = AppModel()
+  @StateObject private var model = AppModel()
 
   var body: some Scene {
     Window("OpenMTP", id: "main") {
       WorkspaceView()
         .environmentObject(model)
         .environmentObject(model.settings)
-        .preferredColorScheme(model.settings.appearance.colorScheme)
-        .frame(minWidth: 760, minHeight: 460)
+        .frame(minWidth: model.settings.showLocalPane ? 900 : 600, minHeight: 520)
         .task {
           delegate.model = model
           model.start()
         }
     }
     .defaultSize(width: 1120, height: 740)
+    .windowResizability(.contentMinSize)
     .windowToolbarStyle(.unified)
     .commands { WorkspaceCommands(model: model) }
 
     Settings {
       WorkspaceSettingsView(settings: model.settings)
-        .preferredColorScheme(model.settings.appearance.colorScheme)
     }
   }
 }

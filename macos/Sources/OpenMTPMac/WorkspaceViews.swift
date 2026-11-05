@@ -8,10 +8,14 @@ struct WorkspaceView: View {
   @EnvironmentObject private var model: AppModel
   @EnvironmentObject private var settings: WorkspaceSettings
 
+  private var activeSearch: Binding<String> {
+    model.activePane == .local ? $model.localSearch : $model.phoneSearch
+  }
+
   var body: some View {
     NavigationSplitView {
       WorkspaceSidebar()
-        .navigationSplitViewColumnWidth(min: 150, ideal: 185, max: 250)
+        .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
     } detail: {
       VStack(spacing: 0) {
         HSplitView {
@@ -24,50 +28,71 @@ struct WorkspaceView: View {
           }
         }
         if settings.showTransfers {
-          Divider()
-          TransferQueueView().frame(height: model.transfers.isEmpty ? 84 : 180)
+          TransferQueueView()
+            .frame(height: model.transfers.isEmpty ? 44 : 180)
+            .padding(12)
         }
       }
       .navigationTitle("OpenMTP")
+      .searchable(
+        text: activeSearch,
+        prompt: model.activePane == .local ? "Filter Mac folder" : "Filter phone folder"
+      )
       .toolbar {
         ToolbarItemGroup(placement: .navigation) {
           Button {
             model.goBack()
           } label: {
             Image(systemName: "chevron.left")
-          }.disabled(!model.canGoBack).help("Back")
+          }
+          .disabled(!model.canGoBack).help("Back")
           Button {
             model.goForward()
           } label: {
             Image(systemName: "chevron.right")
-          }.disabled(!model.canGoForward).help("Forward")
-          Button {
-            model.goUpActive()
-          } label: {
-            Image(systemName: "arrow.up")
-          }.disabled(!model.canGoUp).help("Enclosing Folder")
+          }
+          .disabled(!model.canGoForward).help("Forward")
+        }
+        if #available(macOS 26, *) {
+          ToolbarSpacer(.fixed)
         }
         ToolbarItemGroup {
           Button {
-            model.copyToOtherPane()
+            model.goUpActive()
           } label: {
-            Label(
-              model.activePane == .local ? "Copy to Phone" : "Copy to Mac",
-              systemImage: model.activePane == .local
-                ? "iphone.and.arrow.forward" : "arrow.down.to.line")
-          }
-          .disabled(model.activeSelectionCount == 0 || model.connection != .connected)
+            Label("Enclosing Folder", systemImage: "arrow.up")
+          }.disabled(!model.canGoUp).help("Enclosing Folder")
           Button {
             model.beginNewFolder()
           } label: {
             Label("New Folder", systemImage: "folder.badge.plus")
-          }
-          .disabled(model.activePane == .phone && model.connection != .connected)
+          }.disabled(model.activePane == .phone && model.connection != .connected)
           Button {
             model.reloadActive()
           } label: {
             Label("Refresh", systemImage: "arrow.clockwise")
           }
+        }
+        if #available(macOS 26, *) {
+          ToolbarSpacer(.fixed)
+        }
+        ToolbarItem {
+          Button {
+            model.copyToOtherPane()
+          } label: {
+            Label(
+              model.activePane == .local ? "Copy to Phone" : "Copy to Mac",
+              systemImage: "arrow.left.arrow.right")
+          }
+          .disabled(model.activeSelectionCount == 0 || model.connection != .connected)
+          .help(
+            model.activePane == .local
+              ? "Copy selected files to phone" : "Copy selected files to Mac")
+        }
+        if #available(macOS 26, *) {
+          ToolbarSpacer(.fixed)
+        }
+        ToolbarItem {
           Menu {
             Toggle("Show Mac Pane", isOn: $settings.showLocalPane)
             Toggle("Mac Pane on Left", isOn: $settings.localPaneOnLeft)
@@ -101,17 +126,22 @@ private struct WorkspaceSidebar: View {
     ]
   }
   var body: some View {
-    List {
-      Section("Mac") {
+    List(
+      selection: Binding<String?>(
+        get: {
+          model.activePane == .local && settings.showLocalPane ? model.localDirectory.path : nil
+        },
+        set: { path in
+          guard let path else { return }
+          settings.showLocalPane = true
+          model.activePane = .local
+          model.navigateLocal(to: URL(fileURLWithPath: path, isDirectory: true))
+        }
+      )
+    ) {
+      Section("Favorites") {
         ForEach(locations, id: \.0) { name, icon, url in
-          Button {
-            model.settings.showLocalPane = true
-            model.activePane = .local
-            model.navigateLocal(to: url)
-          } label: {
-            Label(name, systemImage: icon)
-          }
-          .buttonStyle(.plain)
+          Label(name, systemImage: icon).tag(url.path)
         }
         Button {
           model.chooseLocalFolder()
@@ -120,24 +150,18 @@ private struct WorkspaceSidebar: View {
         }.buttonStyle(.plain)
       }
       if !settings.favorites.isEmpty {
-        Section("Favorites") {
+        Section("Folders") {
           ForEach(settings.favorites, id: \.self) { path in
-            Button {
-              settings.showLocalPane = true
-              model.activePane = .local
-              model.navigateLocal(to: URL(fileURLWithPath: path, isDirectory: true))
-            } label: {
-              Label(URL(fileURLWithPath: path).lastPathComponent, systemImage: "folder")
-            }
-            .buttonStyle(.plain).help(path)
-            .contextMenu {
-              Button("Remove Favorite") { settings.favorites.removeAll { $0 == path } }
-            }
+            Label(URL(fileURLWithPath: path).lastPathComponent, systemImage: "folder")
+              .tag(path).help(path)
+              .contextMenu {
+                Button("Remove Favorite") { settings.favorites.removeAll { $0 == path } }
+              }
           }
         }
       }
       Section("Devices") {
-        if model.candidates.isEmpty {
+        if model.candidates.isEmpty && model.connection != .connected {
           Label("No phone connected", systemImage: "iphone").foregroundStyle(.secondary)
         }
         ForEach(model.candidates) { device in
@@ -199,6 +223,15 @@ private struct FileBrowserPane: View {
   private var title: String {
     isLocal ? "Mac" : (model.deviceName.isEmpty ? "Phone" : model.deviceName)
   }
+  private var locationName: String {
+    if isLocal {
+      return model.localDirectory.lastPathComponent.isEmpty
+        ? "Macintosh HD" : model.localDirectory.lastPathComponent
+    }
+    guard model.connection == .connected else { return "Not connected" }
+    return model.path.last?.name ?? model.storages.first { $0.id == model.selectedStorage }?
+      .displayName ?? "Phone"
+  }
   private var count: Int { isLocal ? model.sortedLocalEntries.count : model.sortedEntries.count }
   private var selectionCount: Int { isLocal ? model.localSelection.count : model.selection.count }
   private var loading: Bool { isLocal ? model.localLoading : model.isLoading }
@@ -218,7 +251,12 @@ private struct FileBrowserPane: View {
     VStack(spacing: 0) {
       HStack(spacing: 8) {
         Image(systemName: isLocal ? "laptopcomputer" : "iphone")
-        Text(title).font(.headline).lineLimit(1)
+          .font(.title2).foregroundStyle(model.activePane == pane ? Color.accentColor : .secondary)
+          .frame(width: 28)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(title).font(.caption).foregroundStyle(.secondary)
+          Text(locationName).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+        }
         Spacer(minLength: 5)
         if loading { ProgressView().controlSize(.small) }
         if !isLocal && model.preparingPreview {
@@ -278,31 +316,19 @@ private struct FileBrowserPane: View {
         }
         .menuStyle(.borderlessButton).fixedSize()
       }
-      .padding(.horizontal, 12).padding(.vertical, 10)
-      .background(
-        model.activePane == pane
-          ? Color.accentColor.opacity(0.07) : Color(nsColor: .controlBackgroundColor))
+      .padding(.horizontal, 16).padding(.vertical, 14)
+      .background(.bar)
       Divider()
       if !isLocal && model.connection != .connected {
         PhoneConnectionView()
       } else {
-        pathBar
-        Divider()
-        HStack(spacing: 6) {
-          Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-          TextField("Filter this folder", text: search).textFieldStyle(.plain)
-          if !search.wrappedValue.isEmpty {
-            Button {
-              search.wrappedValue = ""
-            } label: {
-              Image(systemName: "xmark.circle.fill")
-            }.buttonStyle(.plain).foregroundStyle(.secondary)
-          }
-        }.padding(.horizontal, 12).padding(.vertical, 7)
-        Divider()
         ZStack {
-          Color(nsColor: .textBackgroundColor)
-          if settings.view(for: pane) == .list { table } else { grid }
+          if settings.view(for: pane) == .list {
+            table.focused($focusedPane, equals: pane)
+          } else {
+            grid.focusable().focused($focusedPane, equals: pane)
+              .modifier(GridFocusAppearance())
+          }
           if count == 0 && !loading {
             EmptyBrowserState(
               symbol: search.wrappedValue.isEmpty ? "folder" : "magnifyingglass",
@@ -322,19 +348,21 @@ private struct FileBrowserPane: View {
           of: [UTType.fileURL.identifier, UTType.item.identifier, AppModel.remoteDragType],
           isTargeted: dropTarget
         ) { providers in model.receiveDrop(providers, into: pane) }
+        Divider()
+        pathBar
         if settings.showStatusBar {
-          Divider()
-          HStack {
+          HStack(spacing: 8) {
             Text(selectionCount > 0 ? "\(selectionCount) of \(count) selected" : "\(count) items")
-            Spacer()
+            if !search.wrappedValue.isEmpty {
+              Text("Filtered").foregroundStyle(.secondary)
+              Button("Clear") { search.wrappedValue = "" }.buttonStyle(.borderless)
+            }
+            Spacer(minLength: 0)
             if model.dropInProgress { Text("Receiving dropped files…") }
-          }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12).padding(
-            .vertical, 7)
+          }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.bottom, 10)
         }
       }
     }
-    .background(Color(nsColor: .textBackgroundColor))
-    .focusable().focused($focusedPane, equals: pane)
     .simultaneousGesture(TapGesture().onEnded { model.activePane = pane })
     .onChange(of: focusedPane) { value in if value == pane { model.activePane = pane } }
     .onChange(of: model.activePane) { value in if value == pane { focusedPane = pane } }
@@ -359,7 +387,7 @@ private struct FileBrowserPane: View {
         Text(model.phoneLocation).lineLimit(1).truncationMode(.head).help(model.phoneLocation)
       }
       Spacer(minLength: 0)
-    }.font(.caption).padding(.horizontal, 12).padding(.vertical, 8)
+    }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.vertical, 10)
   }
   @ViewBuilder private var table: some View {
     if isLocal {
@@ -560,113 +588,18 @@ private struct EmptyBrowserState: View {
   let title: String
   let message: String
   var body: some View {
-    VStack(spacing: 10) {
-      Image(systemName: symbol).font(.system(size: 34, weight: .light)).foregroundStyle(.secondary)
+    if #available(macOS 14, *) {
+      ContentUnavailableView(title, systemImage: symbol, description: Text(message))
+    } else {
+      VStack(spacing: 10) {
+        Image(systemName: symbol).font(.system(size: 34, weight: .light)).foregroundStyle(
+          .secondary
+        )
         .accessibilityHidden(true)
-      Text(title).font(.headline)
-      Text(message).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-        .frame(maxWidth: 310)
-    }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
-}
-
-@MainActor
-private struct TransferQueueView: View {
-  @EnvironmentObject private var model: AppModel
-  var body: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Text("Transfers").font(.headline)
-        Text("\(model.transfers.filter { !$0.finished }.count) pending").font(.caption)
-          .foregroundStyle(.secondary)
-        Spacer()
-        if model.transfers.contains(where: { $0.finished }) {
-          Button("Clear Finished") { model.clearFinishedTransfers() }.buttonStyle(.borderless).font(
-            .caption)
-        }
-      }.padding(.horizontal, 14).padding(.vertical, 9)
-      if model.transfers.isEmpty {
-        HStack(spacing: 10) {
-          Image(systemName: "arrow.left.arrow.right").foregroundStyle(.secondary)
-          Text("Select files and copy to the other pane. Folders and queued copies are included.")
-            .foregroundStyle(.secondary).font(.callout)
-          Spacer()
-        }.padding(.horizontal, 14).padding(.bottom, 14)
-      } else {
-        ScrollView {
-          LazyVStack(spacing: 0) {
-            ForEach(model.transfers) { job in
-              TransferRow(job: job).padding(.horizontal, 14).padding(.vertical, 9)
-              Divider()
-            }
-          }
-        }
-      }
-    }.background(Color(nsColor: .controlBackgroundColor))
-  }
-}
-@MainActor
-private struct TransferRow: View {
-  let job: AppModel.Transfer
-  @EnvironmentObject private var model: AppModel
-  var body: some View {
-    HStack(alignment: .top, spacing: 10) {
-      Image(systemName: job.direction == .upload ? "arrow.up.doc" : "arrow.down.doc")
-        .foregroundStyle(.secondary).padding(.top, 2)
-      VStack(alignment: .leading, spacing: 4) {
-        HStack {
-          Text(job.name).fontWeight(.medium).lineLimit(1)
-          Spacer()
-          Text(job.state.rawValue.capitalized).font(.caption).foregroundStyle(
-            job.state == .failed ? .red : .secondary)
-        }
-        Text(job.route).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(
-          .middle
-        ).help(job.sourcePaths.joined(separator: "\n") + "\n→ " + job.destination)
-        if job.state == .running || job.state == .cancelling {
-          if let fraction = job.fraction {
-            ProgressView(value: fraction)
-          } else {
-            ProgressView().progressViewStyle(.linear)
-          }
-          HStack {
-            Text(
-              "\(job.completedFiles) / \(job.totalFiles) files · \(bytes(job.done))\(job.total.map { " of " + bytes($0) } ?? "")"
-            )
-            Spacer()
-            if let speed = job.bytesPerSecond { Text("\(bytes(UInt64(max(0, speed))))/s") }
-            if let remaining = job.remainingSeconds {
-              Text("~\(Int(remaining / 60))m \(Int(remaining) % 60)s")
-            }
-          }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-          if !job.currentFile.isEmpty {
-            Text(job.currentFile).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-              .truncationMode(.middle)
-          }
-        } else if job.state == .completed {
-          Text(
-            "\(job.completedFiles) files · \(bytes(job.done))\(job.skippedFiles > 0 ? " · \(job.skippedFiles) skipped" : "")"
-          ).font(.caption2).foregroundStyle(.secondary)
-        }
-        if let error = job.error {
-          Text(error).font(.caption).foregroundStyle(job.state == .failed ? .red : .secondary)
-            .textSelection(.enabled)
-        }
-      }
-      if job.state == .failed || job.state == .cancelled || job.state == .waiting {
-        Button {
-          model.retryTransfer(job.id)
-        } label: {
-          Image(systemName: "arrow.clockwise")
-        }.buttonStyle(.borderless).help("Retry Copy").disabled(!model.canRetryTransfer(job.id))
-      }
-      if !job.finished {
-        Button {
-          model.cancelTransfer(job.id)
-        } label: {
-          Image(systemName: "xmark.circle")
-        }.buttonStyle(.borderless).help("Cancel Copy")
-      }
+        Text(title).font(.headline)
+        Text(message).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+          .frame(maxWidth: 310)
+      }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
   }
 }
@@ -959,4 +892,14 @@ extension LocalFile {
 extension MTPObject {
   var sortSize: UInt64 { size ?? 0 }
   var sortModified: Date { modified ?? .distantPast }
+}
+
+private struct GridFocusAppearance: ViewModifier {
+  func body(content: Content) -> some View {
+    if #available(macOS 14, *) {
+      content.focusEffectDisabled()
+    } else {
+      content
+    }
+  }
 }

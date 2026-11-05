@@ -3,6 +3,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ./scripts/verify-environment.sh
+openmtp_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+openmtp_sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
+# SwiftPM's Apple build system can otherwise stamp the deployment target as the
+# linked SDK. AppKit uses the linked SDK to select the current system design.
+openmtp_build_flags=(--sdk "$openmtp_sdk_path" -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker "$openmtp_sdk_version")
 openmtp_arch="${OPENMTP_ARCH:-$(uname -m)}"
 case "$openmtp_arch" in
   arm64|x86_64) openmtp_arches=("$openmtp_arch") ;;
@@ -20,9 +25,9 @@ mkdir -p "$openmtp_stage/OpenMTP.app/Contents/MacOS" "$openmtp_stage/OpenMTP.app
 openmtp_app_bins=()
 openmtp_cli_bins=()
 for openmtp_slice in "${openmtp_arches[@]}"; do
-  swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" --product OpenMTPMac
-  swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" --product mtpctl
-  openmtp_bin_dir="$(swift build -c release --arch "$openmtp_slice" --show-bin-path)"
+  swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" "${openmtp_build_flags[@]}" --product OpenMTPMac
+  swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" "${openmtp_build_flags[@]}" --product mtpctl
+  openmtp_bin_dir="$(swift build -c release --arch "$openmtp_slice" "${openmtp_build_flags[@]}" --show-bin-path)"
   # Newer SwiftPM build systems share their products directory across slices.
   # Preserve each result before the next architecture can overwrite it.
   openmtp_slice_dir="$openmtp_stage/slices/$openmtp_slice"
@@ -103,8 +108,15 @@ codesign "${openmtp_sign_flags[@]}" "$openmtp_stage/OpenMTP.app/Contents/MacOS/m
 codesign "${openmtp_sign_flags[@]}" "$openmtp_stage/OpenMTP.app"
 codesign --verify --strict --deep "$openmtp_stage/OpenMTP.app"
 for openmtp_slice in "${openmtp_arches[@]}"; do
-  lipo "$openmtp_stage/OpenMTP.app/Contents/MacOS/OpenMTP" -verify_arch "$openmtp_slice"
-  lipo "$openmtp_stage/OpenMTP.app/Contents/MacOS/mtpctl" -verify_arch "$openmtp_slice"
+  for openmtp_binary in OpenMTP mtpctl; do
+    openmtp_executable="$openmtp_stage/OpenMTP.app/Contents/MacOS/$openmtp_binary"
+    lipo "$openmtp_executable" -verify_arch "$openmtp_slice"
+    openmtp_linked_sdk="$(vtool -arch "$openmtp_slice" -show-build "$openmtp_executable" | awk '/^[[:space:]]*sdk /{print $2}')"
+    if [[ ! "$openmtp_linked_sdk" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || (( ${openmtp_linked_sdk%%.*} < 26 )); then
+      echo "$openmtp_binary ($openmtp_slice) must link macOS SDK 26+; found '$openmtp_linked_sdk'." >&2
+      exit 1
+    fi
+  done
 done
 mkdir -p build
 rm -rf "$openmtp_app"
