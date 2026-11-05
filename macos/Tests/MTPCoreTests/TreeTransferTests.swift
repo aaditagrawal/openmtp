@@ -631,6 +631,190 @@ struct TreeTransferTests {
     #expect(!device.session.isBroken && transport.device.violations.isEmpty)
   }
 
+  @Test func basicUploadDevicesCopyNewFilesAndKeepBothFolderTrees() throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let direct = try file("direct.txt", in: source, contents: "direct")
+    let fresh = try file("fresh.txt", in: source, contents: "new file")
+    let folder = source.appendingPathComponent("Folder")
+    try FileManager.default.createDirectory(
+      at: folder.appendingPathComponent("Empty"), withIntermediateDirectories: true)
+    _ = try file("nested.txt", in: folder, contents: "nested")
+    let sim = SimulatedDevice()
+    sim.supportsFilenameRename = false
+    let originalFolder = sim.add("Folder", directory: true)
+    let original = sim.add("retained.txt", parent: originalFolder, contents: Data("original".utf8))
+    let device = try MTPDevice(transport: sim)
+    #expect(!device.info.supports(.setObjectPropValue))
+    // Establish the basic protocol behavior that the tree UI must preserve.
+    _ = try device.upload(direct, storage: sim.storageID)
+    let copied = try device.execute(
+      device.planUpload([fresh, folder], storage: sim.storageID), policy: .replace)
+    #expect(copied.copiedFiles == 2 && copied.bytes == 14)
+    #expect(sim.children(of: 0).first { $0.name == "fresh.txt" }?.contents == Data("new file".utf8))
+    #expect(sim.children(of: originalFolder).contains { $0.name == "nested.txt" })
+    #expect(sim.nodes[original]?.contents == Data("original".utf8))
+    _ = try device.execute(
+      device.planUpload([folder], storage: sim.storageID), policy: .keepBoth)
+    let kept = try #require(sim.children(of: 0).first { $0.name == "Folder copy" })
+    #expect(
+      sim.children(of: kept.handle).first { $0.name == "nested.txt" }?.contents
+        == Data("nested".utf8))
+    #expect(sim.children(of: kept.handle).contains { $0.name == "Empty" && $0.isDirectory })
+    #expect(sim.operationCounts[.setObjectPropValue, default: 0] == 0)
+    #expect(!sim.nodes.values.contains { $0.name.hasPrefix(".openmtp-") })
+    #expect(sim.violations.isEmpty)
+  }
+
+  @Test(arguments: [CopyConflictPolicy.replace, .smartSync])
+  func basicUploadReplacementFailsBeforeAnyPayload(policy: CopyConflictPolicy) throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("new.txt", in: source)
+    let replacement = try file("existing.txt", in: source, contents: "replacement")
+    let sim = SimulatedDevice()
+    sim.supportsFilenameRename = false
+    let original = sim.add("existing.txt", contents: Data("original".utf8))
+    let device = try MTPDevice(transport: sim)
+    let plan = try device.planUpload([fresh, replacement], storage: sim.storageID)
+    #expect(throws: TreeTransferError.self) { _ = try device.execute(plan, policy: policy) }
+    #expect(sim.operationCounts[.sendObjectInfo, default: 0] == 0)
+    #expect(sim.nodes.count == 1 && sim.nodes[original]?.contents == Data("original".utf8))
+    let summary = try device.execute(plan, policy: .keepBoth)
+    #expect(summary.copiedFiles == 2)
+    #expect(sim.nodes[original]?.contents == Data("original".utf8))
+    #expect(
+      sim.children(of: 0).first { $0.name == "existing copy.txt" }?.contents
+        == Data("replacement".utf8))
+  }
+
+  @Test(arguments: [false, true])
+  func basicUploadTypeClashesFailBeforeAnyWrite(sourceIsDirectory: Bool) throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let selected = source.appendingPathComponent("clash")
+    if sourceIsDirectory {
+      try FileManager.default.createDirectory(at: selected, withIntermediateDirectories: false)
+      _ = try file("child", in: selected)
+    } else {
+      _ = try file("clash", in: source)
+    }
+    let sim = SimulatedDevice()
+    sim.supportsFilenameRename = false
+    let original = sim.add("clash", directory: !sourceIsDirectory, contents: Data("keep".utf8))
+    let device = try MTPDevice(transport: sim)
+    let plan = try device.planUpload([selected], storage: sim.storageID)
+    #expect(throws: TreeTransferError.self) { _ = try device.execute(plan, policy: .replace) }
+    #expect(sim.operationCounts[.sendObjectInfo, default: 0] == 0)
+    #expect(sim.nodes.count == 1 && sim.nodes[original]?.contents == Data("keep".utf8))
+  }
+
+  @Test(arguments: [ResponseCode.operationNotSupported, .invalidObjectPropCode])
+  func advertisedButUnsupportedRenameRetriesOnlyNewFiles(code: ResponseCode) throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("fresh.txt", in: source, contents: "new")
+    let sim = SimulatedDevice()
+    sim.forcedResponses[.setObjectPropValue] = code
+    let device = try MTPDevice(transport: sim)
+    #expect(device.info.supports(.setObjectPropValue))
+    let progress = TreeProgressRecorder()
+    let summary = try device.execute(
+      device.planUpload([fresh], storage: sim.storageID), policy: .ask,
+      progress: { _ = progress.add($0) })
+    #expect(summary.copiedFiles == 1 && summary.bytes == 6)
+    #expect(progress.last?.completedBytes == 6 && progress.last?.totalBytes == 6)
+    #expect(sim.operationCounts[.sendObject] == 2)
+    #expect(sim.children(of: 0).count == 1 && sim.children(of: 0).first?.name == "fresh.txt")
+    #expect(sim.children(of: 0).first?.contents == Data("new".utf8))
+    let replacement = try file("existing.txt", in: source, contents: "replacement")
+    let original = sim.add("existing.txt", contents: Data("original".utf8))
+    let before = sim.operationCounts[.sendObject, default: 0]
+    #expect(throws: MTPError.self) {
+      _ = try device.execute(
+        device.planUpload([replacement], storage: sim.storageID), policy: .replace)
+    }
+    #expect(sim.operationCounts[.sendObject] == before + 1)
+    #expect(
+      sim.nodes[original]?.name == "existing.txt"
+        && sim.nodes[original]?.contents == Data("original".utf8))
+    #expect(!sim.nodes.values.contains { $0.name.hasPrefix(".openmtp-") })
+    #expect(sim.violations.isEmpty)
+  }
+
+  @Test func unsupportedRenameCleanupFailureDoesNotRetryPayload() throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("fresh.txt", in: source)
+    let sim = SimulatedDevice()
+    sim.forcedResponses[.setObjectPropValue] = .operationNotSupported
+    sim.forcedResponses[.deleteObject] = .accessDenied
+    let device = try MTPDevice(transport: sim)
+    let token = TransferCancellationToken()
+    #expect(throws: TreeTransferError.self) {
+      _ = try device.execute(
+        device.planUpload([fresh], storage: sim.storageID), policy: .ask, cancellation: token)
+    }
+    #expect(sim.operationCounts[.sendObject] == 1)
+    #expect(sim.nodes.count == 1 && sim.children(of: 0).first?.name.hasPrefix(".openmtp-") == true)
+    #expect(token.recoveryPaths.count == 1)
+  }
+
+  @Test func renameAccessDeniedNeverTriggersACompatibilityRetry() throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("fresh.txt", in: source)
+    let sim = SimulatedDevice()
+    sim.forcedResponses[.setObjectPropValue] = .accessDenied
+    let device = try MTPDevice(transport: sim)
+    #expect(throws: MTPError.self) {
+      _ = try device.execute(device.planUpload([fresh], storage: sim.storageID), policy: .ask)
+    }
+    #expect(sim.operationCounts[.sendObject] == 1 && sim.nodes.isEmpty)
+  }
+
+  @Test func basicUploadCancellationRetainsOnlyItsOwnRecoveryLocation() throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("fresh.bin", in: source, contents: String(repeating: "x", count: 30_000))
+    let sim = SimulatedDevice()
+    sim.supportsFilenameRename = false
+    let original = sim.add("original.txt", contents: Data("original".utf8))
+    let device = try MTPDevice(transport: sim)
+    device.session.transferSize = 1024
+    let token = TransferCancellationToken()
+    #expect(throws: MTPError.cancelled) {
+      _ = try device.execute(
+        device.planUpload([fresh], storage: sim.storageID), policy: .ask, cancellation: token,
+        progress: { _ in token.cancel() })
+    }
+    #expect(device.session.isBroken && token.recoveryPaths.count == 1)
+    #expect(token.recoveryPaths.first?.contains("fresh.bin") == true)
+    #expect(sim.nodes[original]?.contents == Data("original".utf8))
+  }
+
+  @Test func basicUploadSourceChangeCleansTheCreatedHandle() throws {
+    let source = try directory()
+    defer { try? FileManager.default.removeItem(at: source) }
+    let fresh = try file("fresh.txt", in: source, contents: "new")
+    let sim = SimulatedDevice()
+    sim.supportsFilenameRename = false
+    let original = sim.add("original.txt", contents: Data("original".utf8))
+    let device = try MTPDevice(transport: sim)
+    let recorder = TreeProgressRecorder()
+    let token = TransferCancellationToken()
+    #expect(throws: TreeTransferError.self) {
+      _ = try device.execute(
+        device.planUpload([fresh], storage: sim.storageID), policy: .ask, cancellation: token,
+        progress: { value in
+          if recorder.add(value) { try Data("changed source".utf8).write(to: fresh) }
+        })
+    }
+    #expect(!device.session.isBroken && token.recoveryPaths.isEmpty)
+    #expect(sim.nodes.count == 1 && sim.nodes[original]?.contents == Data("original".utf8))
+    #expect(sim.violations.isEmpty)
+  }
+
   @Test func symlinksAndOtherDevicePlansAreRejectedBeforeWrites() throws {
     let source = try directory()
     let destination = try directory()

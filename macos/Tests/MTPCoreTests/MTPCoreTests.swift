@@ -201,6 +201,34 @@ struct TransactionTests {
     #expect(sim.violations.isEmpty)
   }
 
+  @Test(arguments: [
+    (size: 500, split: false, zlp: false),
+    (size: 512, split: true, zlp: false),
+    (size: 500, split: false, zlp: true),
+    (size: 512, split: true, zlp: true),
+    (size: 64 * 1024 - 12, split: false, zlp: false),
+    (size: 64 * 1024, split: true, zlp: false),
+  ])
+  func unknownContainersUseMetadataToKeepResponseOutOfFile(size: Int, split: Bool, zlp: Bool)
+    throws
+  {
+    let sim = SimulatedDevice()
+    let payload = pattern(size)
+    let handle = sim.add("large.bin", contents: payload)
+    let device = try openDevice(sim, transferSize: 64 * 1024)
+    // A phone may split GetObject's header without splitting DeviceInfo.
+    sim.splitHeader = split
+    sim.omitZLP = !zlp
+    sim.unknownLengthThreshold = 0
+    var received = Data()
+    try device.session.getObject(
+      handle, sink: { received.append($0) }, expectedSize: UInt64(size))
+    #expect(received == payload)
+    #expect(!device.session.isBroken)
+    #expect(try device.storages().count == 1)
+    #expect(sim.violations.isEmpty)
+  }
+
   @Test func largerBuffersReduceSimulatedBulkReadCalls() throws {
     func inTransfers(_ transferSize: Int) throws -> Int {
       let sim = SimulatedDevice()

@@ -39,6 +39,7 @@ Apple API references: [NSFilePromiseProviderDelegate](https://developer.apple.co
 - Finder natural ordering uses the full file name, including its extension, so `file2.txt` sorts before `file10.txt`. Legacy ordering lowercased the name and stripped file extensions. Folder-first grouping remains configurable.
 - Matching does not globally lowercase remote paths. Exact remote names and destination filesystem case behavior determine conflicts, avoiding silent merging of two distinct case-sensitive phone entries. Unicode/case collisions that cannot be represented safely on the local filesystem fail preflight.
 - Smart Sync on an MTP endpoint compares whole seconds. The historical helper also accepted numeric timestamps on both sides and preserved submillisecond differences; that local-to-local helper mode is not an MTP transfer path. Unknown native size or date metadata causes a copy rather than declaring an unverified match.
+- Devices without filename-renaming support can receive new files and recursive folders. Skip, Keep Both and matching Smart Sync items remain available; replacing existing content requires safe rename support and otherwise fails before payload writes. An explicit unsupported-property response on a fresh staged file can retry only after exact-handle cleanup and source/destination revalidation. Access-denied or ambiguous transport failures never trigger that retry.
 - Phone deletion is explicitly permanent and confirmed against captured items. Local deletion uses the Mac Trash. Conventional Mac shortcuts may differ from the legacy application's custom mappings.
 - Signed native builds use Sparkle instead of electron-updater for automatic installation. Ad-hoc/developer builds retain manual installation because they have no production signing configuration. Stable native distribution requires a configured Developer ID signature, notarization and update-signing key; unsigned/ad-hoc prereleases must not be presented as notarized stable builds.
 
@@ -64,7 +65,7 @@ Focused integration validation on 2026-11-05: all **20 tests in five suites** pa
 
 Before calling the replacement fully validated:
 
-1. Run the integrated native test/build/package checks after all workspace changes settle, including Intel CI.
+1. Native test/build/package checks passed for both CPUs in [CI at 817f841](https://github.com/aaditagrawal/openmtp/actions/runs/41982045758). Independent-review corrections require another complete run before merge.
 2. Exercise actual Finder drag-out of multiple selected files and nested folders, incoming Finder/Photos promises, Quick Look, cancellation and local Reveal in Finder in the native GUI.
 3. Validate real phone browsing, both transfer directions, Smart Sync/conflicts, large files, USB detach/reconnect, cancellation recovery and exclusive-access errors. Compare representative elapsed transfer/listing times before claiming a speed improvement.
 4. Exercise the macOS 13 compatibility UI and the macOS 26+ Liquid Glass UI, keyboard navigation, VoiceOver, Increase Contrast and Reduce Transparency. Availability gates and a successful new-SDK compile do not establish old-OS runtime behavior.

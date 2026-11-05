@@ -23,8 +23,14 @@ for openmtp_slice in "${openmtp_arches[@]}"; do
   swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" --product OpenMTPMac
   swift build --disable-automatic-resolution -c release --arch "$openmtp_slice" --product mtpctl
   openmtp_bin_dir="$(swift build -c release --arch "$openmtp_slice" --show-bin-path)"
-  openmtp_app_bins+=("$openmtp_bin_dir/OpenMTPMac")
-  openmtp_cli_bins+=("$openmtp_bin_dir/mtpctl")
+  # Newer SwiftPM build systems share their products directory across slices.
+  # Preserve each result before the next architecture can overwrite it.
+  openmtp_slice_dir="$openmtp_stage/slices/$openmtp_slice"
+  mkdir -p "$openmtp_slice_dir"
+  cp "$openmtp_bin_dir/OpenMTPMac" "$openmtp_slice_dir/OpenMTPMac"
+  cp "$openmtp_bin_dir/mtpctl" "$openmtp_slice_dir/mtpctl"
+  openmtp_app_bins+=("$openmtp_slice_dir/OpenMTPMac")
+  openmtp_cli_bins+=("$openmtp_slice_dir/mtpctl")
 done
 if [[ "$openmtp_arch" == universal ]]; then
   lipo -create "${openmtp_app_bins[@]}" -output "$openmtp_stage/OpenMTP.app/Contents/MacOS/OpenMTP"

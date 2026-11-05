@@ -246,7 +246,7 @@ public final class MTPDevice: @unchecked Sendable {
   @discardableResult
   public func upload(
     _ source: URL, storage: UInt32, parent: UInt32 = MTPHandle.root, name: String? = nil,
-    progress: MTPProgress? = nil
+    onCreated: ((UInt32) -> Void)? = nil, progress: MTPProgress? = nil
   ) throws -> UInt32 {
     try UploadPreflight.validate([source])
     let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
@@ -265,6 +265,9 @@ public final class MTPDevice: @unchecked Sendable {
     let handle = try session.exclusive {
       // SendObject must directly follow its SendObjectInfo.
       let created = try session.sendObjectInfo(storage: storage, parent: parent, oi)
+      // Record ownership before streaming can fail; this callback must not send
+      // another transaction between SendObjectInfo and SendObject.
+      onCreated?(created.handle)
       try session.sendObject(
         MTPOutgoingData(count: size) { try file.read(upToCount: $0) ?? Data() }, progress: progress)
       return created.handle

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Review the complete native app, tests, delivery automation and root files.
+# The Electron cutover's retired directories remain visible in GitHub's full
+# diff and were audited separately; their deletions exceed the review file cap.
+reviews:
+  path_filters:
+    - "*"
+    - ".github/**"
+    - "macos/**"

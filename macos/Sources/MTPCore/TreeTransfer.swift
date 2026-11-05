@@ -278,6 +278,25 @@ private func plannedBytes(_ nodes: [TreeNode], policy: CopyConflictPolicy) -> UI
   return result
 }
 
+/// Directory merges can copy new children without renaming. Replacing a file
+/// or a file/folder type clash requires the staged replacement protocol.
+private func firstRenameRequiredPath(_ nodes: [TreeNode], policy: CopyConflictPolicy) -> String? {
+  for node in nodes {
+    guard let existing = node.existing else { continue }
+    if policy == .skip || policy == .keepBoth { continue }
+    if policy == .smartSync && smartSyncMatches(node.source, existing) { continue }
+    guard node.source.isDirectory && existing.isDirectory else { return node.path }
+    if let path = firstRenameRequiredPath(node.children, policy: policy) { return path }
+  }
+  return nil
+}
+
+private func unsupportedReplacement(_ path: String) -> TreeTransferError {
+  .invalidInput(
+    "This device cannot rename files, so existing items cannot be replaced safely: \(path). Choose Skip or Keep Both."
+  )
+}
+
 private final class TreePlanner {
   let device: MTPDevice
   let cancellation: TransferCancellationToken?
@@ -556,6 +575,11 @@ extension MTPDevice {
       let clashes = plan.conflicts.filter { $0.sourceIsDirectory != $0.destinationIsDirectory }
       if !clashes.isEmpty { throw TreeTransferError.conflicts(clashes) }
     }
+    if case .remote = plan.destination, !info.supports(.setObjectPropValue),
+      let path = firstRenameRequiredPath(plan.nodes, policy: policy)
+    {
+      throw unsupportedReplacement(path)
+    }
     let executor = TreeExecutor(
       device: self, plan: plan, policy: policy,
       cancellation: cancellation ?? TransferCancellationToken(), progress: progress)
@@ -653,11 +677,12 @@ private final class TreeExecutor {
   let policy: CopyConflictPolicy
   let cancellation: TransferCancellationToken
   let progress: (@Sendable (TreeTransferProgress) throws -> Void)?
-  let totalBytes: UInt64?
+  var totalBytes: UInt64?
   var copied = 0
   var skipped = 0
   var bytes: UInt64 = 0
   var localDirectories: [URL: LocalTreeItem] = [:]
+  var canRenameFiles: Bool
 
   init(
     device: MTPDevice, plan: TreeTransferPlan, policy: CopyConflictPolicy,
@@ -669,6 +694,7 @@ private final class TreeExecutor {
     self.policy = policy
     self.cancellation = cancellation
     self.progress = progress
+    canRenameFiles = device.info.supports(.setObjectPropValue)
     totalBytes = plannedBytes(plan.nodes, policy: policy)
   }
 
@@ -921,6 +947,11 @@ private final class TreeExecutor {
     try validateSource(node.source)
     let existing = try remoteDestination(
       storage: storage, parent: parent, name: originalName, expected: expected)
+    if !canRenameFiles, expected != nil,
+      let path = firstRenameRequiredPath([node], policy: selectedPolicy)
+    {
+      throw unsupportedReplacement(path)
+    }
     if existing != nil && selectedPolicy == .skip {
       try skip(node)
       return
@@ -982,6 +1013,11 @@ private final class TreeExecutor {
     guard case .local(let source) = node.source else {
       throw TreeTransferError.invalidInput("Invalid upload plan.")
     }
+    if !canRenameFiles {
+      guard expected == nil else { throw unsupportedReplacement(node.path) }
+      try uploadNewFile(source, node: node, storage: storage, parent: parent, name: name)
+      return
+    }
     let temporaryName = ".openmtp-\(UUID().uuidString)"
     let recovery = "Storage \(storage)/\(temporaryName)"
     cancellation.record(recovery)
@@ -998,6 +1034,34 @@ private final class TreeExecutor {
       try cancellation.check()
       try commitRemote(staged!, as: name, storage: storage, parent: parent, expected: expected)
       cancellation.resolved(recovery)
+    } catch let MTPError.response(code, operation)
+      where expected == nil && operation == .setObjectPropValue
+      && (code == .operationNotSupported || code == .invalidObjectPropCode)
+    {
+      // A definite unsupported-operation response is safe to handle. Never
+      // retry transport failures or ambiguous commits under a final filename.
+      guard !device.session.isBroken, let staged else {
+        throw MTPError.response(code, operation: operation)
+      }
+      do {
+        let current = try device.object(staged.handle, fallbackParent: parent)
+        guard sameRemoteIdentity(current, staged) else {
+          throw TreeTransferError.destinationChanged(node.path)
+        }
+        try device.delete(current)
+      } catch {
+        throw TreeTransferError.recoveryRequired(
+          "The device cannot rename files. The uncommitted copy remains at \(recovery): \(error)"
+        )
+      }
+      cancellation.resolved(recovery)
+      canRenameFiles = false
+      if let total = totalBytes {
+        let (updated, overflow) = total.addingReportingOverflow(source.size)
+        totalBytes = overflow ? nil : updated
+      }
+      try uploadNewFile(source, node: node, storage: storage, parent: parent, name: name)
+      return
     } catch {
       cleanupRemoteStage(
         staged, name: temporaryName, storage: storage, parent: parent, recovery: recovery)
@@ -1005,6 +1069,59 @@ private final class TreeExecutor {
       if cancellation.recoveryPaths.contains(recovery) {
         throw TreeTransferError.recoveryRequired(
           "Copy failed: \(error). Inspect these recovery locations after reconnecting: \(cancellation.recoveryPaths.joined(separator: ", "))."
+        )
+      }
+      throw error
+    }
+    copied += 1
+    try report(node.path)
+  }
+
+  /// Basic SendObjectInfo/SendObject devices can create new files without the
+  /// optional filename property operation. The exact created handle is retained
+  /// for cleanup; no existing object is ever removed by a name-only lookup.
+  func uploadNewFile(
+    _ source: LocalTreeItem, node: TreeNode, storage: UInt32, parent: UInt32, name: String
+  ) throws {
+    try cancellation.check()
+    try validateSource(node.source)
+    _ = try remoteDestination(storage: storage, parent: parent, name: name, expected: nil)
+    try cancellation.check()
+    let recovery = "Storage \(storage), parent \(parent)/\(name)"
+    var created: MTPObject?
+    cancellation.record(recovery)
+    defer { device.invalidate(storage: storage, parent: parent) }
+    do {
+      _ = try device.upload(
+        source.url, storage: storage, parent: parent, name: name,
+        onCreated: { handle in
+          created = MTPObject(
+            handle: handle, storageID: storage, parent: parent, name: name,
+            format: ObjectFormat.undefined, size: source.size, modified: source.modified)
+        }, progress: transferProgress(node.path))
+      try validateSource(node.source)
+      try cancellation.check()
+      cancellation.resolved(recovery)
+    } catch {
+      if !device.session.isBroken, created == nil {
+        cancellation.resolved(recovery)
+      } else if let created, !device.session.isBroken {
+        do {
+          let current = try device.object(created.handle, fallbackParent: parent)
+          guard sameRemoteIdentity(current, created) else {
+            throw TreeTransferError.destinationChanged(node.path)
+          }
+          try device.delete(current)
+          cancellation.resolved(recovery)
+        } catch MTPError.response(.invalidObjectHandle, _) {
+          cancellation.resolved(recovery)
+        } catch {
+          // Keep the exact handle's recovery location when cleanup fails.
+        }
+      }
+      if cancellation.recoveryPaths.contains(recovery), error as? MTPError != .cancelled {
+        throw TreeTransferError.recoveryRequired(
+          "Copy failed: \(error). A partial new file may remain at \(recovery)."
         )
       }
       throw error

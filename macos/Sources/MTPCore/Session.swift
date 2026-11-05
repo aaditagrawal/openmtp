@@ -305,14 +305,41 @@ public final class MTPSession: @unchecked Sendable {
 
     let firstPayload = Data(first.dropFirst(12))
     if header.length == 0xFFFF_FFFF {
-      // Unknown length (objects >= 4 GiB): read until a short transfer ends the container.
-      try deliver(firstPayload)
+      // Large objects use an unknown container length even when metadata gives
+      // their exact size. An omitted ZLP can join the response to the last read.
+      // Split only at that known boundary and preserve the complete response.
+      func deliverUnknown(_ data: Data) throws -> Bool {
+        if let expectedSize, received <= expectedSize {
+          let remaining = expectedSize - received
+          if remaining < UInt64(data.count) {
+            let end = Int(remaining)
+            let tail = Data(data.dropFirst(end))
+            if let response = try? ContainerHeader(tail),
+              response.type == ContainerType.response.rawValue,
+              response.transactionID == header.transactionID,
+              response.length >= 12, response.length <= 32,
+              Int(response.length) == tail.count
+            {
+              try deliver(Data(data.prefix(end)))
+              pending = tail
+              return true
+            }
+          }
+        }
+        try deliver(data)
+        return expectedSize == received
+      }
+      if try deliverUnknown(firstPayload) { return }
       // The header-only short packet starts a split-header data phase. It
       // does not end the payload. A known empty object has no payload to read.
-      var short = lastReadWasShort && !(separateHeader && first.count == 12 && expectedSize != 0)
+      let startsSplitPayload =
+        first.count == 12 && expectedSize != 0
+        && (separateHeader || expectedSize != nil)
+      if startsSplitPayload { separateHeader = true }
+      var short = lastReadWasShort && !startsSplitPayload
       while !short {
         let d = try read(transferSize)
-        try deliver(d)
+        if try deliverUnknown(d) { return }
         short = lastReadWasShort
       }
       return

@@ -215,6 +215,45 @@ enum NativeReleaseSelector {
   }
 }
 
+/// Cancellation belongs to this loop, including an in-flight refresh. Keeping the
+/// scheduler separate lets requests and preference transitions run in tests.
+@MainActor
+final class NativePrereleaseDiscoveryScheduler {
+  private struct Configuration: Equatable {
+    let automaticallyChecks: Bool
+    let includePrereleases: Bool
+    let isConfigured: Bool
+  }
+  private let interval: Duration
+  private var configuration: Configuration?
+  private var refreshTask: Task<Void, Never>?
+
+  init(interval: Duration = .seconds(24 * 60 * 60)) { self.interval = interval }
+
+  func configure(
+    automaticallyChecks: Bool, includePrereleases: Bool, isConfigured: Bool,
+    refresh: @escaping @MainActor @Sendable () async -> Void
+  ) {
+    let next = Configuration(
+      automaticallyChecks: automaticallyChecks, includePrereleases: includePrereleases,
+      isConfigured: isConfigured)
+    guard next != configuration else { return }
+    configuration = next
+    refreshTask?.cancel()
+    refreshTask = nil
+    guard automaticallyChecks, includePrereleases, isConfigured else { return }
+    let interval = interval
+    refreshTask = Task {
+      while !Task.isCancelled {
+        await refresh()
+        do { try await Task.sleep(for: interval) } catch { return }
+      }
+    }
+  }
+
+  deinit { refreshTask?.cancel() }
+}
+
 @MainActor
 final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate {
   enum State: Equatable {
@@ -233,7 +272,7 @@ final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate 
   private var updaterPreferencesObservation: AnyCancellable?
   private var includePrereleases = false
   private var prereleaseFeed: URL?
-  private var prereleaseRefreshTask: Task<Void, Never>?
+  private let prereleaseDiscovery = NativePrereleaseDiscoveryScheduler()
   /// Mirror changes made in Sparkle's own permission/update UI back into the
   /// app's settings, so the next launch does not undo the user's choice.
   var automaticPreferencesChanged: ((Bool, Bool) -> Void)?
@@ -278,7 +317,11 @@ final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate 
       )
       .combineLatest(controller.updater.publisher(for: \.automaticallyDownloadsUpdates))
       .receive(on: DispatchQueue.main)
-      .sink { [weak self] checks, installs in self?.automaticPreferencesChanged?(checks, installs) }
+      .sink { [weak self] checks, installs in
+        guard let self else { return }
+        self.schedulePrereleaseDiscovery()
+        self.automaticPreferencesChanged?(checks, installs)
+      }
       schedulePrereleaseDiscovery()
     } catch { state = .failed("Automatic updates could not start: \(error.localizedDescription)") }
   }
@@ -295,24 +338,17 @@ final class NativeUpdateService: NSObject, ObservableObject, SPUUpdaterDelegate 
     if updater.automaticallyDownloadsUpdates != automaticallyInstalls {
       updater.automaticallyDownloadsUpdates = automaticallyInstalls
     }
-    if channelChanged {
-      schedulePrereleaseDiscovery()
-      updater.resetUpdateCycleAfterShortDelay()
-    }
+    schedulePrereleaseDiscovery()
+    if channelChanged { updater.resetUpdateCycleAfterShortDelay() }
   }
 
   private func schedulePrereleaseDiscovery() {
-    prereleaseRefreshTask?.cancel()
-    prereleaseRefreshTask = nil
-    guard includePrereleases, updaterController != nil else {
-      prereleaseFeed = nil
-      return
-    }
-    prereleaseRefreshTask = Task { [weak self] in
-      while !Task.isCancelled {
-        await self?.refreshPrereleaseFeed()
-        do { try await Task.sleep(for: .seconds(24 * 60 * 60)) } catch { return }
-      }
+    if !includePrereleases || updaterController == nil { prereleaseFeed = nil }
+    prereleaseDiscovery.configure(
+      automaticallyChecks: updaterController?.updater.automaticallyChecksForUpdates == true,
+      includePrereleases: includePrereleases, isConfigured: updaterController != nil
+    ) { [weak self] in
+      await self?.refreshPrereleaseFeed()
     }
   }
 

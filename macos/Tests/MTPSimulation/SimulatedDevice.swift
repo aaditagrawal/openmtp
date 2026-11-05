@@ -19,6 +19,7 @@ final class SimulatedDevice: MTPTransport {
   // Behaviour switches.
   var maxPacketSize = 512
   var supportsPropertyList = true
+  var supportsFilenameRename = true
   var forcedResponses: [OperationCode: ResponseCode] = [:]
   /// Send each data container's 12-byte header as its own packet (MTP 1.1 Appendix H).
   var splitHeader = false
@@ -272,6 +273,7 @@ final class SimulatedDevice: MTPTransport {
       pendingSendHandle = nil
       reply(.ok)
     case .setObjectPropValue:
+      guard supportsFilenameRename else { return reply(.operationNotSupported) }
       guard nodes[params[0]] != nil, let incoming else { return reply(.invalidObjectHandle) }
       var r = ByteReader(incoming)
       nodes[params[0]]?.name = (try? r.string()) ?? ""
@@ -326,8 +328,9 @@ final class SimulatedDevice: MTPTransport {
     w.u16(0)
     var ops: [UInt16] = [
       0x1001, 0x1002, 0x1003, 0x1004, 0x1005, 0x1007, 0x1008, 0x1009, 0x100B,
-      0x100C, 0x100D, 0x9803, 0x9804, 0x95C1,
+      0x100C, 0x100D, 0x9803, 0x95C1,
     ]
+    if supportsFilenameRename { ops.append(0x9804) }
     if supportsPropertyList { ops.append(0x9805) }
     w.u16Array(ops)
     w.u16Array([0x4002, 0x4003])

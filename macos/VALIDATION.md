@@ -43,7 +43,7 @@ No Developer ID, notarization or Sparkle secrets are configured in this reposito
 
 - Physical devices: browsing, large files, both transfer directions, conflicts/Smart Sync, cable detach/reconnect, cancellation recovery and competing USB owners.
 - Interactive macOS behavior: multiple Finder promises, incoming Photos promises, Quick Look, keyboard focus/selection, VoiceOver, Reduce Transparency, Reduce Motion and Increase Contrast.
-- Intel CI and runtime execution on the minimum supported macOS.
+- Runtime execution on the minimum supported macOS.
 - A Developer ID signed/notarized older-to-newer Sparkle installation from published owned feeds.
 - Representative hardware timings before claiming any throughput improvement. Simulated request-count reductions are not measured hardware speedups.
 
@@ -51,4 +51,14 @@ No Developer ID, notarization or Sparkle secrets are configured in this reposito
 
 `make format format-check package` and the final 92-test rerun passed on Quasar. Both release executables target macOS 13.0; the app links only Apple libraries and the bundled Sparkle framework. Strict deep signature verification, architecture checks, ZIP integrity, SHA-256 checksums and DMG verification passed. The artifacts are explicitly ad-hoc signed. `mtpctl devices` ran and reported no attached MTP/PTP interfaces. The original prototype app remained running.
 
-Release cross-compilation for both OpenMTPMac and mtpctl also passed for x86_64 using Quasar. The arm64 CLT toolchain emitted a compatibility-packs archive architecture warning during Intel linking. Native Intel CI/runtime validation remains required; a successful cross-build is not an Intel runtime test.
+Release cross-compilation for both OpenMTPMac and mtpctl also passed for x86_64 using Quasar. The arm64 CLT toolchain emitted a compatibility-packs archive architecture warning during Intel linking. A successful cross-build is not an Intel runtime test. Native Intel CI followed below.
+
+## Native CI and independent review
+
+[Native macOS CI at 817f841](https://github.com/aaditagrawal/openmtp/actions/runs/41982045758) passed on macOS 26 Apple Silicon and Intel with Xcode 26.6, Swift 6.3.3 and SDK 26.5. Each host ran all 92 tests across 14 suites, built the release app and CLI, and verified native ZIP/DMG integrity and signatures before uploading its artifact. This establishes native Intel execution on macOS 26, not runtime compatibility with macOS 13.
+
+CodeRabbit initially skipped the whole replacement because legacy deletions exceeded its file limit. Three independent reviewers examined protocol/USB, transfer safety/Finder integration, and workspace/updater/delivery code. The deleted tree was audited against the cutover scope: old runtime/build consumers were retired together, the app icon and MIT attribution were retained, and comparison source links remain pinned to the legacy commit. Review path filters cover every active tracked file and root configuration while keeping retired nested directories visible in GitHub's full diff. The configuration matches CodeRabbit's official schema.
+
+The four independent-review findings were fixed and regression-tested: unknown-length packet framing with omitted ZLPs, basic-device uploads without filename renaming, beta discovery after automatic checks are disabled, and universal builds sharing a SwiftPM products directory. The final integrated run passed 104 tests across 15 suites: 64 core and 40 native tests. Ordinary metadata mismatch still preserves destinations and session health. Unsupported upload compatibility retries require a definite unsupported-operation response, exact staged-object cleanup, and source/destination revalidation; replacements and ambiguous failures never take that path.
+
+`OPENMTP_ARCH=universal make package` plus universal package verification passed using the shared-products-directory toolchain that exposed the original defect. Both executables contain arm64 and x86_64 slices. Deep signatures, minimum OS, ZIP integrity, checksums and DMG verification passed. Logs are `optional-rename-validation.log` and `review-universal-package.log` in integrated staging. The output is ad-hoc signed, not a notarized public release.

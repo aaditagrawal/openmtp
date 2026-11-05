@@ -51,6 +51,7 @@ struct DownloadSafetyTests {
     }
     #expect(try Data(contentsOf: destination) == previous)
     #expect(try Data(contentsOf: otherPartial) == Data("another transfer".utf8))
+    #expect(!device.session.isBroken)
     #expect(
       try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted() == [
         ".file.openmtp-partial", "file",
