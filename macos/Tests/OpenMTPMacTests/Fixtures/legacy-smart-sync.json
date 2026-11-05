@@ -1,0 +1,25 @@
+{
+  "baselineCommit": "6eb3e7b",
+  "sources": [
+    "app/utils/smartSync.test.js",
+    "tests/manual/smartSync-timestamps.test.js",
+    "tests/manual/smartSync-errors.test.js"
+  ],
+  "notes": "These cases preserve observable local-to-MTP and MTP-to-local decisions. MTP timestamps are represented in their wire format. Numeric-versus-numeric submillisecond cases from the legacy helper do not describe an MTP endpoint and are outside this fixture. Matching case and Unicode normalization follow the actual destination filesystem instead of globally lowercasing paths.",
+  "cases": [
+    { "name": "same-second upload skips fractional filesystem time", "direction": "upload", "localTimestamp": 1790953203.636, "remoteTimestamp": "20261002T150003Z", "sourceSize": 1024, "destinationSize": 1024, "copies": false },
+    { "name": "same-second download skips fractional date text", "direction": "download", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T150003.636Z", "sourceSize": 1024, "destinationSize": 1024, "copies": false },
+    { "name": "newer whole-second upload transfers", "direction": "upload", "localTimestamp": 1790953204.0, "remoteTimestamp": "20261002T150003Z", "sourceSize": 1024, "destinationSize": 1024, "copies": true },
+    { "name": "older remote timestamp skips", "direction": "download", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T150002Z", "sourceSize": 1024, "destinationSize": 1024, "copies": false },
+    { "name": "equal upload timestamps skip", "direction": "upload", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T150003Z", "sourceSize": 1024, "destinationSize": 1024, "copies": false },
+    { "name": "equal instants with different timezone text skip", "direction": "download", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T203003+0530", "sourceSize": 1024, "destinationSize": 1024, "copies": false },
+    { "name": "size change transfers within the same second", "direction": "upload", "localTimestamp": 1790953203.636, "remoteTimestamp": "20261002T150003Z", "sourceSize": 2048, "destinationSize": 1024, "copies": true },
+    { "name": "source-only upload is new", "direction": "upload", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T150003Z", "sourceSize": 11, "destinationSize": null, "copies": true },
+    { "name": "source-only download is new", "direction": "download", "localTimestamp": 1790953203.0, "remoteTimestamp": "20261002T150003Z", "sourceSize": 11, "destinationSize": null, "copies": true }
+  ],
+  "tree": {
+    "sourceFiles": ["a/one.txt", "a/two.txt", "b/one.txt", "b/three.txt"],
+    "emptyDirectories": ["empty"],
+    "destinationOnlyFiles": ["a/extra.txt", "b/extra.txt"]
+  }
+}

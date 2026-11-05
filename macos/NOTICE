@@ -1,0 +1,17 @@
+OpenMTP native macOS application
+
+The native source was imported on 2026-11-04 from the existing prototype at
+/home/mav/Code/agent-worktrees/openmtp-swift-native/macos. That source directory
+remains untouched. The application now replaces the Electron application.
+
+OpenMTP was created by Ganesh Rathinavel. The repository retains its MIT license,
+reproduced in the app's Resources/LICENSE. The app logo is by Shubhendu Mitra.
+
+The prototype's protocol comments reference kalam, go-mtpx and go-mtpfs as
+historical interoperability references. Their attributed source remains available
+in Git history at aaditagrawal/openmtp commit
+6eb3e7b79727c7cef09844c72c35908caedfaa24. No Go or libusb implementation is
+bundled in the native app.
+
+Sparkle 2.10.1 is distributed under its upstream license, reproduced in the app's
+Resources/Sparkle-LICENSE. https://github.com/sparkle-project/Sparkle/tree/2.10.1

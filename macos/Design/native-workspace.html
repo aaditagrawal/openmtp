@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenMTP native workspace study</title>
+<style>
+:root{font-family:var(--font-sans,system-ui);color:var(--foreground,CanvasText);--line:var(--border,ButtonBorder);--paper:var(--card,Canvas);--soft:var(--secondary,ButtonFace);--ink:var(--foreground,CanvasText);--dim:var(--muted-foreground,GrayText);--blue:var(--primary,Highlight);--curve:var(--radius,12px)}
+*{box-sizing:border-box}body{margin:0;font-size:13px;line-height:1.5}button,select{font:inherit;color:inherit}button,select{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:5px 9px}button{cursor:pointer}button:hover{background:var(--soft)}button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--ring,Highlight);outline-offset:3px}button:disabled{opacity:.55;cursor:default}a{color:var(--blue)}.caption{color:var(--dim);font-size:12px;margin:0 0 12px}.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.controls label{color:var(--dim)}.window{padding:16px;border-radius:var(--curve);background:var(--paper);border:1px solid var(--line)}.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:12px}.title{margin-right:auto;min-width:120px}.title strong{font-size:15px}.title small{display:block;color:var(--dim);font-size:11px}.copy{background:var(--blue);color:var(--primary-foreground,HighlightText);border-color:transparent}.copy:hover{background:var(--blue);filter:brightness(1.08)}.workspace{display:grid;grid-template-columns:130px minmax(0,1fr);border-block:1px solid var(--line);min-height:258px}.sidebar{padding:16px 12px 12px 0;color:var(--dim);border-right:1px solid var(--line)}.section-label{text-transform:uppercase;font-size:9px;letter-spacing:.08em;font-weight:650;margin:0 0 8px}.location{margin:4px 0;padding:5px 6px;color:var(--ink);border-radius:5px}.location.selected{background:var(--soft);font-weight:600}.sidebar .section-label:not(:first-child){margin-top:20px}.sidebar small{display:block;padding-left:6px;font-size:10px}.panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.panes.single{grid-template-columns:minmax(0,1fr)}.pane{min-width:0;padding-top:12px}.pane.local{border-right:1px solid var(--line)}.pane-heading{padding:0 12px 10px;display:flex;justify-content:space-between;gap:4px}.pane-heading strong{font-size:12px}.pane-heading span{color:var(--dim);font-size:10px}.path{padding:0 12px 10px;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.file-row{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:4px;padding:6px 10px;font-size:11px;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent)}.file-row .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.file-row .size{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}.file-row.head{color:var(--dim);font-size:10px;background:var(--soft)}.file-row.chosen{background:color-mix(in srgb,var(--blue) 15%,var(--paper))}.file-row.chosen .name{font-weight:600}.filemark{display:inline-block;width:16px;color:var(--dim)}.pane-status{font-size:10px;color:var(--dim);padding:12px}.tray{padding-top:12px}.tray-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px}.tray-top span{font-size:10px;color:var(--dim)}.route{font-size:11px;color:var(--dim);margin:3px 0 8px}.job-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.job-head strong{font-size:12px}.job-head button{font-size:10px;padding:3px 8px}.job-status{font-size:11px;color:var(--dim);margin:6px 0 0}progress{width:100%;height:5px;display:block;accent-color:var(--blue)}.queued{display:flex;justify-content:space-between;padding-top:10px;margin-top:10px;border-top:1px solid var(--line);color:var(--dim);font-size:10px}.message{margin:12px 0 0;padding:12px;background:var(--soft);border-radius:6px}.message strong{font-size:12px}.message p{font-size:11px;margin:4px 0 10px;color:var(--dim)}.message-actions{display:flex;gap:8px;flex-wrap:wrap}.message-actions button{font-size:11px}.offline{padding:36px 20px;grid-column:1/-1;align-self:center;text-align:center}.offline h2{font-size:16px;margin:0 0 8px}.offline p{color:var(--dim);font-size:12px;max-width:330px;margin:0 auto 12px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px}.notes h2{font-size:13px;margin:0 0 5px}.notes p{margin:0;color:var(--dim);font-size:12px}details{border-top:1px solid var(--line);padding-top:12px;margin-top:18px}summary{font-weight:600;cursor:pointer}details p,details li{font-size:12px;line-height:1.65}details ul,details ol{padding-left:20px}details h2{font-size:14px;margin:20px 0 8px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim)}code{font-family:var(--font-mono,monospace);font-size:10px;overflow-wrap:anywhere}.flow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.flow div{background:var(--soft);padding:16px;border-radius:var(--curve);font-size:11px}.flow strong{display:block;font-size:12px}.flow small{display:block;margin-top:4px;color:var(--dim)}[hidden]{display:none!important}.status-caption{margin:8px 0 0;color:var(--dim);font-size:10px} @media(max-width:600px){.workspace{grid-template-columns:110px minmax(0,1fr)}.panes{grid-template-columns:1fr}.pane.local{display:none}.sidebar{padding-right:8px}.notes{grid-template-columns:1fr;gap:12px}.window{padding:12px}.flow{grid-template-columns:1fr}.toolbar{gap:6px}.controls{font-size:12px}.file-row{padding-inline:12px}.title{min-width:100px}}
+:root{--dim:color-mix(in srgb,var(--foreground,CanvasText) 68%,var(--background,Canvas))}.request-chart{margin:12px 0 16px}.request-row{display:grid;grid-template-columns:148px minmax(0,1fr) 42px;align-items:center;gap:8px;font-size:11px;margin:8px 0}.request-track{height:12px;border-bottom:1px solid var(--line)}.request-bar{height:8px;background:var(--blue);min-width:2px}.request-row output{text-align:right;font-variant-numeric:tabular-nums}.request-chart figcaption{font-size:10px;color:var(--dim);margin-top:8px}
+</style>
+</head>
+<body>
+<p class="caption">Layout study for the Swift Mac app. Example files and simulated actions. The existing app does not implement this design yet.</p>
+<div class="controls">
+  <label for="scenario">Situation</label>
+  <select id="scenario"><option value="copy">Copying</option><option value="conflict">Name conflict</option><option value="offline">Cable disconnected</option><option value="busy">Device in use</option></select>
+  <button id="pane-toggle" aria-pressed="true">Hide Mac pane</button>
+</div>
+<main class="window" aria-label="Proposed OpenMTP workspace">
+  <div class="toolbar">
+    <div class="title"><strong>OpenMTP</strong><small id="connection-label">Android phone · USB</small></div>
+    <button id="up" disabled aria-label="Enclosing folder">↑</button>
+    <button id="copy" class="copy">Copy to Mac…</button>
+    <button id="transfers-toggle" aria-expanded="true" aria-controls="tray">Transfers</button>
+  </div>
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Locations">
+      <p class="section-label">This Mac</p>
+      <div class="location">Pictures</div><div class="location">Downloads</div>
+      <p class="section-label">Android phone</p>
+      <div class="location selected">Internal storage</div><small id="device-status">Connected over USB</small>
+    </aside>
+    <div class="panes" id="panes">
+      <section class="pane local" id="local" aria-label="Mac destination">
+        <div class="pane-heading"><strong>This Mac</strong><span>Destination</span></div>
+        <div class="path">Pictures › November</div>
+        <div class="file-row head"><span>Name</span><span class="size">Size</span></div>
+        <div class="file-row"><span class="name"><span class="filemark">▱</span>From phone</span><span class="size">—</span></div>
+        <div class="file-row"><span class="name"><span class="filemark">▧</span>IMG_0417.jpg</span><span class="size">4.2 MB</span></div>
+        <div class="file-row"><span class="name"><span class="filemark">▧</span>IMG_0418.jpg</span><span class="size">3.8 MB</span></div>
+        <div class="pane-status">Copies arrive here after they finish.</div>
+      </section>
+      <section class="pane" id="phone" aria-label="Android source">
+        <div class="pane-heading"><strong>Android phone</strong><span>Source</span></div>
+        <div class="path">Internal storage › DCIM › Camera</div>
+        <div class="file-row head"><span>Name</span><span class="size">Size</span></div>
+        <div class="file-row chosen"><span class="name"><span class="filemark">▧</span>IMG_0419.jpg</span><span class="size">4.1 MB</span></div>
+        <div class="file-row chosen"><span class="name"><span class="filemark">▧</span>IMG_0420.jpg</span><span class="size">3.6 MB</span></div>
+        <div class="file-row"><span class="name"><span class="filemark">▧</span>VID_0421.mp4</span><span class="size">2.4 GB</span></div>
+        <div class="pane-status">2 files selected. Copying keeps the originals.</div>
+      </section>
+      <section class="offline" id="offline" hidden>
+        <h2 id="offline-title">Reconnect the phone</h2><p id="offline-message"></p>
+        <button id="reconnect">Try Again</button>
+      </section>
+    </div>
+  </div>
+  <section id="conflict" class="message" hidden aria-label="Name conflict">
+    <strong>IMG_0419.jpg already exists in November</strong>
+    <p>Android / Camera → Mac / Pictures / November. Compare the file details before replacing the destination copy.</p>
+    <div class="message-actions"><button data-decision="Kept both files; the copy gets a new name.">Keep Both</button><button data-decision="Skipped the existing file.">Skip</button><button data-decision="Replacement approved. Copying to a temporary file first.">Replace</button></div>
+  </section>
+  <section class="tray" id="tray" aria-label="Transfer activity">
+    <div class="tray-top"><strong>Transfers</strong><span id="job-summary">1 active · 1 queued</span></div>
+    <div class="job-head"><strong id="job-name">Copying selected photos</strong><button id="cancel">Cancel</button></div>
+    <p class="route">Android / DCIM / Camera → Mac / Pictures / November</p>
+    <progress id="progress" value="42" max="100" aria-label="Example copy progress"></progress>
+    <p class="job-status" id="job-status" role="status" aria-live="polite">Copying the first photo. The completed file will appear in the destination.</p>
+    <div class="queued"><span>VID_0421.mp4 → Mac / Pictures / November</span><span id="queue-status">Queued</span></div>
+  </section>
+</main>
+<p class="status-caption">The Cancel control illustrates a proposed action. It requires a tested cancellation bridge. Resume appears only when the connection supports it. Narrow layouts retain the phone browser and use Finder as the Mac pane.</p>
+<div class="notes">
+  <section><h2>Keep the useful part of your fork</h2><p>Two locations, selectable copies, queue, Smart Sync, list and icon views, and your preferred pane order. Make the Mac pane optional and independently resizable.</p></section>
+  <section><h2>Make every copy identifiable</h2><p>Show the source and destination in the copy action, conflict decision, active job and completion. Keep browsing available while a transfer waits or runs.</p></section>
+</div>
+<details>
+<summary>Source findings and implementation priorities</summary>
+<h2>What exists today</h2>
+<div class="table-wrap"><table><thead><tr><th>Area</th><th>Personal Electron fork</th><th>Swift exploration</th></tr></thead><tbody>
+<tr><td>File workflow</td><td>Configurable panes, queue, recursive copy, Smart Sync, conflict handling.</td><td>Phone table, storage sidebar, flat-file copies, folder creation, rename and delete.</td></tr>
+<tr><td>Mac behavior</td><td>Custom shortcuts and MUI controls; transfer progress dialog.</td><td>System table, toolbar and panels; partial menus; no Finder drag-out or Quick Look.</td></tr>
+<tr><td>Engine</td><td>Serialized Kalam calls; synchronous USB I/O; per-object metadata requests remain.</td><td>Batched metadata with fallback and directory cache; larger synchronous I/O requests; simulated-device tests.</td></tr>
+<tr><td>Recovery</td><td>No misleading cancellation control. Download write-error propagation needs repair.</td><td>Temporary download and rename. No resume journal; UI cancellation is not connected.</td></tr>
+</tbody></table></div>
+<h2>Fix copy safety before appearance</h2>
+<ol>
+<li>Honor every destination write failure in the Go engine. <code>mtp/mtp.go:454</code> ignores the first write result, and <code>:619</code> shadows the returned error. Use temporary destinations and commit only after success.</li>
+<li>Verify known sizes using the full 64-bit value, including zero. <code>MTPCore/Device.swift:171</code> currently excludes zero and objects at or above 0xFFFFFFFF.</li>
+<li>Reject unsupported folder drops visibly until recursive copy exists. <code>OpenMTPApp.swift:188</code> accepts drops while <code>AppModel.swift:193</code> skips directory URLs.</li>
+<li>Require a deliberate, named confirmation for permanent phone deletion. Bare Delete currently calls deletion immediately at <code>OpenMTPApp.swift:187</code>.</li>
+<li>Add explicit queued, active, waiting, failed, canceled and completed job states. Persist only verified checkpoints. An interrupted file must never appear completed.</li>
+</ol>
+<h2>Native behavior</h2>
+<p>Use SwiftUI for the shell, sidebar, settings and activity. Bridge AppKit for file promises, mature table editing and Quick Look as needed. Share one device session service per phone, with separate browsing state for each window. The current <code>WindowGroup</code> shares a single AppModel, including selection and navigation.</p>
+<p>The current fork supports macOS 13; the Swift package declares macOS 14. Treat that as an explicit compatibility decision. System materials can adapt by OS version without raising the minimum to the latest macOS.</p>
+<p>Use system fonts, semantic colors, system toolbar groups and standard content backgrounds. Let system controls adopt the current macOS materials. Keep custom Liquid Glass out of file rows. Check VoiceOver, keyboard-only use, contrast, transparency and motion preferences. <a href="https://developer.apple.com/design/human-interface-guidelines/designing-for-macos">Mac guidance</a> · <a href="https://developer.apple.com/design/human-interface-guidelines/materials">Materials</a> · <a href="https://developer.apple.com/design/human-interface-guidelines/accessibility">Accessibility</a></p>
+<p>Adopt familiar file commands: Return to rename, Command-O to open, Command-Up for the enclosing folder, Shift-Command-N for a new folder, Space for Quick Look and Command-Delete for the deliberate delete command. Put actions in File, Edit, View and Go menus and resolve them against the focused pane. Offer a legacy shortcut preset for your existing muscle memory. <a href="https://support.apple.com/en-us/102650">Apple shortcut reference</a></p>
+<p>Use file promises for Finder drag-out, so a drop chooses the destination before downloading. Add Quick Look through a managed local cache; some formats require the full file. <a href="https://developer.apple.com/documentation/appkit/supporting-table-view-drag-and-drop-through-file-promises">File promises</a> · <a href="https://developer.apple.com/documentation/quicklookui/qlpreviewpanel">Quick Look</a></p>
+<h2>One job engine, capability-aware connections</h2>
+<div class="flow"><div><strong>USB MTP, no phone app</strong>One active MTP operation per device. Batch metadata, cache folder handles, stream with bounded buffers, and use optional partial-object operations only when supported.<small>Keep command ordering and USB short-packet rules intact.</small></div><div><strong>Network transfer with a cooperating peer</strong>A phone service or an existing compatible server must provide remote listing, reads and writes. Then use authenticated streaming, range resume, checksums and optional delta transfer.<small>A QUIC or TCP connection alone cannot provide Android file access.</small></div></div>
+<p>One operation at a time is an MTP constraint, not a reason to block the interface. USB request queueing and disk work can overlap inside a data phase. <a href="https://www.usb.org/document-library/media-transfer-protocol-v11-spec-and-mtp-v11-adopters-agreement">MTP 1.1 specification, section 4.3.1</a> · <a href="https://libusb.sourceforge.io/api-1.0/group__libusb__asyncio.html">libusb asynchronous I/O</a></p>
+<figure class="request-chart" aria-label="Simulated directory listing uses 1001 operations with per-object metadata or 1 operation with a complete property list.">
+  <div class="request-row"><span>Handles + per-file info</span><div class="request-track"><div class="request-bar" style="width:100%"></div></div><output>1,001</output></div>
+  <div class="request-row"><span>Complete property list</span><div class="request-track"><div class="request-bar" style="width:.0999%"></div></div><output>1</output></div>
+  <figcaption>Operation count, linear scale, for a simulated folder with 1,000 entries. Both strategies run in the Swift test suite. The complete property-list case needs no fallback. This compares protocol work, not elapsed time or hardware throughput.</figcaption>
+</figure>
+<ol>
+<li>Batch directory metadata and reuse handles. Invalidate affected caches on copy, rename, delete, device events and reconnect. Fall back when the phone's implementation is incomplete.</li>
+<li>Overlap USB or network I/O with disk reads, writes and hashing. Use a small reusable buffer pool and backpressure. Preserve one MTP operation at a time; asynchronous USB requests can still feed its data phase.</li>
+<li>Benchmark larger request sizes and bounded request depths. Choose the smallest settings that reach a throughput plateau without harming memory use, interaction latency or cancellation.</li>
+<li>Keep Smart Sync's metadata fast path, but describe it honestly. Equal size and timestamps are not proof of equal content. Add optional verification and preserve case-sensitive names and conflicts.</li>
+<li>Add durable range checkpoints for supported downloads. Upload resume needs verified remote partial-write support. Revalidate device identity, object identity, size and modification state after reconnect.</li>
+<li>For cooperating network peers, transfer only changed blocks when saved network time exceeds scanning, hashing and patching cost. Whole-file streaming remains the useful default for new videos and already compressed media. Apply compression selectively.</li>
+</ol>
+<p>Initial tuning experiments can compare 64 KiB, 256 KiB, 1 MiB and 4 MiB requests with depths of one, two and four. Prefer the smallest setting within 5% of the best repeatable result, with a 16 MiB per-device buffer budget. These are starting hypotheses. Retain a conservative device fallback and preserve ordering, response boundaries and buffer lifetimes.</p>
+<p>For interactive browsing, schedule metadata between files. When partial reads work reliably, test 8–32 MiB ranges and allow browsing requests between them. Use weighted round-robin scheduling with aging so small files do not starve large videos. USB buffer size, scheduling range and durable resume checkpoint size serve different purposes.</p>
+<p>Resume needs a journal of source identity, expected size, committed ranges and available content hashes. MTP handles can change after reconnect, so resolve and validate the source again. Android edit and partial-object commands exist, but support must be tested on each phone. <a href="https://android.googlesource.com/platform/frameworks/av/+/refs/heads/main/media/mtp/MtpServer.cpp">AOSP MTP server</a></p>
+<p>For network peers, compare TCP with TLS and QUIC under the same conditions. Use transport flow control and congestion control, persistent streams and bounded concurrency. Size the application window against measured bandwidth and RTT within a memory cap; do not acknowledge each application chunk in a stop-and-wait loop. QUIC does not automatically combine USB, Wi-Fi and Ethernet. <a href="https://www.rfc-editor.org/rfc/rfc9000.html">QUIC</a> · <a href="https://www.rfc-editor.org/rfc/rfc9002.html">QUIC recovery and congestion control</a></p>
+<p>Evaluate rsync-style rolling checksums for similar existing files and FastCDC for content-defined deduplication across repeated datasets. Use a modern strong digest for verification. The remote peer must compute or retain trusted block information; reading the whole destination through MTP just to hash it may cost more than copying. Bluetooth likewise requires a supported peer service and should favor reduced bytes and selective compression. <a href="https://rsync.samba.org/tech_report/node2.html">Rsync algorithm</a> · <a href="https://www.usenix.org/conference/atc16/technical-sessions/presentation/xia">FastCDC paper</a></p>
+<p>Expose connection capabilities above the USB-specific protocol. A shared file-service API should distinguish listing, streaming, range reads, partial writes, rename, events and remote checksums. That prevents unsupported Pause or Resume actions from reaching the UI.</p>
+<h2>How to establish a speed improvement</h2>
+<p>Measure directory-open latency, time to first byte, sustained useful bytes per second, total completion time including commit, CPU, peak memory, retries and UI response. Compare the fork and native app on the same phone, direction, cable, port and data. Sweep request size and depth; test tiny files, mixed trees and files larger than 4 GiB. For network peers, include LAN and high-latency or lossy links. Exercise unplug, disk-full, device-lock and cancellation recovery separately from speed tests.</p>
+<p>The current <code>mtpctl bench-pull</code> discards received bytes. Use it to isolate USB and protocol performance, then measure full copies including filesystem writes, synchronization and optional checksum verification. Keep these results separate.</p>
+<p>The earlier small-buffer versus large-buffer comparison is a simulator submission-count experiment. It is neither a hardware throughput result nor an execution of the Go implementation. Larger host requests do not change the USB packet size.</p>
+<h2>Verification on Quasar</h2>
+<p>On November 4, 2026, the existing Swift suite passed all 22 tests in 3 suites on Quasar. The local and Quasar Sources directories matched in a checksum dry run. Device discovery reported no MTP/PTP interfaces. Physical transfer speed, native visual appearance and VoiceOver behavior remain unverified. This file is a design study; it does not modify the production app.</p>
+</details>
+<script>
+const byId = id => document.getElementById(id);
+let macVisible = true;
+function setMacVisibility(){const narrow=matchMedia('(max-width:600px)').matches;byId('local').hidden=!macVisible;byId('panes').classList.toggle('single',!macVisible);byId('pane-toggle').textContent=narrow?'Mac pane on wide windows':macVisible?'Hide Mac pane':'Show Mac pane';byId('pane-toggle').disabled=narrow;byId('pane-toggle').setAttribute('aria-pressed',String(macVisible&&!narrow));}
+function scenario(){
+ const state=byId('scenario').value,blocked=state==='offline'||state==='busy',conflict=state==='conflict';
+ byId('local').hidden=blocked||!macVisible;byId('phone').hidden=blocked;byId('offline').hidden=!blocked;
+ byId('conflict').hidden=!conflict;byId('copy').disabled=blocked;byId('cancel').disabled=false;byId('progress').hidden=blocked||conflict;
+ byId('job-summary').textContent=blocked||conflict?'1 waiting · 1 queued':'1 active · 1 queued';
+ byId('job-name').textContent=blocked||conflict?'Waiting to copy selected photos':'Copying selected photos';
+ byId('connection-label').textContent=state==='offline'?'Android phone · Disconnected':state==='busy'?'Android phone · In use':'Android phone · USB';
+ byId('device-status').textContent=state==='offline'?'Disconnected':state==='busy'?'Used by another app':'Connected over USB';
+ byId('queue-status').textContent='Queued';
+ byId('job-status').textContent=state==='offline'?'Reconnect the phone. Completed files stay complete; an interrupted file is retried unless verified resume is supported.':state==='busy'?'Waiting for the other app to release the device.':conflict?'Waiting for your decision about an existing destination file.':'Copying the first photo. The completed file will appear in the destination.';
+ byId('offline-title').textContent=state==='busy'?'Another app is using this phone':'Reconnect the phone';
+ byId('offline-message').textContent=state==='busy'?'Close the app using the device, then try again. Show the actual owner when the system can identify it.':'Reconnect the cable, unlock the phone and choose File transfer. Keep the pending job and its destination visible.';
+}
+byId('scenario').addEventListener('change',scenario);
+byId('pane-toggle').addEventListener('click',()=>{macVisible=!macVisible;setMacVisibility();scenario();});
+byId('transfers-toggle').addEventListener('click',()=>{const show=byId('tray').hidden;byId('tray').hidden=!show;byId('transfers-toggle').setAttribute('aria-expanded',String(show));});
+byId('copy').addEventListener('click',()=>{byId('tray').hidden=false;byId('transfers-toggle').setAttribute('aria-expanded','true');byId('job-status').textContent='Example job added. Source: Android / Camera. Destination: Mac / Pictures / November.';});
+byId('cancel').addEventListener('click',()=>{byId('job-name').textContent='Copy canceled';byId('progress').hidden=true;byId('cancel').disabled=true;byId('job-summary').textContent='1 canceled · 1 queued';byId('job-status').textContent='Illustrated result: completed files stay complete. The uncommitted temporary file is discarded.';byId('conflict').hidden=true;});
+byId('reconnect').addEventListener('click',()=>{byId('scenario').value='copy';scenario();byId('job-status').textContent='Example recovery: device identity and file metadata checked before retrying the interrupted file.';});
+document.querySelectorAll('[data-decision]').forEach(button=>button.addEventListener('click',()=>{byId('scenario').value='copy';scenario();byId('job-status').textContent=button.dataset.decision;}));
+matchMedia('(max-width:600px)').addEventListener('change',()=>{setMacVisibility();scenario();});
+setMacVisibility();
+</script>
+</body>
+</html>
