@@ -4,7 +4,6 @@ import './security/node-network.cjs';
 import './services/sentry/index';
 
 import { app, BrowserWindow, ipcMain, nativeTheme, dialog } from 'electron';
-import electronIs from 'electron-is';
 import { usb as usbMonitor } from 'usb';
 import process from 'process';
 import MenuBuilder from './menu';
@@ -61,7 +60,7 @@ if (IS_DEV && process.env.OPENMTP_REMOTE_DEBUG_PORT) {
 }
 
 const isSingleInstance = app.requestSingleInstanceLock();
-const isMas = electronIs.mas();
+const isMas = process.mas === true;
 let mainWindow = null;
 let usbAttachListener = null;
 let usbDetachListener = null;

@@ -1,6 +1,5 @@
 import React, { PureComponent } from 'react';
 import { ipcRenderer } from 'electron';
-import electronIs from 'electron-is';
 import classNames from 'classnames';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -28,7 +27,7 @@ import { capitalize, isPrereleaseVersion } from '../../../utils/funcs';
 import { IpcEvents } from '../../../services/ipc-events/IpcEventType';
 import { isKalamModeSupported } from '../../../helpers/binaries';
 
-const isMas = electronIs.mas();
+const isMas = process.mas === true;
 
 export default class SettingsDialog extends PureComponent {
   constructor(props) {

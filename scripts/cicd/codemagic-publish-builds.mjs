@@ -1,24 +1,30 @@
 #!/usr/bin/env zx
 
 import 'zx/globals';
-import { packageDirectory } from 'package-directory';
+import { fileURLToPath } from 'node:url';
 import process from 'process';
 import { spawn } from 'child_process';
-import fsExtra, { ensureDirSync } from 'fs-extra';
-import { readFileSync, readdirSync } from 'fs';
+import {
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from 'node:fs';
 import * as yaml from 'js-yaml';
 import path from 'path';
 import { isNotJunk } from 'junk';
-import dayjs from 'dayjs';
 import { IS_PROD_WORKFLOW } from './constants.mjs';
 import { axios } from './axios.mjs';
 
-const { removeSync, outputFileSync, readJsonSync } = fsExtra;
 const undefinedOrNull = (value) => value === undefined || value === null;
 
 const PACKAGE_JSON_FILENAME = 'package.json';
 const DIR_MODE = 0o2775;
-const PKG_ROOT_DIR = await packageDirectory();
+const PKG_ROOT_DIR = fileURLToPath(new URL('../../', import.meta.url)).replace(
+  /\/$/,
+  '',
+);
 const TEMP_ROOT_DIR = `${PKG_ROOT_DIR}/tmp/cicd`;
 const DIST_DIR = `${PKG_ROOT_DIR}/dist`;
 const PACKAGE_JSON_PATH = `${PKG_ROOT_DIR}/${PACKAGE_JSON_FILENAME}`;
@@ -110,7 +116,7 @@ let packageVersion;
 let packageName;
 let gitReleaseTag;
 try {
-  const packageObject = readJsonSync(PACKAGE_JSON_PATH);
+  const packageObject = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8'));
   packageName = packageObject.productName;
   packageVersion = packageObject.version;
   gitReleaseTag = `v${packageObject.version}`;
@@ -122,22 +128,26 @@ try {
 }
 
 console.info(`cleaning the temp directory: '${TEMP_ROOT_DIR}'...\n`);
-await removeSync(TEMP_ROOT_DIR, DIR_MODE);
+await rmSync(TEMP_ROOT_DIR, { recursive: true, force: true });
 
 console.info(`creating the temp directory: ${TEMP_ROOT_DIR}...\n`);
-await ensureDirSync(TEMP_ROOT_DIR, DIR_MODE);
+await mkdirSync(TEMP_ROOT_DIR, { recursive: true, mode: DIR_MODE });
 
 console.info(
   `creating the temp directory for the merged artifacts: ${TEMP_MERGED_ARTIFACTS_PATH}...\n`,
 );
-await ensureDirSync(TEMP_MERGED_ARTIFACTS_PATH, DIR_MODE);
+await mkdirSync(TEMP_MERGED_ARTIFACTS_PATH, {
+  recursive: true,
+  mode: DIR_MODE,
+});
 
 // find the artifact `mac_m1_arm64_artifacts.zip` from the `CM_ARTIFACT_LINKS_M1_ARM64` env JSON
 let macM1Arm64ArtifactsZipUrl;
 for (const artifact of cmArtifactLinksM1Arm64Json) {
   if (artifact.name === MAC_M1_ARM64_ARTIFACTS_ZIP_FILENAME) {
-    const day = dayjs();
-    const cmArtifactExpiry = day.add(12, 'hour').unix();
+    const cmArtifactExpiry = Math.floor(
+      (Date.now() + 12 * 60 * 60 * 1000) / 1000,
+    );
 
     console.info(`Fetching public url of the Artifact\n`);
     try {
@@ -222,7 +232,7 @@ const yamlIntelX64Dump = yaml.dump(latestMacIntelX64YamlObject);
 
 // (over)writing the merged yaml files
 console.info(`(over)writing the merged yaml files...\n`);
-outputFileSync(TEMP_MERGED_MAC_ARTIFACTS_YAML_PATH, yamlIntelX64Dump);
+writeFileSync(TEMP_MERGED_MAC_ARTIFACTS_YAML_PATH, yamlIntelX64Dump);
 
 // listing merged artifacts directory for files
 console.info(`listing merged artifacts directory for files...\n`);

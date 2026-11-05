@@ -86,10 +86,7 @@
     "@sentry/electron": "^8.3.0",
     "@sindresorhus/is": "^8.1.0",
     "classnames": "^2.5.1",
-    "dayjs": "^1.11.23",
-    "electron-is": "^3.0.0",
     "electron-updater": "^6.8.10",
-    "fs-extra": "^11.4.1",
     "hotkeys-js": "^4.0.8",
     "junk": "^4.0.1",
     "koffi": "^3.3.3",
@@ -158,7 +155,6 @@
     "webpack-merge": "^6.0.1",
     "zx": "^8.8.5",
     "@electron/get": "^5.1.0",
-    "package-directory": "^8.2.0",
     "postcss-scss": "^4.0.9",
     "stylelint-config-recommended-scss": "^17.0.1"
   },

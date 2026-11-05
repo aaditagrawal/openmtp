@@ -3,16 +3,21 @@
 /* eslint-disable */
 
 import 'zx/globals';
-import fs from 'fs-extra';
-import { packageDirectory } from 'package-directory';
-import { styleText } from 'util';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { promisify, styleText } from 'node:util';
 import { isMacOSVersion } from 'macos-version';
+
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
 
 await $`export LANG=en_US.UTF-8`;
 await $`export LC_ALL=en_US.UTF-8`;
 
 const DIR_MODE = 0o2775;
-const PKG_ROOT_DIR = await packageDirectory();
+const PKG_ROOT_DIR = fileURLToPath(
+  new URL('../../../../', import.meta.url),
+).replace(/\/$/, '');
 const TEMP_ROOT_DIR = `${PKG_ROOT_DIR}/tmp`;
 const LIBUSB_BOTTLE_TEMP_DIR = `${TEMP_ROOT_DIR}/libusb_cache`;
 const KALAM_NATIVE_DIR = `${PKG_ROOT_DIR}/ffi/kalam/native`;
@@ -171,12 +176,12 @@ if (currentDir !== PKG_ROOT_DIR) {
 }
 
 console.info(`creating the temp directory in ${TEMP_ROOT_DIR}...\n`);
-await fs.ensureDirSync(TEMP_ROOT_DIR, DIR_MODE);
+await fs.mkdirSync(TEMP_ROOT_DIR, { recursive: true, mode: DIR_MODE });
 
 console.info(
   `creating the libusb temp directory in ${LIBUSB_BOTTLE_TEMP_DIR}...\n`,
 );
-await fs.ensureDirSync(LIBUSB_BOTTLE_TEMP_DIR, DIR_MODE);
+await fs.mkdirSync(LIBUSB_BOTTLE_TEMP_DIR, { recursive: true, mode: DIR_MODE });
 $`chmod -R +w ${LIBUSB_BOTTLE_TEMP_DIR}`;
 
 // downloading the 'libusb' Brew bottles
@@ -212,7 +217,10 @@ async function runPrerequisites({ bottles }) {
     console.info(
       `[${bottlePath.identifier}] creating the libusb temp directory in ${bottlePath.extracted}...\n`,
     );
-    await fs.ensureDirSync(bottlePath.extracted, DIR_MODE);
+    await fs.mkdirSync(bottlePath.extracted, {
+      recursive: true,
+      mode: DIR_MODE,
+    });
     await $`LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 tar -xvf ${bottlePath.tarball} -C ${bottlePath.extracted} --no-same-permissions`;
     await $`chmod -R +w ${bottlePath.extracted}`;
   }
@@ -234,8 +242,8 @@ async function runPrerequisites({ bottles }) {
       console.info(
         `[${bottlePath.identifier}] replacing the string '@@HOMEBREW_CELLAR@@' in the pkg-config file...\n`,
       );
-      const configText = await fs.readFile(bottlePath.pkgconfig, 'utf8');
-      await fs.writeFile(
+      const configText = await readFile(bottlePath.pkgconfig, 'utf8');
+      await writeFile(
         bottlePath.pkgconfig,
         configText.replaceAll(
           '@@HOMEBREW_CELLAR@@',
@@ -254,7 +262,10 @@ async function runPrerequisites({ bottles }) {
         `[${bottlePath.identifier}] attempting to copy the libusb-1.0.0.dylib to the build directory...\n`,
       );
 
-      await fs.ensureDirSync(bottlePath.buildDir, DIR_MODE);
+      await fs.mkdirSync(bottlePath.buildDir, {
+        recursive: true,
+        mode: DIR_MODE,
+      });
       // fixing the rpath in the libusb-1.0.0.dylib
       console.info(
         `[${bottlePath.identifier}] fixing the rpath in the libusb-1.0.0.dylib...\n`,
