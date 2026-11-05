@@ -32,6 +32,8 @@ Native builds are currently available from [Native macOS CI](https://github.com/
 
 Extract the downloaded artifact to find its app ZIP and DMG. Preview packages are ad-hoc signed and are not notarized.
 
+If a trusted preview is blocked as unnotarized, try opening the app once, then open **System Settings > Privacy & Security**, choose **Open Anyway**, and confirm **Open**. See [Apple's instructions for opening unnotarized apps](https://support.apple.com/en-us/102445).
+
 The existing v3.x [release](https://github.com/aaditagrawal/openmtp/releases) contains the previous Electron app. The upstream website and Homebrew cask also distribute the upstream app.
 
 Connect your phone with a data-capable USB cable, unlock it and choose **File transfer** in its USB notification. Select the device and storage in OpenMTP's sidebar. Close competing MTP clients if the USB interface is in use; OpenMTP reports the owner when macOS provides that information.
