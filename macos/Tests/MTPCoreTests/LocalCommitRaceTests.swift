@@ -17,7 +17,8 @@ struct LocalCommitRaceTests {
     return try #require((attributes[.systemFileNumber] as? NSNumber)?.uint64Value)
   }
 
-  @Test func replacementAfterValidationPreservesNewAndDisplacedCopies() throws {
+  @Test(arguments: [false, true])
+  func replacementAfterValidationRestoresOrPreservesDisplacedCopy(pathReoccupied: Bool) throws {
     let root = try directory()
     defer { try? FileManager.default.removeItem(at: root) }
     let target = root.appendingPathComponent("target")
@@ -37,13 +38,26 @@ struct LocalCommitRaceTests {
             try FileManager.default.moveItem(at: target, to: savedOriginal)
             try Data("newer writer bytes".utf8).write(to: target)
           }
+          if source == backup && destination == target && pathReoccupied {
+            try Data("third writer bytes".utf8).write(to: target)
+          }
           try LocalTransferCommit.moveExclusive(source, destination)
         })
       Issue.record("The displaced destination must fail identity validation.")
     } catch TreeTransferError.recoveryRequired(let message) {
+      #expect(pathReoccupied)
       #expect(message.contains(staged.path) && message.contains(backup.path))
+    } catch TreeTransferError.destinationChanged(let path) {
+      #expect(!pathReoccupied && path == target.path)
     }
-    #expect(try Data(contentsOf: backup) == Data("newer writer bytes".utf8))
+    if pathReoccupied {
+      #expect(try Data(contentsOf: target) == Data("third writer bytes".utf8))
+      #expect(try Data(contentsOf: backup) == Data("newer writer bytes".utf8))
+    } else {
+      #expect(try Data(contentsOf: target) == Data("newer writer bytes".utf8))
+      #expect(!FileManager.default.fileExists(atPath: backup.path))
+    }
+    #expect(try Data(contentsOf: savedOriginal) == Data("planned original".utf8))
     #expect(try Data(contentsOf: staged) == Data("downloaded bytes".utf8))
   }
 

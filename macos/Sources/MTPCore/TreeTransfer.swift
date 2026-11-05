@@ -696,14 +696,17 @@ enum LocalTransferCommit {
       return
     }
     try move(target, backup)
+    let matches: Bool
     do {
-      guard try matchesExpected(backup) else {
-        throw TreeTransferError.destinationChanged(target.path)
+      matches = try matchesExpected(backup)
+    } catch { matches = false }
+    guard matches else {
+      do { try move(backup, target) } catch {
+        throw TreeTransferError.recoveryRequired(
+          "The destination changed during replacement. The new copy is preserved at \(staged.path), and the displaced item is preserved at \(backup.path)."
+        )
       }
-    } catch {
-      throw TreeTransferError.recoveryRequired(
-        "The destination changed during replacement. The new copy is preserved at \(staged.path), and the displaced item is preserved at \(backup.path)."
-      )
+      throw TreeTransferError.destinationChanged(target.path)
     }
     do {
       try move(staged, target)
