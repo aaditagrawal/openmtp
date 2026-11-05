@@ -321,13 +321,16 @@ private struct FileBrowserPane: View {
       Divider()
       if !isLocal && model.connection != .connected {
         PhoneConnectionView()
+          .focusable().focused($focusedPane, equals: pane)
+          .modifier(PaneFocusAppearance())
+          .onAppear { if model.activePane == pane { focusedPane = pane } }
       } else {
         ZStack {
           if settings.view(for: pane) == .list {
             table.focused($focusedPane, equals: pane)
           } else {
             grid.focusable().focused($focusedPane, equals: pane)
-              .modifier(GridFocusAppearance())
+              .modifier(PaneFocusAppearance())
           }
           if count == 0 && !loading {
             EmptyBrowserState(
@@ -847,7 +850,7 @@ private struct WorkspaceKeyboardBridge: NSViewRepresentable {
       guard window != nil else { return }
       monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
         guard let self, let model = self.model, self.window === NSApp.keyWindow,
-          !(NSApp.keyWindow?.firstResponder is NSTextView),
+          NSApp.target(forAction: #selector(NSText.copy(_:))) == nil,
           NSApp.keyWindow?.attachedSheet == nil,
           event.modifierFlags.intersection([.command, .control, .option]).isEmpty
         else { return event }
@@ -894,7 +897,7 @@ extension MTPObject {
   var sortModified: Date { modified ?? .distantPast }
 }
 
-private struct GridFocusAppearance: ViewModifier {
+private struct PaneFocusAppearance: ViewModifier {
   func body(content: Content) -> some View {
     if #available(macOS 14, *) {
       content.focusEffectDisabled()

@@ -24,7 +24,9 @@ for openmtp_binary in OpenMTP mtpctl; do
     echo 'Native executable depends on a legacy or unbundled runtime.' >&2
     exit 1
   fi
-  for openmtp_slice in $(lipo -archs "$openmtp_app/Contents/MacOS/$openmtp_binary"); do
+  openmtp_slices="$(lipo -archs "$openmtp_app/Contents/MacOS/$openmtp_binary")"
+  test -n "$openmtp_slices"
+  for openmtp_slice in $openmtp_slices; do
     openmtp_build_info="$(vtool -arch "$openmtp_slice" -show-build "$openmtp_app/Contents/MacOS/$openmtp_binary")"
     openmtp_minimum="$(awk '/^[[:space:]]*minos /{print $2}' <<< "$openmtp_build_info")"
     test -n "$openmtp_minimum"
