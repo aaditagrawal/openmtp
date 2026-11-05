@@ -6,7 +6,7 @@ import Testing
 
 private func pattern(_ count: Int, seed: UInt8 = 7) -> Data {
   var d = Data(count: count)
-  d.withUnsafeMutableBytes { buf in
+  d.withUnsafeMutableBytes { (buf: UnsafeMutableRawBufferPointer) in
     var x = seed
     for i in 0..<count {
       x = x &* 31 &+ 17
