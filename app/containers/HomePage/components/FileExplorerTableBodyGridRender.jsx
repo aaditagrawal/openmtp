@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { withStyles } from 'tss-react/mui';
 import Checkbox from '@mui/material/Checkbox';
 import Typography from '@mui/material/Typography';

@@ -5,6 +5,7 @@
 // scripts are disabled; its packages never enter the application's manifest.
 // OPENMTP_BENCH_FILTER selects workload names with a regular expression.
 // OPENMTP_BENCH_OUTPUT selects the JSON checkpoint written after each workload.
+// OPENMTP_BENCH_ENV=production selects production React for row-render fixtures.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -86,7 +87,7 @@ if (!process.env.OPENMTP_BENCH_PREPARED) {
     stdio: ['ignore', 'pipe', 'inherit'],
     env: {
       ...process.env,
-      NODE_ENV: 'test',
+      NODE_ENV: process.env.OPENMTP_BENCH_ENV || 'test',
       TZ: 'America/New_York',
       OPENMTP_BENCH_PREPARED: '1',
     },
@@ -109,6 +110,15 @@ const baselineCheck = (
 const candidateCheck = (
   await import(pathToFileURL(path.join(fixture, 'candidate/checkIf.mjs')))
 ).checkIf;
+const baselineClasses = baselineRequire('classnames');
+const candidateClasses = (
+  await import(
+    'data:text/javascript;base64,' +
+      Buffer.from(
+        fs.readFileSync(path.join(root, 'app/utils/classNames.js'), 'utf8'),
+      ).toString('base64')
+  )
+).default;
 const baselineFs = baselineRequire('fs-extra');
 const baselineDayjs = baselineRequire('dayjs');
 const baselineMas = baselineRequire('electron-is').mas;
@@ -199,12 +209,14 @@ function report(complete) {
       logicalCPUs: os.cpus().length,
       load: os.loadavg(),
       timezone: process.env.TZ,
+      nodeEnv: process.env.NODE_ENV,
     },
     methodology:
       'Warm each variant, then 15 alternating baseline/candidate batches. CPU microseconds/op isolate descheduling; wall time includes scheduler and filesystem waits. No startup/install/hardware speed claim.',
     masModuleLoad:
       'Reload only electron-is before each operation, keeping its semver and development-mode dependencies warm. Compare module evaluation plus one mas() call with the replacement source expression. This measures isolated module initialization, not application startup.',
     parityCases,
+    classCallSites,
     results,
     sink: typeof sink,
   };
@@ -263,6 +275,181 @@ for (const tz of [
       );
       parityCases++;
     }
+}
+// Evaluate the actual arguments at every app call site across state combinations.
+// This checks CSS strings independently of the helper's implementation.
+const { parse } = baselineRequire('@babel/parser');
+function walk(node, visit) {
+  if (!node || typeof node !== 'object') return;
+  visit(node);
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'loc') continue;
+    if (Array.isArray(value)) value.forEach((child) => walk(child, visit));
+    else walk(value, visit);
+  }
+}
+const classFiles = fs
+  .globSync('app/**/*.{js,jsx}', { cwd: root })
+  .filter((file) =>
+    /from ['"][^'"]*utils\/classNames['"]/.test(
+      fs.readFileSync(path.join(root, file), 'utf8'),
+    ),
+  );
+let classCallSites = 0;
+for (const file of classFiles) {
+  const source = fs.readFileSync(path.join(root, file), 'utf8');
+  const ast = parse(source, { sourceType: 'module', plugins: ['jsx'] });
+  let local;
+  walk(ast, (node) => {
+    if (
+      node.type === 'ImportDeclaration' &&
+      node.source.value.endsWith('/utils/classNames')
+    )
+      local = node.specifiers[0].local.name;
+  });
+  walk(ast, (node) => {
+    if (node.type !== 'CallExpression' || node.callee.name !== local) return;
+    assert.ok(node.arguments.length <= 2, file);
+    const args = node.arguments
+      .map((arg) => source.slice(arg.start, arg.end))
+      .join(',');
+    const evaluate = new Function(
+      'styles',
+      'bold',
+      'showLocalPane',
+      'isSelected',
+      'item',
+      'index',
+      'a',
+      'variant',
+      'deviceType',
+      'focussedFileExplorerDeviceType',
+      'onHoverDropZoneActivate',
+      'isStatusBarEnabled',
+      'return [' + args + ']',
+    );
+    for (const prefix of ['css-', '', 'dark-&<>']) {
+      const styles = new Proxy(
+        {},
+        { get: (_, key) => (prefix ? prefix + key : undefined) },
+      );
+      for (let state = 0; state < 128; state++) {
+        const flag = (bit) => Boolean(state & (1 << bit));
+        const values = evaluate(
+          styles,
+          flag(0),
+          flag(1),
+          flag(2),
+          {
+            selected: flag(0),
+            enabled: flag(1),
+            invert: flag(2),
+            image: flag(3),
+          },
+          Number(flag(4)),
+          { image: flag(5), name: 'support-logo' },
+          'success',
+          'mtp',
+          { value: flag(6) ? 'mtp' : 'local' },
+          () => flag(5),
+          flag(4),
+        );
+        assert.equal(
+          candidateClasses(...values),
+          baselineClasses(...values),
+          file + ':' + node.start,
+        );
+        parityCases++;
+      }
+    }
+    classCallSites++;
+  });
+}
+assert.ok(classCallSites > 0);
+for (const [name, inputs] of [
+  ['string', [['css-icon'], [''], [undefined]]],
+  [
+    'two-strings',
+    [
+      ['css-success', 'css-root'],
+      ['css-icon', 'css-variant'],
+    ],
+  ],
+  [
+    'selection',
+    [
+      ['css-row', { 'css-selected': true }],
+      ['css-row', { 'css-selected': false }],
+    ],
+  ],
+  ['flags-only', [[{ 'css-focused': true }], [{ 'css-focused': false }]]],
+  [
+    'toolbar',
+    [
+      ['css-toolbar', { disabled: false, inverted: true, image: true }],
+      ['css-toolbar', { disabled: true, inverted: false, image: false }],
+    ],
+  ],
+  [
+    'large-map',
+    [
+      [
+        'root',
+        Object.fromEntries(
+          Array.from({ length: 100 }, (_, i) => ['css-' + i, i % 2]),
+        ),
+      ],
+    ],
+  ],
+]) {
+  for (const args of inputs) {
+    assert.equal(candidateClasses(...args), baselineClasses(...args));
+    parityCases++;
+  }
+  await measure(
+    'classnames/' + name,
+    (i) => baselineClasses(...inputs[i % inputs.length]),
+    (i) => candidateClasses(...inputs[i % inputs.length]),
+    200000,
+  );
+}
+// Keep JSX creation, dynamic flag allocation and React serialization in the measurement.
+const { createElement } = baselineRequire('react');
+const { renderToStaticMarkup } = baselineRequire('react-dom/server');
+function renderRows(classes, count) {
+  return renderToStaticMarkup(
+    createElement(
+      'div',
+      { className: 'table' },
+      Array.from({ length: count }, (_, i) =>
+        createElement(
+          'div',
+          {
+            key: i,
+            tabIndex: -1,
+            className: classes('css-row', { 'css-selected': i % 3 === 0 }),
+          },
+          createElement('img', {
+            alt: 'File ' + i,
+            className: classes('css-icon'),
+          }),
+        ),
+      ),
+    ),
+  );
+}
+for (const count of [1, 100, 1000]) {
+  assert.equal(
+    renderRows(candidateClasses, count),
+    renderRows(baselineClasses, count),
+  );
+  parityCases++;
+  await measure(
+    'classnames/render-' + count + '-rows',
+    () => renderRows(baselineClasses, count),
+    () => renderRows(candidateClasses, count),
+    count === 1 ? 1000 : count === 100 ? 100 : 10,
+  );
 }
 process.env.TZ = 'America/New_York';
 const NativeDate = Date;

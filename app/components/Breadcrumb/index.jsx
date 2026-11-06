@@ -1,6 +1,6 @@
 import React, { PureComponent, Fragment } from 'react';
 import { withStyles } from 'tss-react/mui';
-import classNames from 'classnames';
+import classNames from '../../utils/classNames';
 import Paper from '@mui/material/Paper';
 import { ChevronRight, MoreHorizontal } from 'lucide-react';
 import Tooltip from '@mui/material/Tooltip';

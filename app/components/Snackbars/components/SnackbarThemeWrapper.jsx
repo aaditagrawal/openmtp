@@ -1,5 +1,5 @@
 import React from 'react';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react';
 import Button from '@mui/material/Button';
 import SnackbarContent from '@mui/material/SnackbarContent';

@@ -1,5 +1,5 @@
 import React, { PureComponent, Fragment } from 'react';
-import classnames from 'classnames';
+import classnames from '../../utils/classNames';
 import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import FileExplorer from './components/FileExplorer';

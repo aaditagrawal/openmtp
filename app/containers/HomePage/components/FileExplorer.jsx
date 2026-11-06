@@ -7,7 +7,7 @@ import {
 
 import React, { Component, Fragment } from 'react';
 import * as path from 'path';
-import classnames from 'classnames';
+import classnames from '../../../utils/classNames';
 import Typography from '@mui/material/Typography';
 import { withStyles } from 'tss-react/mui';
 import {

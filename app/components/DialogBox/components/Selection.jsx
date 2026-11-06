@@ -1,5 +1,5 @@
 import React, { PureComponent, Fragment } from 'react';
-import classnames from 'classnames';
+import classnames from '../../../utils/classNames';
 import Tooltip from '@mui/material/Tooltip';
 import { withStyles } from 'tss-react/mui';
 import List from '@mui/material/List';

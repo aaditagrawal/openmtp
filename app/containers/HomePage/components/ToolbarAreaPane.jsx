@@ -2,7 +2,7 @@
 
 import React, { PureComponent, Fragment } from 'react';
 import { ipcRenderer } from 'electron';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { withStyles } from 'tss-react/mui';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';

@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { withStyles } from 'tss-react/mui';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';

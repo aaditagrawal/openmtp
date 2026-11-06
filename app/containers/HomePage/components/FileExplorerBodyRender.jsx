@@ -1,7 +1,7 @@
 import React, { PureComponent } from 'react';
 import { withStyles } from 'tss-react/mui';
 import Paper from '@mui/material/Paper';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import hotkeys from 'hotkeys-js';
 import FileExplorerTableBodyRender from './FileExplorerTableBodyRender';
 import FileExplorerTableFooterRender from './FileExplorerTableFooterRender';

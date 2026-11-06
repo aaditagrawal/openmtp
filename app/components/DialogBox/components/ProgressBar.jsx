@@ -1,5 +1,5 @@
 import React, { PureComponent, Fragment } from 'react';
-import classnames from 'classnames';
+import classnames from '../../../utils/classNames';
 import { withStyles } from 'tss-react/mui';
 import LinearProgress from '@mui/material/LinearProgress';
 import Dialog from '@mui/material/Dialog';

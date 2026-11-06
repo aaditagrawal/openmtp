@@ -4,7 +4,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { Menu, HardDrive, Zap, Terminal } from 'lucide-react';
 import Icon from '../../../components/Icon';
 import SidebarAreaPaneLists from './SidebarAreaPaneLists';

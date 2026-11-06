@@ -4,7 +4,7 @@ import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
 import Checkbox from '@mui/material/Checkbox';
 import Tooltip from '@mui/material/Tooltip';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import { niceBytes, springTruncate } from '../../../utils/funcs';
 import { FILE_EXPLORER_TABLE_TRUNCATE_MAX_CHARS } from '../../../constants';
 import { styles } from '../styles/FileExplorerTableBodyListRender';

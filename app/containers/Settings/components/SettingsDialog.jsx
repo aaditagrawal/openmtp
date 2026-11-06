@@ -1,6 +1,6 @@
 import React, { PureComponent } from 'react';
 import { ipcRenderer } from 'electron';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Typography from '@mui/material/Typography';

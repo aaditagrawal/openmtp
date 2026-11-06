@@ -1,5 +1,5 @@
 import React, { PureComponent } from 'react';
-import classNames from 'classnames';
+import classNames from '../../../utils/classNames';
 import TextField from '@mui/material/TextField';
 import { withStyles } from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
