@@ -452,14 +452,35 @@ final class NativeFileIntegration: NSObject, QLPreviewPanelDataSource {
 
   /// A type icon is immediately available without reading the phone's payload.
   /// Actual remote contents are fetched only for a requested preview or export.
+  /// Table and grid cells ask for icons on every redraw. Type icons are shared per
+  /// extension; Mac file icons hit Launch Services and the disk, so they are cached
+  /// per path. Both caches are bounded and evict under memory pressure.
+  private let typeIcons: NSCache<NSString, NSImage> = {
+    let cache = NSCache<NSString, NSImage>()
+    cache.countLimit = 512
+    return cache
+  }()
+  private let fileIcons: NSCache<NSURL, NSImage> = {
+    let cache = NSCache<NSURL, NSImage>()
+    cache.countLimit = 4096
+    return cache
+  }()
+
   func icon(name: String, isDirectory: Bool) -> NSImage {
-    let type =
-      isDirectory
-      ? UTType.folder : UTType(filenameExtension: (name as NSString).pathExtension) ?? .data
-    return NSWorkspace.shared.icon(for: type)
+    let ext = isDirectory ? "/" : (name as NSString).pathExtension.lowercased()
+    if let cached = typeIcons.object(forKey: ext as NSString) { return cached }
+    let type = isDirectory ? UTType.folder : UTType(filenameExtension: ext) ?? .data
+    let image = NSWorkspace.shared.icon(for: type)
+    typeIcons.setObject(image, forKey: ext as NSString)
+    return image
   }
 
-  func icon(localURL: URL) -> NSImage { NSWorkspace.shared.icon(forFile: localURL.path) }
+  func icon(localURL: URL) -> NSImage {
+    if let cached = fileIcons.object(forKey: localURL as NSURL) { return cached }
+    let image = NSWorkspace.shared.icon(forFile: localURL.path)
+    fileIcons.setObject(image, forKey: localURL as NSURL)
+    return image
+  }
 
   func preview(localURLs: [URL]) {
     cancelPreviewRequest()

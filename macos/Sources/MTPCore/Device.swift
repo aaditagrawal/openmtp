@@ -217,12 +217,17 @@ public final class MTPDevice: @unchecked Sendable {
       try? fm.removeItem(at: partial)
     }
     var written: UInt64 = 0
+    // Disk writes run behind the next bulk read. The drain runs before the handle
+    // closes and the partial file is removed, including on failure.
+    let writer = PipelinedFileWriter(handle: handle)
+    defer { writer.drain() }
     try session.getObject(
       object.handle,
       sink: { chunk in
-        try handle.write(contentsOf: chunk)
+        try writer.write(chunk)
         written += UInt64(chunk.count)
       }, expectedSize: object.size, progress: progress)
+    try writer.finish()
     if let expected = object.size, written != expected {
       throw MTPError.transport("received \(written) of \(expected) bytes for \(object.name)")
     }
@@ -254,6 +259,8 @@ public final class MTPDevice: @unchecked Sendable {
     let opened = try UploadPreflight.openRegularFile(source)
     let file = opened.file
     defer { try? file.close() }
+    let reader = ReadAheadReader(file: file, blockSize: session.transferSize)
+    defer { reader.finish() }
     let size = opened.size
     var oi = ObjectInfo()
     oi.storageID = storage
@@ -269,7 +276,7 @@ public final class MTPDevice: @unchecked Sendable {
       // another transaction between SendObjectInfo and SendObject.
       onCreated?(created.handle)
       try session.sendObject(
-        MTPOutgoingData(count: size) { try file.read(upToCount: $0) ?? Data() }, progress: progress)
+        MTPOutgoingData(count: size) { try reader.read($0) }, progress: progress)
       return created.handle
     }
     invalidate(storage: storage, parent: parent)
