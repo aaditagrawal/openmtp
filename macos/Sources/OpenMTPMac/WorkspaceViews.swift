@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct WorkspaceView: View {
   @EnvironmentObject private var model: AppModel
   @EnvironmentObject private var settings: WorkspaceSettings
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   private var activeSearch: Binding<String> {
     model.activePane == .local ? $model.localSearch : $model.phoneSearch
@@ -29,10 +30,11 @@ struct WorkspaceView: View {
         }
         if settings.showTransfers {
           TransferQueueView()
-            .frame(height: model.transfers.isEmpty ? 44 : 180)
             .padding(12)
+            .transition(Motion.slide(from: .bottom, reduceMotion: reduceMotion))
         }
       }
+      .motion(Motion.panel, value: settings.showTransfers)
       .navigationTitle("OpenMTP")
       .searchable(
         text: activeSearch,
@@ -185,6 +187,7 @@ private struct WorkspaceSidebar: View {
                   Spacer(minLength: 0)
                   if model.selectedStorage == storage.id {
                     Image(systemName: "checkmark").foregroundStyle(.tint)
+                      .transition(Motion.fade(Motion.quick))
                   }
                 }
                 if storage.maxCapacity > 0 {
@@ -258,9 +261,9 @@ private struct FileBrowserPane: View {
           Text(locationName).font(.system(size: 15, weight: .semibold)).lineLimit(1)
         }
         Spacer(minLength: 5)
-        if loading { ProgressView().controlSize(.small) }
+        if loading { Spinner(label: "Loading folder").transition(Motion.fade(Motion.quick)) }
         if !isLocal && model.preparingPreview {
-          ProgressView().controlSize(.small)
+          Spinner(label: "Preparing preview")
           Button("Cancel Preview") { model.cancelPreview() }.buttonStyle(.borderless).font(.caption)
         }
         if isLocal {
@@ -340,11 +343,13 @@ private struct FileBrowserPane: View {
                 ? "Drop files here or create a folder." : "Try another name or show hidden files."
             )
             .allowsHitTesting(false)
+            .transition(Motion.fade())
           }
           if dropTarget.wrappedValue {
             RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 3).padding(
               4
             ).allowsHitTesting(false)
+              .transition(Motion.fade(Motion.quick))
           }
         }
         .onDrop(
@@ -497,6 +502,7 @@ private struct FileBrowserPane: View {
       .background(
         selected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 7)
       )
+      .motion(Motion.quick, value: selected)
       .contentShape(Rectangle()).accessibilityLabel(name).accessibilityAddTraits(
         selected ? [.isSelected] : [])
   }
@@ -566,7 +572,7 @@ private struct PhoneConnectionView: View {
           }
         }
       case .connecting(let name):
-        ProgressView()
+        Spinner(size: 26, label: "Connecting")
         Text("Connecting to \(name)…").font(.headline)
         Text("Keep the phone unlocked.").foregroundStyle(.secondary)
       case .failed(let message, let canSeize):
@@ -583,6 +589,7 @@ private struct PhoneConnectionView: View {
       }
       Spacer()
     }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+      .motion(Motion.standard, value: model.connection)
   }
 }
 
@@ -613,20 +620,33 @@ private struct WorkspaceDialogs: ViewModifier {
   @ObservedObject var browser: BrowserState
   func body(content: Content) -> some View {
     content
-      .alert("New Folder", isPresented: $browser.showingNewFolder) {
+      .alert(
+        "New Folder",
+        isPresented: Binding(
+          get: { browser.showingNewFolder }, set: { if !$0 { browser.folderContext = nil } }),
+        presenting: browser.folderContext
+      ) { context in
         TextField("Folder name", text: $browser.newFolderName)
         Button("Cancel", role: .cancel) {
           browser.newFolderName = ""
           browser.folderContext = nil
         }
-        Button("Create") { model.commitNewFolder() }
-      } message: {
-        Text("Create a folder in \(browser.folderContext?.location ?? "").")
+        Button("Create") { model.commitNewFolder(context) }
+      } message: { context in
+        Text("Create a folder in \(context.location).")
       }
-      .alert("Rename", isPresented: $browser.showingRename) {
+      .alert(
+        "Rename",
+        isPresented: Binding(
+          get: { browser.showingRename }, set: { if !$0 { browser.renameTarget = nil } }),
+        presenting: browser.renameTarget
+      ) { target in
         TextField("Name", text: $browser.renameText)
-        Button("Cancel", role: .cancel) {}
-        Button("Rename") { model.commitRename() }
+        Button("Cancel", role: .cancel) { browser.renameTarget = nil }
+        Button("Rename") {
+          model.commitRename(target)
+          browser.renameTarget = nil
+        }
       }
       .alert(
         model.pendingDeletion?.title ?? "Delete from Phone",

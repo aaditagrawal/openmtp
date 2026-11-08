@@ -17,6 +17,25 @@ final class AppModel: ObservableObject {
     enum State: String, Codable, Sendable {
       case queued, planning, waiting, running, cancelling, completed, failed, cancelled
       var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled }
+      /// The job lifecycle as an explicit transition table. Every state change goes
+      /// through `AppModel.transition`, which checks this in debug builds.
+      ///
+      ///     queued → planning → running → completed
+      ///                  ↘ waiting ↗   (conflict prompt or missing phone)
+      ///     any live state → cancelling → cancelled | failed | completed
+      ///     failed | cancelled | waiting → queued   (retry)
+      func allows(_ next: State) -> Bool {
+        if self == next { return !isTerminal }
+        switch next {
+        case .queued: return self == .failed || self == .cancelled || self == .waiting
+        case .planning: return self == .queued
+        case .waiting: return self == .queued || self == .planning
+        case .running: return self == .planning || self == .waiting
+        case .cancelling, .cancelled: return !isTerminal
+        case .completed: return self == .running || self == .cancelling
+        case .failed: return !isTerminal && self != .queued
+        }
+      }
     }
     let id: UUID
     let name: String
@@ -85,6 +104,22 @@ final class AppModel: ObservableObject {
     let policy: CopyConflictPolicy
     let removeExtras: Bool
   }
+  /// The prompt and the suspended job waiting on it exist together or not at all.
+  private struct ConflictPrompt {
+    let conflict: PendingConflict
+    let continuation: CheckedContinuation<ConflictDecision?, Never>
+  }
+  /// A directory listing in flight. The ticket ties a result to the request that
+  /// asked for it, so an older listing never clears a newer one's loading state.
+  enum ListingPhase: Equatable {
+    case idle
+    case loading(ticket: Int)
+  }
+  /// Remote Quick Look preparation. A new epoch supersedes any earlier request.
+  enum PreviewPhase: Equatable {
+    case idle
+    case preparing(epoch: UUID)
+  }
   struct Clipboard: Codable, Sendable {
     let pane: WorkspacePane
     let paths: [String]
@@ -120,7 +155,8 @@ final class AppModel: ObservableObject {
   }
   @Published private(set) var path: [MTPObject] = []
   @Published private(set) var entries: [MTPObject] = [] { didSet { phoneRevision += 1 } }
-  @Published private(set) var isLoading = false
+  @Published private(set) var phoneListing = ListingPhase.idle
+  var isLoading: Bool { phoneListing != .idle }
   @Published var selection = Set<MTPObject.ID>()
   @Published var sortOrder = [KeyPathComparator(\MTPObject.name, comparator: .localizedStandard)] {
     didSet { savePhoneSort() }
@@ -130,20 +166,29 @@ final class AppModel: ObservableObject {
   ] { didSet { saveLocalSort() } }
   @Published private(set) var localDirectory: URL
   @Published private(set) var localEntries: [LocalFile] = [] { didSet { localRevision += 1 } }
-  @Published private(set) var localLoading = false
+  @Published private(set) var localListing = ListingPhase.idle
+  var localLoading: Bool { localListing != .idle }
   @Published var localSelection = Set<URL>()
   @Published var activePane: WorkspacePane = .phone {
     didSet { if activePane == .local && !settings.showLocalPane { activePane = .phone } }
   }
   @Published var localSearch = "" { didSet { if oldValue != localSearch { localSelection = [] } } }
   @Published var phoneSearch = "" { didSet { if oldValue != phoneSearch { selection = [] } } }
-  @Published var transfers: [Transfer] = []
+  /// Jobs live in their own observable store. Progress ticks then redraw only the
+  /// queue, not every file table and sidebar observing the workspace model.
+  let transferStore = TransferStore()
+  var transfers: [Transfer] {
+    get { transferStore.jobs }
+    set { transferStore.jobs = newValue }
+  }
   @Published var errorMessage: String?
   @Published var pendingDeletion: PendingDeletion?
-  @Published var pendingConflict: PendingConflict?
+  @Published private var conflictPrompt: ConflictPrompt?
+  var pendingConflict: PendingConflict? { conflictPrompt?.conflict }
   @Published private(set) var clipboard: Clipboard?
   @Published var dropInProgress = false
-  @Published private(set) var preparingPreview = false
+  @Published private(set) var previewPhase = PreviewPhase.idle
+  var preparingPreview: Bool { previewPhase != .idle }
   @Published private(set) var isTerminating = false
   let settings: WorkspaceSettings
   let fileIntegration: NativeFileIntegration
@@ -157,7 +202,6 @@ final class AppModel: ObservableObject {
   private var worker: Task<Void, Never>?
   private var dropTasks: [UUID: Task<Void, Never>] = [:]
   private var tokens: [UUID: TransferCancellationToken] = [:]
-  private var conflictContinuation: CheckedContinuation<ConflictDecision?, Never>?
   private let defaults: WorkspacePreferenceStore
   private var settingsSubscription: AnyCancellable?
   private var paneVisibilitySubscription: AnyCancellable?
@@ -167,9 +211,9 @@ final class AppModel: ObservableObject {
   private var phoneHistory: [PhoneLocation] = []
   private var phoneHistoryIndex = -1
   private var restoringLocation = false
-  private var localReadID = UUID()
+  private let phoneListings = RequestGeneration()
+  private let localListings = RequestGeneration()
   private var clipboardChangeCount = -1
-  private var previewEpoch = UUID()
   private var lastGridSelection: [WorkspacePane: String] = [:]
   private var phoneRevision = 0, localRevision = 0
   private struct PhoneCacheKey: Equatable {
@@ -466,18 +510,25 @@ final class AppModel: ObservableObject {
 
   func reload(refresh: Bool = false) async {
     guard let client, let storage = selectedStorage else { return }
-    isLoading = true
-    defer { isLoading = false }
+    let generation = phoneListings
+    let ticket = generation.next()
+    phoneListing = .loading(ticket: ticket)
+    defer { if phoneListing == .loading(ticket: ticket) { phoneListing = .idle } }
     let parent = currentParent
     do {
-      let listed = try await client.run {
-        try $0.children(storage: storage, parent: parent, refresh: refresh)
+      let listed = try await client.run { device in
+        // Fast navigation queues listings behind one another on the device. Skip a
+        // plain listing that a newer request superseded before it reached the
+        // device. Refreshes always run, because they also renew the cache.
+        guard refresh || generation.isCurrent(ticket) else { throw CancellationError() }
+        return try device.children(storage: storage, parent: parent, refresh: refresh)
       }
       guard self.client === client, selectedStorage == storage, currentParent == parent else {
         return
       }
       entries = listed
       selection.formIntersection(Set(entries.map(\.id)))
+    } catch is CancellationError {
     } catch { report(error) }
   }
   func reloadActive() {
@@ -489,20 +540,20 @@ final class AppModel: ObservableObject {
   }
   func reloadLocal() async {
     let directory = localDirectory
-    let id = UUID()
-    localReadID = id
-    localLoading = true
+    let ticket = localListings.next()
+    localListing = .loading(ticket: ticket)
     do {
       let listed = try await Task.detached(priority: .userInitiated) {
         try LocalDirectoryReader.read(directory)
       }.value
-      guard localReadID == id, localDirectory == directory else { return }
+      guard localListing == .loading(ticket: ticket) else { return }
+      localListing = .idle
+      guard localDirectory == directory else { return }
       localEntries = listed
       localSelection.formIntersection(Set(listed.map(\.id)))
-      localLoading = false
     } catch {
-      guard localReadID == id else { return }
-      localLoading = false
+      guard localListing == .loading(ticket: ticket) else { return }
+      localListing = .idle
       errorMessage = "Cannot open \(directory.path): \(error)"
     }
   }
@@ -925,8 +976,7 @@ final class AppModel: ObservableObject {
   }
   private func run(_ job: Transfer) async {
     guard let client, connection == .connected, job.phoneIdentity == deviceKey else {
-      updateJob(job.id) {
-        $0.state = .waiting
+      transition(job.id, to: .waiting) {
         $0.error = "Connect the original phone, then retry this job."
       }
       persistJobs()
@@ -934,8 +984,7 @@ final class AppModel: ObservableObject {
     }
     let token = TransferCancellationToken()
     tokens[job.id] = token
-    updateJob(job.id) {
-      $0.state = .planning
+    transition(job.id, to: .planning) {
       $0.error = nil
       $0.done = 0
       $0.total = nil
@@ -979,14 +1028,15 @@ final class AppModel: ObservableObject {
       var removeExtras = false
       browser.removeExtras = false
       if !plan.conflicts.isEmpty || !plan.extras.isEmpty {
-        updateJob(job.id) { $0.state = .waiting }
-        pendingConflict = PendingConflict(
+        transition(job.id, to: .waiting)
+        let conflict = PendingConflict(
           jobID: job.id, names: Array(plan.conflicts.prefix(8).map(\.relativePath)),
           count: plan.conflicts.count, extrasCount: plan.extras.count, route: job.route,
           destinationIsPhone: job.direction == .upload,
           extraNames: Array(plan.extras.prefix(12).map(\.relativePath)))
-        let decision = await withCheckedContinuation { conflictContinuation = $0 }
-        pendingConflict = nil
+        let decision = await withCheckedContinuation {
+          conflictPrompt = ConflictPrompt(conflict: conflict, continuation: $0)
+        }
         guard let decision else { throw MTPError.cancelled }
         policy = decision.policy
         removeExtras = decision.removeExtras && policy == .smartSync
@@ -996,10 +1046,7 @@ final class AppModel: ObservableObject {
         throw MTPError.transport(
           "The phone changed while choosing how to copy. Retry the job on the original phone.")
       }
-      updateJob(job.id) {
-        $0.state = .running
-        $0.startedAt = Date()
-      }
+      transition(job.id, to: .running) { $0.startedAt = Date() }
       let progress = treeProgressReporter(job.id, cancellation: token)
       let chosenPolicy = policy
       let shouldRemoveExtras = removeExtras
@@ -1009,8 +1056,7 @@ final class AppModel: ObservableObject {
         if shouldRemoveExtras { _ = try device.removeExtras(from: plan, cancellation: token) }
         return result
       }
-      updateJob(job.id) {
-        $0.state = .completed
+      transition(job.id, to: .completed) {
         $0.completedAt = Date()
         $0.completedFiles = summary.copiedFiles + summary.skippedFiles
         $0.skippedFiles = summary.skippedFiles
@@ -1023,14 +1069,18 @@ final class AppModel: ObservableObject {
       if job.direction == .download,
         URL(fileURLWithPath: job.destination).standardizedFileURL == localDirectory
       {
-        await reloadLocal()
+        // The Mac folder read runs off the main actor and the phone listing runs on
+        // the device queue, so the two refreshes overlap instead of queueing.
+        async let local: Void = reloadLocal()
+        await reload(refresh: true)
+        await local
+      } else {
+        await reload(refresh: true)
       }
-      await reload(refresh: true)
     } catch {
       let cancelled =
         token.isCancelled || (error as? MTPError) == .cancelled || error is CancellationError
-      updateJob(job.id) {
-        $0.state = cancelled ? .cancelled : .failed
+      transition(job.id, to: cancelled ? .cancelled : .failed) {
         $0.error = cancelled ? nil : String(describing: error)
         if !token.recoveryPaths.isEmpty {
           $0.error =
@@ -1040,10 +1090,10 @@ final class AppModel: ObservableObject {
         $0.completedAt = Date()
       }
       if client.device.session.isBroken, self.client === client {
-        for i in transfers.indices where transfers[i].state == .queued {
-          transfers[i].state = .waiting
-          transfers[i].error =
-            "Reconnect the phone and retry. A previous transfer interrupted the session."
+        for queued in transfers where queued.state == .queued {
+          transition(queued.id, to: .waiting) {
+            $0.error = "Reconnect the phone and retry. A previous transfer interrupted the session."
+          }
         }
         await disconnect(preserveWaiting: true)
       }
@@ -1052,8 +1102,18 @@ final class AppModel: ObservableObject {
     persistJobs()
   }
   private func updateJob(_ id: UUID, _ change: (inout Transfer) -> Void) {
-    guard let index = transfers.firstIndex(where: { $0.id == id }) else { return }
-    change(&transfers[index])
+    guard let index = transferStore.jobs.firstIndex(where: { $0.id == id }) else { return }
+    change(&transferStore.jobs[index])
+  }
+  /// The only place a job's state changes after it is enqueued.
+  private func transition(
+    _ id: UUID, to next: Transfer.State, _ change: (inout Transfer) -> Void = { _ in }
+  ) {
+    updateJob(id) {
+      assert($0.state.allows(next), "Invalid transfer transition \($0.state) → \(next)")
+      $0.state = next
+      change(&$0)
+    }
   }
   nonisolated private func treeProgressReporter(_ id: UUID, cancellation: TransferCancellationToken)
     -> @Sendable (TreeTransferProgress) throws -> Void
@@ -1080,23 +1140,20 @@ final class AppModel: ObservableObject {
     }
   }
   func resolveConflict(_ policy: CopyConflictPolicy?, removeExtras: Bool = false) {
-    guard let continuation = conflictContinuation else { return }
+    guard let prompt = conflictPrompt else { return }
     browser.removeExtras = removeExtras
-    conflictContinuation = nil
-    pendingConflict = nil
-    continuation.resume(
+    conflictPrompt = nil
+    prompt.continuation.resume(
       returning: policy.map { ConflictDecision(policy: $0, removeExtras: removeExtras) })
   }
   func cancelTransfer(_ id: UUID) {
-    guard let index = transfers.firstIndex(where: { $0.id == id }), !transfers[index].finished
-    else { return }
+    guard let job = transfers.first(where: { $0.id == id }), !job.finished else { return }
     tokens[id]?.cancel()
     if pendingConflict?.jobID == id { resolveConflict(nil) }
     if tokens[id] != nil {
-      transfers[index].state = .cancelling
+      transition(id, to: .cancelling)
     } else {
-      transfers[index].state = .cancelled
-      transfers[index].completedAt = Date()
+      transition(id, to: .cancelled) { $0.completedAt = Date() }
     }
     persistJobs()
   }
@@ -1116,9 +1173,10 @@ final class AppModel: ObservableObject {
       return
     }
     guard canRetryTransfer(id) else { return }
-    transfers[index].state = .queued
-    transfers[index].error = nil
-    transfers[index].completedAt = nil
+    transition(id, to: .queued) {
+      $0.error = nil
+      $0.completedAt = nil
+    }
     persistJobs()
     startWorkerIfNeeded()
   }
@@ -1142,16 +1200,18 @@ final class AppModel: ObservableObject {
 
   func beginNewFolder() {
     guard !isTerminating else { return }
+    browser.newFolderName = ""
     browser.folderContext = FolderCreationContext(
       pane: activePane, localDirectory: localDirectory, client: client,
       storage: selectedStorage, parent: currentParent,
       location: activePane == .local ? localDirectory.path : phoneLocation)
-    browser.newFolderName = ""
-    browser.showingNewFolder = true
   }
-  func commitNewFolder() {
+  func commitNewFolder() { commitNewFolder(browser.folderContext) }
+  /// The alert passes the context it was presented with, so dismissal order
+  /// cannot lose the destination.
+  func commitNewFolder(_ context: FolderCreationContext?) {
     guard !isTerminating else { return }
-    guard let context = browser.folderContext else { return }
+    guard let context else { return }
     defer { browser.folderContext = nil }
     guard activePane == context.pane,
       context.pane == .local
@@ -1203,32 +1263,34 @@ final class AppModel: ObservableObject {
   }
   func beginRename() {
     guard !isTerminating else { return }
-    browser.renameText =
-      activePane == .local
-      ? (selectedLocalFiles.first?.name ?? "") : (selectedObjects.first?.name ?? "")
-    browser.renaming = activePane == .phone ? selectedObjects.first : nil
-    browser.renamingLocal = activePane == .local ? selectedLocalFiles.first?.url : nil
-    browser.renamingClient = activePane == .phone ? client : nil
-    browser.renamingStorage = selectedStorage
-    browser.renamingParent = currentParent
-    browser.showingRename = browser.renaming != nil || browser.renamingLocal != nil
+    if activePane == .local, let file = selectedLocalFiles.first {
+      browser.renameText = file.name
+      browser.renameTarget = .local(file.url)
+    } else if activePane == .phone, let object = selectedObjects.first {
+      browser.renameText = object.name
+      browser.renameTarget = .phone(
+        object, client: client, storage: selectedStorage, parent: currentParent)
+    } else {
+      browser.renameText = ""
+      browser.renameTarget = nil
+    }
   }
-  func commitRename() {
-    guard !isTerminating else { return }
+  func commitRename() { commitRename(browser.renameTarget) }
+  func commitRename(_ target: BrowserState.RenameTarget?) {
+    guard !isTerminating, let target else { return }
     let name = browser.renameText
     guard Self.validName(name) else {
       errorMessage = "Use a valid filename."
       return
     }
-    if let object = browser.renaming {
-      guard client === browser.renamingClient, selectedStorage == browser.renamingStorage,
-        currentParent == browser.renamingParent
-      else {
+    switch target {
+    case .phone(let object, let renamingClient, let storage, let parent):
+      guard client === renamingClient, selectedStorage == storage, currentParent == parent else {
         errorMessage = "Rename was cancelled because the phone or folder changed."
         return
       }
       rename(object, to: name)
-    } else if let url = browser.renamingLocal {
+    case .local(let url):
       let destination = url.deletingLastPathComponent().appendingPathComponent(name)
       Task {
         do {
@@ -1301,10 +1363,9 @@ final class AppModel: ObservableObject {
       let files = selectedObjects.compactMap { remoteFile($0) }
       guard !files.isEmpty else { return }
       let epoch = UUID()
-      previewEpoch = epoch
-      preparingPreview = true
+      previewPhase = .preparing(epoch: epoch)
       Task {
-        defer { if previewEpoch == epoch { preparingPreview = false } }
+        defer { if previewPhase == .preparing(epoch: epoch) { previewPhase = .idle } }
         do {
           try await fileIntegration.preview(remoteFiles: files)
         } catch is CancellationError {} catch MTPError.cancelled {
@@ -1314,8 +1375,7 @@ final class AppModel: ObservableObject {
     }
   }
   func cancelPreview() {
-    previewEpoch = UUID()
-    preparingPreview = false
+    previewPhase = .idle
     fileIntegration.closePreview()
   }
   private func remoteFile(_ object: MTPObject) -> NativeFileIntegration.RemoteFile? {
@@ -1396,6 +1456,28 @@ final class AppModel: ObservableObject {
   }
 }
 
+/// A monotonically increasing request number readable from the device queue.
+final class RequestGeneration: @unchecked Sendable {
+  private let lock = NSLock()
+  private var value = 0
+  func next() -> Int {
+    lock.lock()
+    defer { lock.unlock() }
+    value += 1
+    return value
+  }
+  func isCurrent(_ ticket: Int) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return value == ticket
+  }
+}
+
+@MainActor
+final class TransferStore: ObservableObject {
+  @Published var jobs: [AppModel.Transfer] = []
+}
+
 final class LockedValue: @unchecked Sendable {
   private var value: Double
   private let lock = NSLock()
@@ -1411,15 +1493,17 @@ final class LockedValue: @unchecked Sendable {
 
 @MainActor
 final class BrowserState: ObservableObject {
+  /// What the rename alert acts on, captured when it opens. Nil means no rename.
+  enum RenameTarget {
+    case phone(MTPObject, client: MTPClient?, storage: UInt32?, parent: UInt32)
+    case local(URL)
+  }
   @Published var newFolderName = ""
-  var folderContext: AppModel.FolderCreationContext?
-  @Published var showingNewFolder = false
-  @Published var renaming: MTPObject?
-  @Published var renamingLocal: URL?
-  var renamingClient: MTPClient?
-  var renamingStorage: UInt32?
-  var renamingParent: UInt32?
-  @Published var showingRename = false
+  /// The destination the New Folder alert was opened for. Nil means it is closed.
+  @Published var folderContext: AppModel.FolderCreationContext?
+  var showingNewFolder: Bool { folderContext != nil }
+  @Published var renameTarget: RenameTarget?
+  var showingRename: Bool { renameTarget != nil }
   @Published var renameText = ""
   @Published var isDropTargeted = false
   @Published var isLocalDropTargeted = false

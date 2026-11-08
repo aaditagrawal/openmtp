@@ -4,13 +4,15 @@ import SwiftUI
 @MainActor
 struct TransferQueueView: View {
   @EnvironmentObject private var model: AppModel
+  @EnvironmentObject private var store: TransferStore
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-  private var pendingCount: Int { model.transfers.filter { !$0.finished }.count }
+  private var jobs: [AppModel.Transfer] { store.jobs }
+  private var pendingCount: Int { jobs.filter { !$0.finished }.count }
 
   var body: some View {
     Group {
-      if model.transfers.isEmpty {
+      if jobs.isEmpty {
         HStack(spacing: 10) {
           Image(systemName: "arrow.left.arrow.right")
             .foregroundStyle(.secondary).accessibilityHidden(true)
@@ -28,19 +30,21 @@ struct TransferQueueView: View {
             Text(pendingCount > 0 ? "\(pendingCount) pending" : "No pending copies")
               .foregroundStyle(.secondary).monospacedDigit()
             Spacer(minLength: 8)
-            if model.transfers.contains(where: { $0.finished }) {
+            if jobs.contains(where: { $0.finished }) {
               Button("Clear Finished") { model.clearFinishedTransfers() }
                 .buttonStyle(.borderless).help("Remove finished copies from this list")
+                .transition(Motion.fade(Motion.quick))
             }
           }
           .font(.callout).padding(.horizontal, 16).padding(.vertical, 12)
           Divider().padding(.horizontal, 16)
           ScrollView {
             LazyVStack(spacing: 0) {
-              ForEach(model.transfers) { job in
+              ForEach(jobs) { job in
                 TransferRow(job: job)
                   .padding(.horizontal, 16).padding(.vertical, 12)
-                if job.id != model.transfers.last?.id {
+                  .transition(Motion.fade(Motion.quick))
+                if job.id != jobs.last?.id {
                   Divider().padding(.leading, 48).padding(.trailing, 16)
                 }
               }
@@ -62,6 +66,8 @@ struct TransferQueueView: View {
         .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
         .allowsHitTesting(false)
     }
+    .frame(height: jobs.isEmpty ? 44 : 180)
+    .motion(Motion.panel, value: jobs.isEmpty)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Transfers")
   }

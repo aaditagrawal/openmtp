@@ -11,6 +11,7 @@ struct OpenMTPApp: App {
       WorkspaceView()
         .environmentObject(model)
         .environmentObject(model.settings)
+        .environmentObject(model.transferStore)
         .frame(minWidth: model.settings.showLocalPane ? 900 : 600, minHeight: 520)
         .task {
           delegate.model = model

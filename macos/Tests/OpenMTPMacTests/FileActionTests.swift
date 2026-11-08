@@ -136,3 +136,67 @@ struct FileActionTests {
     try UploadPreflight.validate([file])
   }
 }
+
+@Suite("Explicit workspace state machines")
+@MainActor
+struct WorkspaceStateMachineTests {
+  typealias State = AppModel.Transfer.State
+
+  @Test func transferTransitionsFollowTheLifecycle() {
+    #expect(State.queued.allows(.planning))
+    #expect(State.planning.allows(.waiting) && State.waiting.allows(.running))
+    #expect(State.running.allows(.completed) && State.cancelling.allows(.completed))
+    #expect(State.failed.allows(.queued) && State.cancelled.allows(.queued))
+    #expect(State.waiting.allows(.queued))
+    #expect(!State.completed.allows(.queued) && !State.completed.allows(.running))
+    #expect(!State.queued.allows(.running) && !State.queued.allows(.completed))
+    #expect(!State.cancelled.allows(.cancelled) && !State.failed.allows(.cancelling))
+  }
+
+  @Test func overlappingListingsEndIdleWithTheNewestResult() async throws {
+    let sim = SimulatedDevice()
+    let folder = sim.add("folder", directory: true)
+    _ = sim.add("inside.txt", parent: folder)
+    let model = AppModel(
+      client: MTPClient(device: try MTPDevice(transport: sim)), storage: sim.storageID)
+    async let first: Void = model.reload(refresh: true)
+    async let second: Void = model.reload()
+    _ = await (first, second)
+    #expect(!model.isLoading)
+    #expect(model.entries.map(\.name) == ["folder"])
+    // open() starts its own listing, which supersedes this plain reload. The
+    // superseded call returns early; the newer listing owns the result.
+    model.open(try #require(model.entries.first))
+    await model.reload()
+    for _ in 0..<200 where model.isLoading { try await Task.sleep(nanoseconds: 5_000_000) }
+    #expect(!model.isLoading)
+    #expect(model.entries.map(\.name) == ["inside.txt"])
+  }
+
+  @Test func renameTargetIsCapturedWhenTheAlertOpens() async throws {
+    let sim = SimulatedDevice()
+    let file = sim.add("before.txt")
+    let model = AppModel(
+      client: MTPClient(device: try MTPDevice(transport: sim)), storage: sim.storageID)
+    await model.reload()
+    model.activePane = .phone
+    model.selection = [file]
+    model.beginRename()
+    #expect(model.browser.showingRename)
+    let target = model.browser.renameTarget
+    model.browser.renameTarget = nil  // The alert dismisses before its action runs.
+    model.browser.renameText = "after.txt"
+    model.commitRename(target)
+    try await waitUntilRenamed(sim, file, "after.txt")
+  }
+
+  private func waitUntilRenamed(_ sim: SimulatedDevice, _ handle: UInt32, _ name: String)
+    async throws
+  {
+    for _ in 0..<200 {
+      if sim.nodes[handle]?.name == name { return }
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    Issue.record("rename did not reach the device")
+  }
+}
