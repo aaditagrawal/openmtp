@@ -863,8 +863,16 @@ private final class TreeExecutor {
     _ node: TreeNode, to originalURL: URL, expected: TreeItem?, selectedPolicy: CopyConflictPolicy
   ) throws {
     try cancellation.check()
-    try validateSource(node.source)
     let existing = try validateLocalDestination(originalURL, expected: expected)
+    // A file's source is always revalidated after its bytes arrive and before the
+    // commit. Re-read it up front only where its metadata decides the outcome
+    // (skip, Smart Sync) or a folder is created; elsewhere it is a redundant
+    // GetObjectInfo round trip per file.
+    if node.source.isDirectory
+      || (existing != nil && (selectedPolicy == .skip || selectedPolicy == .smartSync))
+    {
+      try validateSource(node.source)
+    }
     if existing != nil && selectedPolicy == .skip {
       try skip(node)
       return
@@ -926,7 +934,12 @@ private final class TreeExecutor {
     }
     let work = try LocalWorkArea(parent: target.deletingLastPathComponent())
     let staged = work.url.appendingPathComponent("payload")
-    try device.download(source, to: staged, progress: transferProgress(node.path))
+    do {
+      try device.download(source, to: staged, progress: transferProgress(node.path))
+    } catch MTPError.response(.invalidObjectHandle, _) {
+      // Removed after planning. Reported as before the early check was dropped.
+      throw TreeTransferError.sourceChanged(source.name)
+    }
     try validateSource(node.source)
     try cancellation.check()
     try commitLocal(staged, to: target, expected: expected, work: work)
@@ -986,8 +999,14 @@ private final class TreeExecutor {
   ) throws {
     try cancellation.check()
     try validateSource(node.source)
-    let existing = try remoteDestination(
-      storage: storage, parent: parent, name: originalName, expected: expected)
+    // Each destination check lists the whole phone folder. A new file is checked
+    // again right before its name is committed (commitRemote or uploadNewFile),
+    // so the early check only runs where its answer changes what happens: an item
+    // that existed at planning time, or a folder whose contents follow.
+    let existing =
+      expected != nil || node.source.isDirectory
+      ? try remoteDestination(
+        storage: storage, parent: parent, name: originalName, expected: expected) : nil
     if !canRenameFiles, expected != nil,
       let path = firstRenameRequiredPath([node], policy: selectedPolicy)
     {
